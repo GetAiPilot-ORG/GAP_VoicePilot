@@ -1,0 +1,66 @@
+{
+  "success": true,
+  "data": {
+    "id": "665f1a2b3c4d5e6f7a8b9c0d",
+    "name": "Sales Bot",
+    "system_prompt": "You are a concise sales assistant.",
+    "welcome_message": "Hi! How can I help?",
+    "ai_provider": "openai",
+    "model": "gpt-4.1-mini",
+    "max_tokens": 256,
+    "temperature": 0.3,
+    "voice": {
+      "provider": "azure",
+      "name": "hi-IN-AartiNeural",
+      "speed": 1,
+      "language": "hi-IN",
+      "stability": 0.75,
+      "similarity_boost": 0.8,
+      "tts_model": null,
+      "instructions": "Indian Accent"
+    },
+    "transcription": {
+      "provider": "azure",
+      "language": "hi-IN",
+      "mode": "single",
+      "prompt": null,
+      "deepgram": {
+        "model": "nova-2",
+        "utterance_end_ms": 1200,
+        "endpointing": 300,
+        "vad_events": true,
+        "diarize": true
+      },
+      "cartesia": {
+        "model": "ink-whisper",
+        "min_volume": 0.3,
+        "max_silence_duration_secs": 2
+      },
+      "gladia": {
+        "model": "fast",
+        "languages": [],
+        "main_language": "en"
+      },
+      "smallest_ai": {
+        "diarize": false,
+        "redact_pii": false,
+        "emotion": false,
+        "word_timestamps": false
+      }
+    },
+    "maintain_context": false,
+    "maximum_duration": 600,
+    "silence_timeout": 12,
+    "inactivity_message": "Are you still there?",
+    "timeout_end_message": "Thank you for calling. Goodbye!",
+    "filler_words_enabled": true,
+    "filler_words": "",
+    "dynamic_welcome_enabled": false,
+    "dynamic_welcome_message": "Hello {{name}}",
+    "selected_tools": [
+      "66aa2b3c4d5e6f7a8b9c0d11"
+    ],
+    "created_at": "2026-05-01T10:00:00.000Z",
+    "updated_at": "2026-05-02T08:30:00.000Z"
+  }
+}
