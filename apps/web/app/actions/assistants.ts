@@ -4,9 +4,9 @@ import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 
 async function getOrCreateWorkspace(supabase: any, user: any): Promise<string> {
-  // 1. Try finding existing member record via user client
   const { data: member } = await supabase
     .from('workspace_members')
     .select('workspace_id')
@@ -16,24 +16,19 @@ async function getOrCreateWorkspace(supabase: any, user: any): Promise<string> {
 
   if (member?.workspace_id) return member.workspace_id;
 
-  // Use Admin Client (Service Role / System) to bypass RLS for system workspace resolution
   const adminClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
   );
 
-  // 2. Ensure profile exists first
   try {
     await adminClient.from('profiles').upsert({
       id: user.id,
       email: user.email || 'user@example.com',
       name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
     }, { onConflict: 'id' });
-  } catch (e) {
-    console.warn("Could not upsert profile:", e);
-  }
+  } catch (e) {}
 
-  // 3. Fallback: check if any workspace exists in DB
   const { data: anyWs } = await adminClient
     .from('workspaces')
     .select('id')
@@ -51,9 +46,8 @@ async function getOrCreateWorkspace(supabase: any, user: any): Promise<string> {
     return anyWs.id;
   }
 
-  // 4. Auto-create new Workspace and Member using Admin client
   try {
-    const { data: newWs, error: createErr } = await adminClient
+    const { data: newWs } = await adminClient
       .from('workspaces')
       .insert({
         name: `${user.email?.split('@')[0] || 'Default'}'s Workspace`,
@@ -73,12 +67,26 @@ async function getOrCreateWorkspace(supabase: any, user: any): Promise<string> {
       } catch (e) {}
       return newWs.id;
     }
-  } catch (e) {
-    console.warn("Workspace insert blocked by RLS, using fallback workspace ID:", e);
+  } catch (e) {}
+
+  return "00000000-0000-0000-0000-000000000000";
+}
+
+export async function generatePromptAction(topic: string, category: string = 'general') {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  
+  const res = await fetch(`${apiUrl}/api/v1/assistants/generate-prompt`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ topic, category })
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to generate prompt");
   }
 
-  // Fallback system workspace ID if RLS policy prevents dynamic table inserts
-  return "00000000-0000-0000-0000-000000000000";
+  const data = await res.json();
+  return data.prompt || "";
 }
 
 export async function createAssistantAction(formData: FormData) {
@@ -108,14 +116,10 @@ export async function createAssistantAction(formData: FormData) {
   );
 
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    throw new Error("Unauthorized");
-  }
+  if (!user) throw new Error("Unauthorized");
 
-  // Get or auto-create user's default workspace
   const workspaceId = await getOrCreateWorkspace(supabase, user);
 
-  // Call the Express Backend API
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
   
   const res = await fetch(`${apiUrl}/api/v1/assistants`, {
@@ -170,6 +174,99 @@ export async function updateAssistantAction(id: string, payload: any) {
   }
 
   return await res.json();
+}
+
+export async function deleteAssistantAction(assistantId: string) {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
+  );
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+  try {
+    const res = await fetch(`${apiUrl}/api/v1/assistants/${assistantId}`, {
+      method: 'DELETE'
+    });
+    if (!res.ok) {
+      console.warn("Express delete assistant returned non-200 status:", await res.text());
+    }
+  } catch (e) {
+    console.warn("Express delete assistant fetch failed:", e);
+  }
+
+  const adminClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+  );
+
+  await adminClient.from('phone_numbers').update({ assigned_assistant_id: null, status: 'unassigned' }).eq('assigned_assistant_id', assistantId);
+  await adminClient.from('assistant_tools').delete().eq('assistant_id', assistantId);
+  
+  const { error: delErr } = await adminClient.from('assistants').delete().eq('id', assistantId);
+  if (delErr) {
+    await adminClient.from('assistants').update({ deleted_at: new Date().toISOString() }).eq('id', assistantId);
+  }
+
+  revalidatePath("/dashboard/assistants");
+  return { success: true };
+}
+
+export async function duplicateAssistantAction(assistantId: string) {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
+  );
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const adminClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+  );
+
+  const { data: target } = await adminClient
+    .from('assistants')
+    .select('*')
+    .eq('id', assistantId)
+    .single();
+
+  if (!target) throw new Error("Assistant not found");
+
+  const workspaceId = await getOrCreateWorkspace(supabase, user);
+
+  const payload = {
+    ...(target.config_snapshot || {}),
+    name: `${target.name} (Copy)`
+  };
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+  const res = await fetch(`${apiUrl}/api/v1/assistants`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      workspaceId,
+      createdBy: user.id,
+      ...payload
+    })
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Failed to duplicate assistant');
+  }
+
+  revalidatePath("/dashboard/assistants");
+  return { success: true };
 }
 
 export async function toggleAssistantToolAction(assistantId: string, toolId: string, assign: boolean) {

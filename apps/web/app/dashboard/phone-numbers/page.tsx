@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 import { PhoneNumbersClient, PhoneNumberRecord, AvailableNumberItem, AssistantOption } from "./PhoneNumbersClient";
 
-const DEFAULT_WORKSPACE_ID = "df2a5118-9106-4124-9cea-bcaadc13f2ef";
+export const dynamic = "force-dynamic";
 
 export default async function PhoneNumbersPage() {
   const cookieStore = await cookies();
@@ -21,31 +21,59 @@ export default async function PhoneNumbersPage() {
   let initialMyNumbers: PhoneNumberRecord[] = [];
   let initialAvailableNumbers: AvailableNumberItem[] = [];
   let assistantOptions: AssistantOption[] = [];
-  let workspaceBalance = 0.00;
+  let workspaceBalance = 0;
 
   try {
-    // 1. Fetch user's purchased numbers
-    const { data: dbMyNumbers } = await adminClient
-      .from("phone_numbers")
-      .select("*, assistants(id, name)")
-      .eq("workspace_id", DEFAULT_WORKSPACE_ID)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: false });
+    // Resolve current user workspace
+    const { data: { user } } = await supabase.auth.getUser();
+    let workspaceId: string | null = null;
 
-    if (dbMyNumbers && dbMyNumbers.length > 0) {
-      initialMyNumbers = dbMyNumbers.map((n: any) => ({
-        id: n.id,
-        phone_number: n.phone_number,
-        provider: n.provider || "vomyra",
-        provider_resource_id: n.provider_resource_id,
-        assigned_assistant_id: n.assigned_assistant_id,
-        assistants: n.assistants ? { id: n.assistants.id, name: n.assistants.name } : null,
-        status: n.assigned_assistant_id ? "active" : "unassigned",
-        created_at: n.created_at
-      }));
+    if (user) {
+      const { data: member } = await adminClient
+        .from("workspace_members")
+        .select("workspace_id")
+        .eq("user_id", user.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (member?.workspace_id) workspaceId = member.workspace_id;
     }
 
-    // 2. Fetch unassigned numbers from database (workspace_id IS NULL)
+    if (!workspaceId) {
+      const { data: anyWs } = await adminClient.from("workspaces").select("id").limit(1).maybeSingle();
+      if (anyWs?.id) workspaceId = anyWs.id;
+    }
+
+    if (workspaceId) {
+      // 1. Fetch user's purchased numbers
+      const { data: dbMyNumbers } = await adminClient
+        .from("phone_numbers")
+        .select("*, assistants(id, name)")
+        .eq("workspace_id", workspaceId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false });
+
+      if (dbMyNumbers && dbMyNumbers.length > 0) {
+        initialMyNumbers = dbMyNumbers.map((n: any) => ({
+          id: n.id,
+          phone_number: n.phone_number,
+          provider: n.provider || "vomyra",
+          provider_resource_id: n.provider_resource_id,
+          assigned_assistant_id: n.assigned_assistant_id,
+          assistants: n.assistants ? { id: n.assistants.id, name: n.assistants.name } : null,
+          status: n.assigned_assistant_id ? "active" : "unassigned",
+          created_at: n.created_at
+        }));
+      }
+
+      // 2. Fetch workspace balance from credit ledger RPC
+      const { data: balanceData } = await adminClient.rpc("get_workspace_credit_balance", {
+        p_workspace_id: workspaceId
+      });
+      workspaceBalance = Number(balanceData || 0);
+    }
+
+    // 3. Fetch available numbers
     const { data: dbUnassigned } = await adminClient
       .from("phone_numbers")
       .select("*")
@@ -63,7 +91,7 @@ export default async function PhoneNumbersPage() {
       }));
     }
 
-    // 3. Fetch assistants list
+    // 4. Fetch assistants list
     const { data: dbAssistants } = await adminClient
       .from("assistants")
       .select("id, name")
@@ -74,17 +102,6 @@ export default async function PhoneNumbersPage() {
         id: a.id,
         name: a.name
       }));
-    }
-
-    // 4. Fetch workspace balance
-    const { data: ws } = await adminClient
-      .from("workspaces")
-      .select("balance")
-      .eq("id", DEFAULT_WORKSPACE_ID)
-      .maybeSingle();
-
-    if (ws && typeof ws.balance === 'number') {
-      workspaceBalance = ws.balance;
     }
   } catch (e) {
     console.warn("Failed to fetch phone numbers page data:", e);

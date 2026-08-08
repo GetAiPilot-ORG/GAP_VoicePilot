@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { Queue } from 'bullmq';
 import IORedis from 'ioredis';
 import { createClient } from '@supabase/supabase-js';
+import { requireFeature, requireMinCredits } from '../middleware/entitlements';
 
 export const campaignRouter = Router();
 
@@ -18,11 +19,11 @@ if (process.env.REDIS_URL) {
 }
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://gkyilicraflkgcfgqypc.supabase.co',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdreWlsaWNyYWZsa2djZmdxeXBjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjA4Mzc0NiwiZXhwIjoyMTAxNjU5NzQ2fQ.DYf3RkJp3F8WFPNio6XiUVCYv2Fc7WztfKeLwI4N3eI'
 );
 
-campaignRouter.post('/', async (req, res) => {
+campaignRouter.post('/', requireFeature('campaigns'), requireMinCredits(1.0), async (req, res) => {
   try {
     const { name, assistantId, phoneNumberId, numbers, workspaceId, createdBy } = req.body;
 

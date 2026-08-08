@@ -13,26 +13,26 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 0 0% 0%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 0 0% 97%;
+    --secondary-foreground: 0 0% 0%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 0 0% 97%;
+    --muted-foreground: 0 0% 40%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 0 0% 97%;
+    --accent-foreground: 0 0% 0%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 0 0% 0%;
 
-    --radius: 0.5rem;
+    --radius: 14px;
   }
 
   .dark {
@@ -63,14 +63,47 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
+    --radius: 14px;
   }
 }
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-hairline;
   }
   body {
-    @apply bg-background text-foreground;
+    font-family: var(--font-sans), 'Inter', system-ui, -apple-system, sans-serif;
+    font-weight: 400;
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "kern" 1;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer utilities {
+  .eyebrow {
+    font-family: var(--font-geist-mono), monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .btn-pill-primary {
+    @apply bg-black text-white rounded-[10px] px-5 py-2 text-sm font-medium hover:bg-neutral-800 transition-all duration-150 inline-flex items-center justify-center gap-2 shadow-sm;
+  }
+  .btn-pill-secondary {
+    @apply bg-white text-black border border-hairline rounded-[10px] px-5 py-2 text-sm font-medium hover:bg-surface-soft transition-all duration-150 inline-flex items-center justify-center gap-2;
+  }
+  .card-figma {
+    @apply bg-white border border-hairline rounded-[14px] p-6 transition-all duration-150 hover:border-black/20;
+  }
+  .box-10 {
+    border-radius: 10px !important;
+  }
+  .box-14 {
+    border-radius: 14px !important;
   }
 }

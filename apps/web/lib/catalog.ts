@@ -8,9 +8,9 @@ export interface VoiceOption {
   tags: string[];
 }
 
-export const VOMYRA_CATALOG = {
+export const GAP_CATALOG = {
   ai: {
-    providers: ["openai", "groq", "vomyra", "xai"],
+    providers: ["openai", "groq", "gap", "xai"],
     models: {
       openai: [
         { id: "gpt-4.1-mini", label: "GPT-4.1 Mini" },
@@ -27,9 +27,13 @@ export const VOMYRA_CATALOG = {
         { id: "mixtral-8x7b-32768", label: "Mixtral 8x7B" },
         { id: "qwen/qwen3-32b", label: "Qwen3 32B" }
       ],
+      gap: [
+        { id: "gap-fast-1", label: "GAP Fast 1" },
+        { id: "gap-pro-1", label: "GAP Pro 1" }
+      ],
       vomyra: [
-        { id: "vomyra-fast-1", label: "Vomyra Fast 1" },
-        { id: "vomyra-pro-1", label: "Vomyra Pro 1" }
+        { id: "vomyra-fast-1", label: "GAP Fast 1" },
+        { id: "vomyra-pro-1", label: "GAP Pro 1" }
       ],
       xai: [
         { id: "grok-4-1-fast", label: "Grok 4.1 Fast" },
@@ -39,7 +43,7 @@ export const VOMYRA_CATALOG = {
     }
   },
   voice: {
-    providers: ["azure", "cartesia", "elevenlabs", "openai", "vomyra", "xai"],
+    providers: ["azure", "cartesia", "elevenlabs", "openai", "gap", "xai"],
     tts_models: {
       elevenlabs: [
         { id: "eleven_flash_v2_5", label: "Eleven Flash v2.5" },
@@ -57,8 +61,11 @@ export const VOMYRA_CATALOG = {
         { id: "tts-1", label: "TTS-1" },
         { id: "tts-1-hd", label: "TTS-1 HD" }
       ],
+      gap: [
+        { id: "gap-tts-std", label: "GAP Voice Standard" }
+      ],
       vomyra: [
-        { id: "vomyra-tts-std", label: "Vomyra Standard" }
+        { id: "vomyra-tts-std", label: "GAP Voice Standard" }
       ],
       xai: [
         { id: "xai-tts-1", label: "xAI TTS 1" }
@@ -184,21 +191,21 @@ export const VOMYRA_CATALOG = {
       },
       {
         name: "vomyra-hindi-1",
-        title: "Vomyra Hindi Standard",
-        provider: "vomyra",
+        title: "GAP Hindi Standard",
+        provider: "gap",
         gender: "female",
         language: "Hindi",
         locale: "IN • standard",
-        tags: ["Vomyra", "Hindi", "female", "natural"]
+        tags: ["GAP", "Hindi", "female", "natural"]
       },
       {
         name: "vomyra-english-1",
-        title: "Vomyra English Standard",
-        provider: "vomyra",
+        title: "GAP English Standard",
+        provider: "gap",
         gender: "male",
         language: "English",
         locale: "IN • standard",
-        tags: ["Vomyra", "English", "male", "professional"]
+        tags: ["GAP", "English", "male", "professional"]
       },
       {
         name: "244d4432-5638-445b-9d0e-f2378a9630d6",
@@ -257,9 +264,13 @@ export const VOMYRA_CATALOG = {
         { name: "nova", title: "Nova", gender: "female", language: "en-US" },
         { name: "shimmer", title: "Shimmer", gender: "female", language: "en-US" }
       ],
+      gap: [
+        { name: "vomyra-hindi-1", title: "GAP Hindi Standard", gender: "female", language: "hi-IN" },
+        { name: "vomyra-english-1", title: "GAP English Standard", gender: "male", language: "en-IN" }
+      ],
       vomyra: [
-        { name: "vomyra-hindi-1", title: "Vomyra Hindi Standard", gender: "female", language: "hi-IN" },
-        { name: "vomyra-english-1", title: "Vomyra English Standard", gender: "male", language: "en-IN" }
+        { name: "vomyra-hindi-1", title: "GAP Hindi Standard", gender: "female", language: "hi-IN" },
+        { name: "vomyra-english-1", title: "GAP English Standard", gender: "male", language: "en-IN" }
       ],
       xai: [
         { name: "xai-voice-1", title: "xAI Standard Voice", gender: "neutral", language: "en-US" }
@@ -295,3 +306,5 @@ export const VOMYRA_CATALOG = {
     ]
   }
 };
+
+export const VOMYRA_CATALOG = GAP_CATALOG;

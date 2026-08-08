@@ -5,7 +5,7 @@ export default function CreateAssistantPage() {
     <div className="max-w-6xl mx-auto space-y-6">
       <div>
         <h2 className="text-3xl font-bold tracking-tight">Create Assistant</h2>
-        <p className="text-muted-foreground">Configure a new AI voice assistant using all Vomyra API parameters.</p>
+        <p className="text-muted-foreground">Configure a new AI voice assistant using all GAP VoicePilot API parameters.</p>
       </div>
 
       <CreateAssistantForm />

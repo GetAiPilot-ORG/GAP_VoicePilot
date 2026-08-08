@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
   Phone,
   Plus,
@@ -17,7 +16,9 @@ import {
   Check,
   Sparkles,
   ShieldCheck,
-  ArrowRight
+  ArrowRight,
+  Download,
+  AlertCircle
 } from "lucide-react";
 
 export interface PhoneNumberRecord {
@@ -66,141 +67,110 @@ export function PhoneNumbersClient({
   const [myNumbers, setMyNumbers] = React.useState<PhoneNumberRecord[]>(initialMyNumbers);
   const [availableNumbers, setAvailableNumbers] = React.useState<AvailableNumberItem[]>(initialAvailableNumbers);
   const [balance, setBalance] = React.useState<number>(initialBalance);
-  const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const [isFetching, setIsFetching] = React.useState(false);
 
   // Filters state for Marketplace
   const [searchQuery, setSearchQuery] = React.useState("");
   const [selectedCountry, setSelectedCountry] = React.useState<string>("all");
   const [purchasingNumberId, setPurchasingNumberId] = React.useState<string | null>(null);
-  const [successToast, setSuccessToast] = React.useState<string | null>(null);
+  const [toastMessage, setToastMessage] = React.useState<{ type: 'success' | 'info' | 'error'; text: string } | null>(null);
 
-  // Refresh Phone Numbers
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
+  const handleAssignAssistant = async (numberId: string, assistantId: string) => {
     try {
-      const resMy = await fetch("/api/v1/phone-numbers/my");
-      if (resMy.ok) {
-        const dataMy = await resMy.json();
-        if (dataMy.phone_numbers) setMyNumbers(dataMy.phone_numbers);
+      const { assignPhoneNumberAction } = await import("@/app/actions/phoneNumbers");
+      const res = await assignPhoneNumberAction(numberId, assistantId === "none" ? null : assistantId);
+      
+      if (res.success) {
+        setMyNumbers((prev) =>
+          prev.map((num) => {
+            if (num.id === numberId) {
+              const selectedAst = assistants.find((a) => a.id === assistantId);
+              return {
+                ...num,
+                assigned_assistant_id: assistantId === "none" ? null : assistantId,
+                assistants: assistantId === "none" || !selectedAst ? null : { id: selectedAst.id, name: selectedAst.name },
+                status: assistantId === "none" ? "unassigned" : "active"
+              };
+            }
+            return num;
+          })
+        );
+        setToastMessage({
+          type: 'success',
+          text: assistantId === "none" ? "Phone number unassigned successfully." : "Assistant bound to phone number successfully."
+        });
       }
-
-      const resAvail = await fetch("/api/v1/phone-numbers/available");
-      if (resAvail.ok) {
-        const dataAvail = await resAvail.json();
-        if (dataAvail.available_numbers) setAvailableNumbers(dataAvail.available_numbers);
-      }
-    } catch (e) {
-      console.warn("Failed to refresh numbers:", e);
-    } finally {
-      setIsRefreshing(false);
+    } catch (e: any) {
+      alert("Failed to update assignment: " + e.message);
     }
   };
 
-  // Buy Number Handler
-  const handleBuyNumber = async (numItem: AvailableNumberItem) => {
-    if (balance < numItem.monthly_price) {
-      alert(`Insufficient credit balance ($${balance.toFixed(2)}). Monthly price is $${numItem.monthly_price.toFixed(2)}.`);
-      return;
-    }
-
-    setPurchasingNumberId(numItem.id);
+  // Fetch Vomyra Numbers via API
+  const handleFetchVomyraNumbers = async () => {
+    setIsFetching(true);
+    setToastMessage(null);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${apiUrl}/api/v1/phone-numbers/buy`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          numberId: numItem.id,
-          phoneNumber: numItem.phone_number,
-          price: numItem.monthly_price,
-          workspaceId: "df2a5118-9106-4124-9cea-bcaadc13f2ef"
-        })
-      });
+      const { fetchAndSyncVomyraNumbersAction } = await import("@/app/actions/phoneNumbers");
+      const res = await fetchAndSyncVomyraNumbersAction();
+      
+      if (res.myNumbers) setMyNumbers(res.myNumbers);
+      if (res.availableNumbers) setAvailableNumbers(res.availableNumbers);
 
-      if (res.ok) {
-        const data = await res.json();
-        const newBal = data.new_balance ?? Math.max(0, balance - numItem.monthly_price);
-        setBalance(newBal);
-
-        // Add to My Numbers
-        const newRecord: PhoneNumberRecord = {
-          id: data.phone_number?.id || `pn_${Date.now()}`,
-          phone_number: numItem.phone_number,
-          provider: numItem.provider,
-          provider_resource_id: `pn_${numItem.phone_number}`,
-          assigned_assistant_id: null,
-          assistants: null,
-          status: "unassigned",
-          created_at: new Date().toISOString()
-        };
-
-        setMyNumbers((prev) => [newRecord, ...prev]);
-
-        // Remove from Available pool
-        setAvailableNumbers((prev) => prev.filter((item) => item.id !== numItem.id));
-
-        setSuccessToast(`Successfully purchased ${numItem.phone_number}! Added to your 'My Numbers' tab.`);
-        setTimeout(() => setSuccessToast(null), 5000);
+      if (res.fetchedNumbersCount && res.fetchedNumbersCount > 0) {
+        setToastMessage({
+          type: 'success',
+          text: `Fetched & saved ${res.fetchedNumbersCount} phone number(s) from Vomyra API to Supabase!`
+        });
+      } else {
+        setToastMessage({
+          type: 'info',
+          text: "No assigned phone numbers found in your Vomyra API account."
+        });
       }
-    } catch (e) {
-      alert(`Purchased ${numItem.phone_number} successfully!`);
+    } catch (e: any) {
+      setToastMessage({
+        type: 'error',
+        text: "Failed to fetch from Vomyra API: " + e.message
+      });
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
+  const handlePurchaseNumber = async (item: AvailableNumberItem) => {
+    setPurchasingNumberId(item.id);
+    try {
+      const { buyPhoneNumberAction } = await import("@/app/actions/phoneNumbers");
+      const res = await buyPhoneNumberAction(item.id, item.phone_number, item.provider);
+
+      if (res.success && res.newNumber) {
+        setAvailableNumbers((prev) => prev.filter((n) => n.id !== item.id));
+        setMyNumbers((prev) => [
+          {
+            id: res.newNumber.id,
+            phone_number: res.newNumber.phone_number,
+            provider: res.newNumber.provider,
+            provider_resource_id: res.newNumber.provider_resource_id,
+            assigned_assistant_id: null,
+            assistants: null,
+            status: "unassigned",
+            created_at: new Date().toISOString()
+          },
+          ...prev
+        ]);
+        setToastMessage({
+          type: 'success',
+          text: `Phone number ${item.phone_number} acquired successfully!`
+        });
+        setActiveTab("my-numbers");
+      }
+    } catch (e: any) {
+      alert("Purchase failed: " + e.message);
     } finally {
       setPurchasingNumberId(null);
     }
   };
 
-  // Assign Assistant to Phone Number
-  const handleAssignAssistant = async (numberId: string, assistantId: string) => {
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${apiUrl}/api/v1/phone-numbers/assign`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ numberId, assistantId })
-      });
-
-      if (res.ok) {
-        setMyNumbers((prev) =>
-          prev.map((n) =>
-            n.id === numberId
-              ? {
-                  ...n,
-                  assigned_assistant_id: assistantId,
-                  status: "active",
-                  assistants: assistants.find((a) => a.id === assistantId) || null
-                }
-              : n
-          )
-        );
-      }
-    } catch (e) {
-      console.warn("Assign error:", e);
-    }
-  };
-
-  // Unassign Assistant
-  const handleUnassign = async (numberId: string) => {
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${apiUrl}/api/v1/phone-numbers/unassign/${numberId}`, {
-        method: "DELETE"
-      });
-
-      if (res.ok) {
-        setMyNumbers((prev) =>
-          prev.map((n) =>
-            n.id === numberId
-              ? { ...n, assigned_assistant_id: null, assistants: null, status: "unassigned" }
-              : n
-          )
-        );
-      }
-    } catch (e) {
-      console.warn("Unassign error:", e);
-    }
-  };
-
-  // Filtered available marketplace pool
   const filteredAvailable = availableNumbers.filter((num) => {
     const matchesSearch = num.phone_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
       num.country.toLowerCase().includes(searchQuery.toLowerCase());
@@ -213,77 +183,78 @@ export function PhoneNumbersClient({
   const unassignedMyNumbers = totalMyNumbers - activeMyNumbers;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       {/* Toast Notification */}
-      {successToast && (
-        <div className="flex items-center justify-between rounded-xl border border-emerald-500/40 bg-emerald-950/80 px-4 py-3 text-emerald-400 shadow-xl backdrop-blur-md transition-all">
+      {toastMessage && (
+        <div className={`flex items-center justify-between rounded-[10px] border p-4 text-xs font-bold shadow-md ${
+          toastMessage.type === 'success' 
+            ? 'bg-block-lime border-black/10 text-black'
+            : toastMessage.type === 'info'
+            ? 'bg-purple-50 border-purple-200 text-purple-950'
+            : 'bg-rose-50 border-rose-200 text-rose-800'
+        }`}>
           <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-            <span className="text-xs font-semibold">{successToast}</span>
+            {toastMessage.type === 'success' && <CheckCircle2 className="h-5 w-5 text-black" />}
+            {toastMessage.type === 'info' && <Download className="h-5 w-5 text-purple-600" />}
+            {toastMessage.type === 'error' && <AlertCircle className="h-5 w-5 text-rose-600" />}
+            <span>{toastMessage.text}</span>
           </div>
-          <button onClick={() => setSuccessToast(null)} className="text-emerald-400/80 hover:text-emerald-300">
+          <button onClick={() => setToastMessage(null)} className="text-black/70 hover:text-black">
             <X className="h-4 w-4" />
           </button>
         </div>
       )}
 
       {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
-            <Phone className="h-6 w-6" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Phone Numbers</h1>
-            <p className="text-xs text-muted-foreground">
-              Manage your purchased numbers or buy new virtual numbers from the marketplace
-            </p>
-          </div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-hairline pb-6">
+        <div>
+          <p className="eyebrow text-neutral-500">// TELEPHONY MARKETPLACE</p>
+          <h1 className="text-3xl font-bold tracking-tight text-black mt-1">Phone Numbers</h1>
+          <p className="text-sm text-neutral-600">Bind virtual phone numbers directly to your GAP AI Voice Assistants.</p>
         </div>
 
-        {/* Header Actions & Balance */}
+        {/* Balance & API Fetch Button */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-950/20 px-3 py-1.5 text-xs">
-            <Wallet className="h-4 w-4 text-emerald-400" />
-            <span className="text-muted-foreground font-medium">Credit Balance:</span>
-            <span className="font-bold text-emerald-400 font-mono">${balance.toFixed(2)}</span>
-          </div>
-
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={handleRefresh}
-            title="Refresh numbers"
-            className="border-border/60 bg-muted/20 hover:bg-muted/50 h-10 w-10"
+          <button
+            disabled={isFetching}
+            onClick={handleFetchVomyraNumbers}
+            className="btn-pill-primary rounded-[10px] text-xs px-3.5 py-2 shadow-sm flex items-center gap-2"
           >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-          </Button>
+            <Download className={`w-3.5 h-3.5 ${isFetching ? "animate-bounce" : ""}`} />
+            {isFetching ? "Fetching Vomyra..." : "Fetch Vomyra Numbers"}
+          </button>
+
+          <div className="flex items-center gap-2 bg-block-cream border border-black/10 px-3.5 py-2 rounded-[10px] text-xs">
+            <Wallet className="h-4 w-4 text-black" />
+            <span className="text-neutral-600 font-medium">AI Calling Balance:</span>
+            <span className="font-bold text-black font-mono">{Math.floor(balance)} Mins</span>
+          </div>
         </div>
       </div>
 
-      {/* Navigation Sub-Tabs: "My Numbers" vs "Buy Numbers" */}
-      <div className="flex items-center gap-2 border-b border-border/60 pb-2">
+      {/* Navigation Sub-Tabs */}
+      <div className="flex items-center gap-2 border-b border-hairline pb-2">
         <button
           onClick={() => setActiveTab("my-numbers")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-[10px] text-xs font-bold transition-all ${
             activeTab === "my-numbers"
-              ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+              ? "bg-black text-white shadow-sm"
+              : "text-neutral-600 hover:text-black hover:bg-surface-soft"
           }`}
         >
-          <Phone className="h-4 w-4" />
+          <Phone className="h-3.5 w-3.5" />
           <span>My Numbers ({totalMyNumbers})</span>
         </button>
 
         <button
           onClick={() => setActiveTab("buy-numbers")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-[10px] text-xs font-bold transition-all ${
             activeTab === "buy-numbers"
-              ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+              ? "bg-black text-white shadow-sm"
+              : "text-neutral-600 hover:text-black hover:bg-surface-soft"
           }`}
         >
-          <ShoppingBag className="h-4 w-4" />
+          <ShoppingBag className="h-3.5 w-3.5" />
           <span>Buy / Available Numbers ({availableNumbers.length})</span>
         </button>
       </div>
@@ -291,210 +262,193 @@ export function PhoneNumbersClient({
       {/* TAB 1: MY NUMBERS */}
       {activeTab === "my-numbers" && (
         <div className="space-y-6">
-          {/* KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="rounded-xl border border-border/60 bg-card/60 p-4 backdrop-blur-sm">
-              <p className="text-xs text-muted-foreground font-medium">Purchased Numbers</p>
-              <p className="text-2xl font-bold text-sky-400 mt-1">{totalMyNumbers}</p>
+          {/* Status Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 rounded-[10px] bg-block-lime/30 border border-hairline flex flex-col justify-between">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-black/60">Purchased Numbers</span>
+              <span className="text-3xl font-extrabold text-black mt-2">{totalMyNumbers}</span>
             </div>
-
-            <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/10 p-4 backdrop-blur-sm">
-              <p className="text-xs text-emerald-400 font-medium">Active / Assigned</p>
-              <p className="text-2xl font-bold text-emerald-400 mt-1">{activeMyNumbers}</p>
+            <div className="p-4 rounded-[10px] bg-emerald-50 border border-emerald-200 flex flex-col justify-between">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-800">Active / Assigned</span>
+              <span className="text-3xl font-extrabold text-emerald-950 mt-2">{activeMyNumbers}</span>
             </div>
-
-            <div className="rounded-xl border border-yellow-500/30 bg-yellow-950/10 p-4 backdrop-blur-sm">
-              <p className="text-xs text-yellow-400 font-medium">Unassigned</p>
-              <p className="text-2xl font-bold text-yellow-400 mt-1">{unassignedMyNumbers}</p>
+            <div className="p-4 rounded-[10px] bg-purple-50 border border-purple-200 flex flex-col justify-between">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-purple-800">Unassigned Pool</span>
+              <span className="text-3xl font-extrabold text-purple-950 mt-2">{unassignedMyNumbers}</span>
             </div>
           </div>
 
-          {/* Purchased Numbers Table */}
-          <Card className="border border-border/60 bg-card/60 backdrop-blur-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-border/60 bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground font-semibold">
-                  <tr>
-                    <th className="px-6 py-3.5">Phone Number</th>
-                    <th className="px-6 py-3.5">Provider</th>
-                    <th className="px-6 py-3.5">Assigned Assistant</th>
-                    <th className="px-6 py-3.5">Status</th>
-                    <th className="px-6 py-3.5 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/40">
-                  {myNumbers.map((num) => (
-                    <tr key={num.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="px-6 py-4">
-                        <span className="inline-flex items-center gap-2 font-mono font-bold text-emerald-400 text-sm">
-                          <Phone className="h-3.5 w-3.5 text-emerald-500" />
-                          {num.phone_number}
-                        </span>
-                      </td>
-
-                      <td className="px-6 py-4 text-xs font-medium text-foreground uppercase tracking-wider">
-                        <span className="rounded bg-muted/60 px-2 py-1 font-mono text-[11px]">
-                          {num.provider || "VOMYRA"}
-                        </span>
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <select
-                          value={num.assigned_assistant_id || ""}
-                          onChange={(e) => {
-                            if (e.target.value) {
-                              handleAssignAssistant(num.id, e.target.value);
-                            } else {
-                              handleUnassign(num.id);
-                            }
-                          }}
-                          className="rounded-lg border border-border/60 bg-background px-3 py-1.5 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500 max-w-[220px]"
-                        >
-                          <option value="">-- No Assistant (Unassigned) --</option>
-                          {assistants.map((ast) => (
-                            <option key={ast.id} value={ast.id}>
-                              {ast.name}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-
-                      <td className="px-6 py-4">
-                        {num.assigned_assistant_id ? (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 text-xs font-medium text-emerald-400">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            active
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-yellow-500/10 border border-yellow-500/30 px-3 py-1 text-xs font-medium text-yellow-400">
-                            <UserX className="h-3.5 w-3.5" />
-                            unassigned
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="px-6 py-4 text-right">
-                        {num.assigned_assistant_id && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleUnassign(num.id)}
-                            className="h-8 border-border/60 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
-                          >
-                            Unassign
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-
-                  {myNumbers.length === 0 && (
+          {/* Numbers Table */}
+          <div className="bg-white border border-hairline rounded-[10px] overflow-hidden shadow-sm">
+            {myNumbers.length === 0 ? (
+              <div className="p-12 text-center space-y-3">
+                <Phone className="w-8 h-8 text-neutral-300 mx-auto" />
+                <p className="text-xs font-semibold text-neutral-700">No phone numbers assigned to your workspace yet.</p>
+                <p className="text-[11px] text-neutral-500">Click "Fetch Vomyra Numbers" to query Vomyra API, or browse available marketplace numbers below.</p>
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <button
+                    disabled={isFetching}
+                    onClick={handleFetchVomyraNumbers}
+                    className="btn-pill-primary text-xs px-4 py-2 inline-flex items-center gap-2"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    {isFetching ? "Fetching API..." : "Fetch Vomyra Numbers"}
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("buy-numbers")}
+                    className="btn-pill-secondary text-xs px-4 py-2 inline-flex items-center gap-1.5"
+                  >
+                    Browse Available Numbers
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-surface-soft text-neutral-500 uppercase tracking-wider font-mono font-semibold border-b border-hairline">
                     <tr>
-                      <td colSpan={5} className="py-20 text-center">
-                        <div className="mx-auto flex flex-col items-center justify-center space-y-3">
-                          <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/5 text-emerald-400">
-                            <Phone className="h-8 w-8" />
-                          </div>
-                          <h3 className="text-lg font-bold tracking-tight text-foreground">You haven't bought any phone numbers yet</h3>
-                          <p className="text-xs text-muted-foreground max-w-xs mb-2">
-                            Browse the available pool to buy virtual numbers for your AI assistants
-                          </p>
-                          <Button
-                            onClick={() => setActiveTab("buy-numbers")}
-                            className="bg-emerald-500 hover:bg-emerald-600 text-black font-semibold text-xs gap-2"
-                          >
-                            <ShoppingBag className="h-4 w-4" />
-                            Browse Available Numbers
-                          </Button>
-                        </div>
-                      </td>
+                      <th className="p-4">Phone Number</th>
+                      <th className="p-4">Provider</th>
+                      <th className="p-4">Assigned Assistant</th>
+                      <th className="p-4">Status</th>
+                      <th className="p-4 text-right">Actions</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </Card>
+                  </thead>
+                  <tbody className="divide-y divide-hairline">
+                    {myNumbers.map((item) => (
+                      <tr key={item.id} className="hover:bg-surface-soft/50 transition-colors">
+                        <td className="p-4 font-mono font-bold text-black text-sm">
+                          {item.phone_number}
+                        </td>
+                        <td className="p-4">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-surface-soft border border-hairline text-neutral-700">
+                            {item.provider}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          <select
+                            value={item.assigned_assistant_id || "none"}
+                            onChange={(e) => handleAssignAssistant(item.id, e.target.value)}
+                            className="px-3 py-1.5 bg-white border border-hairline rounded-[10px] text-xs font-medium text-black focus:outline-none focus:border-black/30"
+                          >
+                            <option value="none">-- Unassigned --</option>
+                            {assistants.map((ast) => (
+                              <option key={ast.id} value={ast.id}>
+                                {ast.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="p-4">
+                          {item.assigned_assistant_id ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                              Active
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-neutral-100 text-neutral-600 border border-hairline">
+                              Unassigned
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-4 text-right">
+                          {item.assigned_assistant_id && (
+                            <button
+                              onClick={() => handleAssignAssistant(item.id, "none")}
+                              className="btn-pill-secondary rounded-[10px] text-xs px-3 py-1.5 text-red-600 hover:text-red-700"
+                            >
+                              Unassign
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {/* TAB 2: BUY / AVAILABLE NUMBERS MARKETPLACE */}
+      {/* TAB 2: BUY AVAILABLE NUMBERS */}
       {activeTab === "buy-numbers" && (
         <div className="space-y-6">
-          {/* Filters Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-border/60 bg-card/60 p-4 backdrop-blur-sm">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          {/* Marketplace Search & Filter Header */}
+          <div className="p-4 rounded-[10px] bg-surface-soft border border-hairline flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="relative w-full md:w-72">
+              <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Search phone number or country..."
+                placeholder="Search number or area code..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-lg border border-border/60 bg-background pl-9 pr-4 py-2 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full pl-9 pr-4 py-2 text-xs bg-white border border-hairline rounded-[10px] focus:outline-none focus:border-black/30"
               />
             </div>
 
-            <div className="flex items-center gap-2">
-              <Globe className="h-4 w-4 text-emerald-400" />
-              <span className="text-xs font-bold text-foreground">Country:</span>
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              <span className="text-xs font-semibold text-neutral-600 flex items-center gap-1">
+                <Globe className="w-3.5 h-3.5" /> Country:
+              </span>
               <select
                 value={selectedCountry}
                 onChange={(e) => setSelectedCountry(e.target.value)}
-                className="rounded-lg border border-border/60 bg-background px-3 py-2 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="px-3 py-2 bg-white border border-hairline rounded-[10px] text-xs font-medium text-black focus:outline-none"
               >
                 <option value="all">All Countries</option>
                 <option value="US">United States (+1)</option>
                 <option value="IN">India (+91)</option>
-                <option value="GB">United Kingdom (+44)</option>
               </select>
             </div>
           </div>
 
-          {/* Available Numbers Grid Cards */}
+          {/* Numbers Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredAvailable.map((numItem) => (
-              <Card key={numItem.id} className="border border-border/60 bg-card/60 backdrop-blur-sm p-5 hover:border-emerald-500/40 transition-all flex flex-col justify-between space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1 text-[11px] font-bold text-muted-foreground font-mono">
-                      {numItem.country_code} • {numItem.country}
-                    </span>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-bold text-emerald-400">
-                      ${numItem.monthly_price.toFixed(2)}/mo
-                    </span>
-                  </div>
-
-                  <div className="pt-2">
-                    <h3 className="text-lg font-bold font-mono text-emerald-400 flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-emerald-500" />
-                      {numItem.phone_number}
-                    </h3>
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      Provider: <span className="font-semibold text-foreground uppercase">{numItem.provider}</span> • High Quality Voice & SMS
-                    </p>
-                  </div>
-                </div>
-
-                <Button
-                  disabled={purchasingNumberId === numItem.id}
-                  onClick={() => handleBuyNumber(numItem)}
-                  className="w-full bg-emerald-500 hover:bg-emerald-600 text-black font-semibold text-xs gap-2 shadow-lg shadow-emerald-500/20"
-                >
-                  <ShoppingBag className="h-4 w-4" />
-                  {purchasingNumberId === numItem.id ? "Processing..." : `Buy Number ($${numItem.monthly_price.toFixed(2)})`}
-                </Button>
-              </Card>
-            ))}
-
-            {filteredAvailable.length === 0 && (
-              <div className="col-span-full py-16 text-center">
-                <div className="mx-auto flex flex-col items-center justify-center space-y-3">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-muted/20 text-muted-foreground">
-                    <Search className="h-7 w-7" />
-                  </div>
-                  <h3 className="text-base font-bold text-foreground">No available numbers found</h3>
-                  <p className="text-xs text-muted-foreground">Try clearing your search query or selecting a different country filter.</p>
-                </div>
+            {filteredAvailable.length === 0 ? (
+              <div className="col-span-full p-12 text-center bg-white border border-hairline rounded-[10px] text-neutral-500 text-xs">
+                No available virtual numbers match your search filter.
               </div>
+            ) : (
+              filteredAvailable.map((num) => {
+                const isBuying = purchasingNumberId === num.id;
+                return (
+                  <div
+                    key={num.id}
+                    className="p-4 rounded-[10px] bg-white border border-hairline hover:border-black/30 shadow-sm transition-all flex flex-col justify-between space-y-4"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400 font-bold">
+                          {num.country} ({num.country_code})
+                        </span>
+                        <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-surface-soft border border-hairline text-neutral-600">
+                          {num.provider}
+                        </span>
+                      </div>
+                      <div className="text-lg font-extrabold font-mono text-black">
+                        {num.phone_number}
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-hairline flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-bold text-black">${num.monthly_price.toFixed(2)}</span>
+                        <span className="text-[10px] text-neutral-500"> /month</span>
+                      </div>
+
+                      <button
+                        disabled={isBuying}
+                        onClick={() => handlePurchaseNumber(num)}
+                        className="btn-pill-primary rounded-[10px] text-xs px-3.5 py-1.5 shadow-sm"
+                      >
+                        {isBuying ? "Claiming..." : "Claim Number"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>

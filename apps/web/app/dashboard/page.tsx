@@ -55,67 +55,68 @@ export default async function DashboardPage() {
   } catch (err) {}
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Overview</h1>
-        <p className="text-muted-foreground text-sm">Real-time statistics across your voice assistant ecosystem.</p>
+    <div className="space-y-8 animate-fadeIn">
+      <div className="space-y-1 border-b border-hairline pb-6">
+        <div className="flex items-center gap-2">
+          <p className="eyebrow text-neutral-500">// SYSTEM METRICS</p>
+        </div>
+        <h1 className="text-4xl font-bold tracking-tight text-black">Overview</h1>
+        <p className="text-neutral-600 text-sm">Real-time statistics across your voice assistant ecosystem.</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border/60 bg-card/60 backdrop-blur-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Assistants</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-emerald-400">{totalAssistantsCount}</div>
-            <p className="text-xs text-muted-foreground mt-1">Live active assistants</p>
-          </CardContent>
-        </Card>
+        <div className="bg-white border border-hairline rounded-[14px] p-6 shadow-sm hover:border-black/20 transition-all">
+          <div className="flex items-center justify-between pb-2">
+            <span className="text-sm font-semibold text-neutral-700">Total Assistants</span>
+          </div>
+          <div>
+            <div className="text-3xl font-bold text-black">{totalAssistantsCount}</div>
+            <p className="text-xs text-neutral-500 mt-1">Live active assistants</p>
+          </div>
+        </div>
 
-        <Card className="border/60 bg-card/60 backdrop-blur-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Campaigns</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-sky-400">{activeCampaignsCount}</div>
-            <p className="text-xs text-muted-foreground mt-1">Running voice campaigns</p>
-          </CardContent>
-        </Card>
+        <div className="bg-white border border-hairline rounded-[14px] p-6 shadow-sm hover:border-black/20 transition-all">
+          <div className="flex items-center justify-between pb-2">
+            <span className="text-sm font-semibold text-neutral-700">Active Campaigns</span>
+          </div>
+          <div>
+            <div className="text-3xl font-bold text-black">{activeCampaignsCount}</div>
+            <p className="text-xs text-neutral-500 mt-1">Running voice campaigns</p>
+          </div>
+        </div>
 
-        <Card className="border/60 bg-card/60 backdrop-blur-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Calls</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-purple-400">{totalCallsCount}</div>
-            <p className="text-xs text-muted-foreground mt-1">Total dispatched calls</p>
-          </CardContent>
-        </Card>
+        <div className="bg-white border border-hairline rounded-[14px] p-6 shadow-sm hover:border-black/20 transition-all">
+          <div className="flex items-center justify-between pb-2">
+            <span className="text-sm font-semibold text-neutral-700">Total Calls</span>
+          </div>
+          <div>
+            <div className="text-3xl font-bold text-black">{totalCallsCount}</div>
+            <p className="text-xs text-neutral-500 mt-1">Total dispatched calls</p>
+          </div>
+        </div>
 
-        <Card className="border/60 bg-card/60 backdrop-blur-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Credit Balance</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-emerald-400">{creditBalance}</div>
-            <p className="text-xs text-muted-foreground mt-1">Available wallet balance</p>
-          </CardContent>
-        </Card>
+        <div className="bg-white border border-hairline rounded-[14px] p-6 shadow-sm hover:border-black/20 transition-all">
+          <div className="flex items-center justify-between pb-2">
+            <span className="text-sm font-semibold text-neutral-700">Credit Balance</span>
+          </div>
+          <div>
+            <div className="text-3xl font-bold text-emerald-600">{creditBalance}</div>
+            <p className="text-xs text-neutral-500 mt-1">Available wallet balance</p>
+          </div>
+        </div>
       </div>
 
-      <div className="rounded-xl border border-border/60 bg-card/40 p-6">
-        <h2 className="text-xl font-bold tracking-tight mb-4">Quick Actions</h2>
-        <div className="flex flex-wrap gap-4">
-          <Link href="/dashboard/assistants/create">
-            <Button className="bg-emerald-500 hover:bg-emerald-600 text-black font-semibold">
-              Create Assistant
-            </Button>
+      <div className="rounded-[14px] border border-hairline bg-surface-soft p-6 shadow-sm">
+        <h2 className="text-xl font-bold tracking-tight mb-4 text-black">Quick Actions</h2>
+        <div className="flex flex-wrap gap-3">
+          <Link href="/dashboard/assistants/create" className="btn-pill-primary rounded-[10px] px-5 py-2.5">
+            Create Assistant
           </Link>
-          <Link href="/dashboard/campaigns">
-            <Button variant="secondary">Start Campaign</Button>
+          <Link href="/dashboard/campaigns" className="btn-pill-secondary rounded-[10px] px-5 py-2.5">
+            Start Campaign
           </Link>
-          <Link href="/dashboard/calls">
-            <Button variant="outline">View Call Logs</Button>
+          <Link href="/dashboard/calls" className="btn-pill-secondary rounded-[10px] px-5 py-2.5">
+            View Call Logs
           </Link>
         </div>
       </div>
