@@ -186,21 +186,6 @@ export function SessionNavBar({ mobileOpen = false, setMobileOpen }: SessionNavB
                   );
                 })}
 
-                <Separator className="my-2 bg-hairline" />
-
-                <Link
-                  href="/dashboard/settings"
-                  onClick={() => setMobileOpen?.(false)}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-sm font-medium transition-colors",
-                    pathname === "/dashboard/settings"
-                      ? "bg-black text-white font-semibold shadow-sm"
-                      : "text-neutral-600 hover:text-black hover:bg-surface-soft"
-                  )}
-                >
-                  <Settings className={cn("h-4 w-4 shrink-0", pathname === "/dashboard/settings" ? "text-block-lime" : "text-neutral-500")} />
-                  <span>API & Webhooks</span>
-                </Link>
               </div>
             </ScrollArea>
 
@@ -268,17 +253,6 @@ export function SessionNavBar({ mobileOpen = false, setMobileOpen }: SessionNavB
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" sideOffset={8} className="w-56 bg-white border border-hairline shadow-md text-black">
                   <DropdownMenuItem asChild className="flex items-center gap-2 cursor-pointer text-xs">
-                    <Link href="/dashboard/settings">
-                      <UserCog className="h-4 w-4 text-black" /> Manage Organization
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild className="flex items-center gap-2 cursor-pointer text-xs">
-                    <Link href="/dashboard/settings">
-                      <Blocks className="h-4 w-4 text-black" /> API & Integrations
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-hairline" />
-                  <DropdownMenuItem asChild className="flex items-center gap-2 cursor-pointer text-xs">
                     <Link href="/dashboard/assistants/create">
                       <Plus className="h-4 w-4 text-black" /> New Voice Agent
                     </Link>
@@ -320,33 +294,6 @@ export function SessionNavBar({ mobileOpen = false, setMobileOpen }: SessionNavB
                       );
                     })}
 
-                    <Separator className="my-2 w-full bg-hairline" />
-
-                    <Link
-                      href="/dashboard/settings"
-                      className={cn(
-                        "flex h-9 w-full items-center rounded-[10px] text-xs font-medium transition-all",
-                        isCollapsed ? "justify-center px-0" : "px-3 justify-start gap-3",
-                        pathname === "/dashboard/settings"
-                          ? "bg-black text-white font-semibold shadow-sm"
-                          : "text-neutral-600 hover:text-black hover:bg-surface-soft"
-                      )}
-                      title={isCollapsed ? "API & Webhooks" : undefined}
-                    >
-                      <div className="w-8 h-8 flex items-center justify-center shrink-0">
-                        <Settings className={cn("h-4 w-4 shrink-0", pathname === "/dashboard/settings" ? "text-block-lime" : "text-neutral-500")} />
-                      </div>
-                      <motion.li variants={variants}>
-                        {!isCollapsed && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-medium whitespace-nowrap">API & Webhooks</span>
-                            <Badge className="bg-block-lime text-black border-none text-[9px] px-1.5 py-0 font-bold" variant="outline">
-                              LIVE
-                            </Badge>
-                          </div>
-                        )}
-                      </motion.li>
-                    </Link>
                   </div>
                 </ScrollArea>
               </div>
@@ -400,11 +347,6 @@ export function SessionNavBar({ mobileOpen = false, setMobileOpen }: SessionNavB
                     <DropdownMenuItem asChild className="flex items-center gap-2 cursor-pointer text-xs">
                       <Link href="/dashboard/billing">
                         <CreditCard className="h-4 w-4 text-black" /> Plans & Billing
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild className="flex items-center gap-2 cursor-pointer text-xs">
-                      <Link href="/dashboard/settings">
-                        <Settings className="h-4 w-4 text-black" /> Settings
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem 

@@ -185,11 +185,11 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
     }
   };
 
-  // Real Vomyra / GAP Agent ID for Web Call URL
+  // Real GAP Agent ID for Web Call URL
   const rawAgentId = assistant.provider_resource_id || assistant.id || "6a7703a012df58f68ce4e600";
   const webCallUrl = `https://voice.getaipilot.in/call/${rawAgentId}`;
 
-  // Start In-Browser Web Call - Opens Vomyra Dedicated Live Web Call Room
+  // Start In-Browser Web Call - Opens GAP Dedicated Live Web Call Room
   const handleStartWebCall = () => {
     window.open(webCallUrl, "_blank", "noopener,noreferrer");
   };
@@ -456,39 +456,39 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
           {/* TAB 1: WEB CALL SIMULATOR */}
           {activeTab === "web" && (
             <div className="space-y-4">
-              {/* Vomyra Cloud Live Web Call Room Card */}
-              <div className="bg-surface-soft p-5 rounded-[14px] border border-hairline flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-block-lime text-black flex items-center justify-center font-bold shadow-sm shrink-0">
-                    <Mic className="w-6 h-6" />
+              {/* GAP Cloud Live Web Call Room Card */}
+              <div className="bg-surface-soft p-4 sm:p-5 rounded-[14px] border border-hairline flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs">
+                <div className="flex items-start sm:items-center gap-3.5 min-w-0 flex-1">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-block-lime text-black flex items-center justify-center font-bold shadow-xs shrink-0">
+                    <Mic className="w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
 
-                  <div>
-                    <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-sm text-black">
-                        Vomyra Live Web Call Room
+                        GAP Live Web Call Room
                       </span>
                       <span className="bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border border-emerald-300">
                         CLOUD AUDIO
                       </span>
                     </div>
-                    <p className="text-xs text-neutral-600 mt-0.5 leading-relaxed">
-                      Launches the official full-duplex WebRTC room with Deepgram STT and Cartesia Neural TTS.
+                    <p className="text-xs text-neutral-600 leading-relaxed">
+                      Launches full-duplex WebRTC room with Deepgram STT and Cartesia Neural TTS.
                     </p>
-                    <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-mono text-neutral-500 bg-white/80 px-2.5 py-1 rounded-[6px] border border-hairline max-w-fit">
-                      <span>URL:</span>
+                    <div className="flex items-center gap-1.5 text-[11px] font-mono text-neutral-500 bg-white px-2.5 py-1 rounded-[6px] border border-hairline max-w-full overflow-hidden">
+                      <span className="shrink-0 text-neutral-400">URL:</span>
                       <span className="text-black font-semibold truncate">{webCallUrl}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
+                <div className="w-full sm:w-auto shrink-0 pt-1 sm:pt-0">
                   <button
                     onClick={handleStartWebCall}
-                    className="btn-pill-primary w-full md:w-auto text-xs px-5 py-3 shadow-md flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform font-bold"
+                    className="btn-pill-primary w-full sm:w-auto text-xs px-4 py-2.5 shadow-sm flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all font-bold whitespace-nowrap"
                   >
-                    <ExternalLink className="w-4 h-4" />
-                    Start Web Call
+                    <ExternalLink className="w-4 h-4 shrink-0" />
+                    <span>Start Web Call</span>
                   </button>
                 </div>
               </div>
@@ -639,12 +639,12 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
                   <Sparkles className="w-3 h-3 text-amber-500" />
                   Quick Test Queries:
                 </p>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-2">
                   {PRESET_PROMPTS.map((prompt, idx) => (
                     <button
                       key={idx}
                       onClick={() => handleSendMessage(prompt)}
-                      className="text-[11px] px-3 py-1.5 rounded-full bg-surface-soft hover:bg-black hover:text-white border border-hairline text-neutral-700 transition-colors"
+                      className="text-[11px] px-3 py-1.5 rounded-full bg-surface-soft hover:bg-black hover:text-white border border-hairline text-neutral-700 transition-colors text-left"
                     >
                       "{prompt}"
                     </button>
@@ -681,7 +681,7 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
                   required
                 />
                 <p className="text-[11px] text-neutral-500">
-                  Customer name passed to Vomyra for speech personalization.
+                  Customer name passed to GAP VoicePilot for speech personalization.
                 </p>
               </div>
 
@@ -793,7 +793,7 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
         <div className="px-6 py-3 border-t border-hairline bg-surface-soft/40 flex items-center justify-between text-xs text-neutral-500">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span>Provider: <strong className="text-black font-mono">Vomyra Voice Engine</strong></span>
+            <span>Provider: <strong className="text-black font-mono">GAP VoicePilot Engine</strong></span>
           </div>
 
           <button

@@ -529,7 +529,7 @@ export default function HomePage() {
             <Link href="/dashboard" className="hover:text-black transition-colors">Dashboard</Link>
             <Link href="/dashboard/assistants" className="hover:text-black transition-colors">Assistants</Link>
             <Link href="/dashboard/calls" className="hover:text-black transition-colors">Call Logs</Link>
-            <Link href="/dashboard/settings" className="hover:text-black transition-colors">API Docs</Link>
+            <Link href="/dashboard/billing" className="hover:text-black transition-colors">Plans & Billing</Link>
           </div>
           <p>© 2026 GAP VoicePilot Platform. All rights reserved.</p>
         </div>
