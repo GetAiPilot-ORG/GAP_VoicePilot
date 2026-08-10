@@ -20,9 +20,9 @@ export const callDispatchWorker = new Worker('call-dispatch', async (job: Job) =
   try {
     const callResponse = await voiceProvider.initiateCall({
       idempotency_key: idempotencyKey,
-      assistant: assistantId,
-      to,
-      from
+      assistant_id: assistantId,
+      customer_number: to,
+      customer_name: 'Customer'
     });
     
     console.log(`[Dispatch Worker] Call initiated:`, callResponse);

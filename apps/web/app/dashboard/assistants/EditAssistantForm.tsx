@@ -1610,6 +1610,24 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
           </div>
         </div>
       )}
+
+      {/* Assistant Voice & Phone Test Modal */}
+      <AssistantTestModal
+        isOpen={isTestModalOpen}
+        onClose={() => setIsTestModalOpen(false)}
+        assistant={{
+          id: assistant.id,
+          name: name,
+          provider_resource_id: assistant.provider_resource_id,
+          config_snapshot: {
+            welcome_message: dynamicWelcomeEnabled ? dynamicWelcomeMessage : welcomeMessage,
+            system_prompt: systemPrompt,
+            voice: { name: voiceName, language: voiceLanguage, provider: voiceProvider }
+          },
+          welcome_message: dynamicWelcomeEnabled ? dynamicWelcomeMessage : welcomeMessage,
+          system_prompt: systemPrompt
+        }}
+      />
     </div>
   );
 }

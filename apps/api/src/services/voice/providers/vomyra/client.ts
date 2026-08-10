@@ -101,14 +101,51 @@ export class VomyraClient implements VoiceProvider {
   }
 
   async initiateCall(input: InitiateCallInput): Promise<ProviderCall> {
-    return this.request<ProviderCall>('/v1/calls', {
+    const payload: any = {
+      customer_number: String(input.customer_number).trim(),
+      customer_name: (input.customer_name || 'Customer').trim()
+    };
+
+    if (input.customer_country_code) {
+      payload.customer_country_code = input.customer_country_code;
+    }
+
+    if (input.additional_data && Object.keys(input.additional_data).length > 0) {
+      payload.additional_data = input.additional_data;
+    }
+
+    // Exactly one of assistant_id or assigned_number must be sent
+    if (input.assistant_id) {
+      payload.assistant_id = input.assistant_id;
+    } else if (input.assigned_number) {
+      payload.assigned_number = String(input.assigned_number).trim();
+    }
+
+    console.log('[VomyraClient] Sending call payload to /v1/calls:', JSON.stringify(payload));
+
+    const response = await this.request<any>('/v1/calls', {
       method: 'POST',
-      body: JSON.stringify(input),
+      body: JSON.stringify(payload),
     });
+
+    return (response.data || response) as ProviderCall;
   }
 
   async getCall(id: string): Promise<ProviderCall> {
-    return this.request<ProviderCall>(`/v1/calls/${id}`, {
+    const response = await this.request<any>(`/v1/calls/${id}`, {
+      method: 'GET',
+    });
+    return (response.data || response) as ProviderCall;
+  }
+
+  async getCallTranscript(id: string): Promise<any> {
+    return await this.request<any>(`/v1/calls/${id}/transcript`, {
+      method: 'GET',
+    });
+  }
+
+  async getCallRecording(id: string): Promise<any> {
+    return await this.request<any>(`/v1/calls/${id}/recording`, {
       method: 'GET',
     });
   }
