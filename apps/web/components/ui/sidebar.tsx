@@ -20,6 +20,7 @@ import {
   CreditCard,
   PanelLeftClose,
   PanelLeftOpen,
+  ShieldCheck,
 } from "lucide-react";
 import Image from "next/image";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -135,6 +136,7 @@ export function SessionNavBar({ mobileOpen = false, setMobileOpen, isPinned = fa
     { name: "Call Logs", href: "/dashboard/calls", icon: FileText },
     { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
     { name: "Plans & Billing", href: "/dashboard/billing", icon: CreditCard },
+    { name: "Admin KYC", href: "/dashboard/admin/kyc", icon: ShieldCheck, isNew: true },
   ];
 
   return (

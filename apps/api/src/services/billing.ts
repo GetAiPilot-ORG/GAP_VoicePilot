@@ -1,9 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '../config/supabase';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://gkyilicraflkgcfgqypc.supabase.co';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdreWlsaWNyYWZsa2djZmdxeXBjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjA4Mzc0NiwiZXhwIjoyMTAxNjU5NzQ2fQ.DYf3RkJp3F8WFPNio6XiUVCYv2Fc7WztfKeLwI4N3eI';
-
-export const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
+export { supabaseAdmin };
 
 /**
  * Fetch current available credit balance for a workspace
@@ -22,7 +19,7 @@ export async function getWorkspaceBalance(workspaceId: string): Promise<number> 
       .eq('workspace_id', workspaceId);
     
     if (directErr || !rows) return 0;
-    return rows.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
+    return rows.reduce((acc: number, curr: { amount: number | string | null }) => acc + Number(curr.amount || 0), 0);
   }
 
   return Number(data || 0);

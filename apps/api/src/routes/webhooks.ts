@@ -1,13 +1,8 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin as supabase } from '../config/supabase';
 
 export const webhookRouter = Router();
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://gkyilicraflkgcfgqypc.supabase.co',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdreWlsaWNyYWZsa2djZmdxeXBjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjA4Mzc0NiwiZXhwIjoyMTAxNjU5NzQ2fQ.DYf3RkJp3F8WFPNio6XiUVCYv2Fc7WztfKeLwI4N3eI'
-);
 
 function isValidSignature(rawBody: string, signature: string, secret: string): boolean {
   try {
