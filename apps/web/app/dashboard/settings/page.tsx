@@ -25,14 +25,14 @@ export default function SettingsPage() {
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <input 
             type="password" 
             readOnly 
             value="gap_live_8f931a29841b00e39218ab573" 
-            className="flex-1 bg-surface-soft border border-hairline rounded-[10px] px-4 py-2 text-xs font-mono text-neutral-800"
+            className="flex-1 bg-surface-soft border border-hairline rounded-[10px] px-4 py-2 text-xs font-mono text-neutral-800 min-w-0"
           />
-          <button className="btn-pill-secondary rounded-[10px] text-xs px-4 py-2">
+          <button className="btn-pill-secondary rounded-[10px] text-xs px-4 py-2 justify-center">
             <Copy className="w-3.5 h-3.5" />
             Copy Key
           </button>
