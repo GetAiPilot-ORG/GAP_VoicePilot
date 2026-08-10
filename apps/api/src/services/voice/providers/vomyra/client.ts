@@ -1,12 +1,13 @@
 import { VoiceProvider, CreateAssistantInput, InitiateCallInput, ProviderCall } from '../../types';
+import { optionalEnv, requireEnv } from '../../../../config/env';
 
 export class VomyraClient implements VoiceProvider {
   private apiKey: string;
   private baseUrl: string;
 
   constructor() {
-    this.apiKey = process.env.VOMYRA_API_KEY || '0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx';
-    this.baseUrl = process.env.VOMYRA_BASE_URL || 'https://api.vomyra.com';
+    this.apiKey = requireEnv('VOMYRA_API_KEY');
+    this.baseUrl = optionalEnv('VOMYRA_BASE_URL', 'https://api.vomyra.com')!;
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
