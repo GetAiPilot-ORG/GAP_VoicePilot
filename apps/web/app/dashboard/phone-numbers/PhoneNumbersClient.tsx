@@ -119,18 +119,18 @@ export function PhoneNumbersClient({
       if (res.fetchedNumbersCount && res.fetchedNumbersCount > 0) {
         setToastMessage({
           type: 'success',
-          text: `Fetched & saved ${res.fetchedNumbersCount} phone number(s) from Vomyra API to Supabase!`
+          text: `Fetched & saved ${res.fetchedNumbersCount} phone number(s) to Supabase!`
         });
       } else {
         setToastMessage({
           type: 'info',
-          text: "No assigned phone numbers found in your Vomyra API account."
+          text: "No assigned phone numbers found in your Telephony account."
         });
       }
     } catch (e: any) {
       setToastMessage({
         type: 'error',
-        text: "Failed to fetch from Vomyra API: " + e.message
+        text: "Failed to fetch phone numbers: " + e.message
       });
     } finally {
       setIsFetching(false);
@@ -221,7 +221,7 @@ export function PhoneNumbersClient({
             className="btn-pill-primary rounded-[10px] text-xs px-3.5 py-2 shadow-sm flex items-center gap-2"
           >
             <Download className={`w-3.5 h-3.5 ${isFetching ? "animate-bounce" : ""}`} />
-            {isFetching ? "Fetching..." : "Fetch Vomyra Numbers"}
+            {isFetching ? "Syncing..." : "Sync Telephony Numbers"}
           </button>
 
           <div className="flex items-center gap-2 bg-block-cream border border-black/10 px-3.5 py-2 rounded-[10px] text-xs">
@@ -284,7 +284,7 @@ export function PhoneNumbersClient({
               <div className="p-8 sm:p-12 text-center space-y-3">
                 <Phone className="w-8 h-8 text-neutral-300 mx-auto" />
                 <p className="text-xs font-semibold text-neutral-700">No phone numbers assigned to your workspace yet.</p>
-                <p className="text-[11px] text-neutral-500">Click "Fetch Vomyra Numbers" to query Vomyra API, or browse available marketplace numbers below.</p>
+                <p className="text-[11px] text-neutral-500">Click "Sync Telephony Numbers" to query your gateway, or browse available marketplace numbers below.</p>
                 <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                   <button
                     disabled={isFetching}
@@ -292,7 +292,7 @@ export function PhoneNumbersClient({
                     className="btn-pill-primary text-xs px-4 py-2 inline-flex items-center gap-2"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    {isFetching ? "Fetching API..." : "Fetch Vomyra Numbers"}
+                    {isFetching ? "Syncing API..." : "Sync Telephony Numbers"}
                   </button>
                   <button
                     onClick={() => setActiveTab("buy-numbers")}
