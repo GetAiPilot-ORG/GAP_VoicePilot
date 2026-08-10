@@ -6,13 +6,28 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 
-const RAZORPAY_KEY_ID = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_TDi7sLSJAYc8FV';
-const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'eXaoIvfFBUqZuUwxkAF0Fzab';
+function requireEnv(name: string): string {
+  const value = process.env[name];
+
+  if (!value || value.trim() === "") {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+
+  return value;
+}
+
+function getRazorpayKeyId(): string {
+  return requireEnv("NEXT_PUBLIC_RAZORPAY_KEY_ID");
+}
+
+function getRazorpayKeySecret(): string {
+  return requireEnv("RAZORPAY_KEY_SECRET");
+}
 
 async function getAdminClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+    requireEnv("SUPABASE_SERVICE_ROLE_KEY")
   );
 }
 
@@ -43,16 +58,26 @@ async function getWorkspaceId(): Promise<string> {
       .from('workspace_members')
       .select('workspace_id')
       .eq('user_id', user.id)
+      .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle();
 
     if (member?.workspace_id) return member.workspace_id;
   }
 
-  const { data: anyWs } = await adminClient.from('workspaces').select('id').limit(1).maybeSingle();
-  if (anyWs?.id) return anyWs.id;
+  // Fallback to ANY workspace removed to prevent random assignment
 
-  const { data: newWs } = await adminClient.from('workspaces').insert({ name: 'Default Workspace', owner_id: user?.id || '00000000-0000-0000-0000-000000000000' }).select().single();
+  const { data: newWs } = await adminClient.from('workspaces').insert({ name: `${user?.email?.split('@')[0] || 'Default'}'s Workspace`, owner_id: user?.id || '00000000-0000-0000-0000-000000000000' }).select().single();
+  
+  if (newWs?.id && user?.id) {
+    try {
+      await adminClient.from('workspace_members').insert({
+        workspace_id: newWs.id,
+        user_id: user.id,
+        role: 'owner'
+      });
+    } catch(e) {}
+  }
   return newWs.id;
 }
 
@@ -92,7 +117,7 @@ export async function getBillingDataAction() {
     subscription: sub || null,
     plans: allPlans || [],
     ledger: ledger || [],
-    razorpayKeyId: RAZORPAY_KEY_ID
+    razorpayKeyId: getRazorpayKeyId()
   };
 }
 
@@ -102,8 +127,10 @@ export async function getBillingDataAction() {
 export async function createRazorpayOrderAction(params: { amount: number; planId?: string; type: 'top_up' | 'subscription' }) {
   const { amount, planId, type } = params;
   const workspaceId = await getWorkspaceId();
+  const razorpayKeyId = getRazorpayKeyId();
+  const razorpayKeySecret = getRazorpayKeySecret();
 
-  const authHeader = 'Basic ' + Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64');
+  const authHeader = 'Basic ' + Buffer.from(`${razorpayKeyId}:${razorpayKeySecret}`).toString('base64');
   
   const response = await fetch('https://api.razorpay.com/v1/orders', {
     method: 'POST',
@@ -132,7 +159,7 @@ export async function createRazorpayOrderAction(params: { amount: number; planId
     orderId: order.id,
     amount: order.amount,
     currency: order.currency,
-    keyId: RAZORPAY_KEY_ID,
+    keyId: razorpayKeyId,
     workspaceId
   };
 }
@@ -151,11 +178,12 @@ export async function verifyRazorpayPaymentAction(params: {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature, planId, type, amount } = params;
   const adminClient = await getAdminClient();
   const workspaceId = await getWorkspaceId();
+  const razorpayKeySecret = getRazorpayKeySecret();
 
   // Verify HMAC SHA256 Signature
   const body = razorpay_order_id + '|' + razorpay_payment_id;
   const expectedSignature = crypto
-    .createHmac('sha256', RAZORPAY_KEY_SECRET)
+    .createHmac('sha256', razorpayKeySecret)
     .update(body)
     .digest('hex');
 

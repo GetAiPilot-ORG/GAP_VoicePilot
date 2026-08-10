@@ -18,7 +18,7 @@ async function getOrCreateWorkspace(supabase: any, user: any): Promise<string> {
 
   const adminClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
   try {
@@ -29,22 +29,7 @@ async function getOrCreateWorkspace(supabase: any, user: any): Promise<string> {
     }, { onConflict: 'id' });
   } catch (e) {}
 
-  const { data: anyWs } = await adminClient
-    .from('workspaces')
-    .select('id')
-    .limit(1)
-    .maybeSingle();
-
-  if (anyWs?.id) {
-    try {
-      await adminClient.from('workspace_members').upsert({
-        workspace_id: anyWs.id,
-        user_id: user.id,
-        role: 'owner'
-      }, { onConflict: 'workspace_id,user_id' });
-    } catch (e) {}
-    return anyWs.id;
-  }
+  // Fallback removed to prevent assigning users to random workspaces
 
   try {
     const { data: newWs } = await adminClient
@@ -202,7 +187,7 @@ export async function deleteAssistantAction(assistantId: string) {
 
   const adminClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
   await adminClient.from('phone_numbers').update({ assigned_assistant_id: null, status: 'unassigned' }).eq('assigned_assistant_id', assistantId);
@@ -230,7 +215,7 @@ export async function duplicateAssistantAction(assistantId: string) {
 
   const adminClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
   const { data: target } = await adminClient

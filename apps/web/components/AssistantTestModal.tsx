@@ -457,14 +457,14 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
           {activeTab === "web" && (
             <div className="space-y-4">
               {/* GAP Cloud Live Web Call Room Card */}
-              <div className="bg-surface-soft p-4 sm:p-5 rounded-[14px] border border-hairline flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs">
-                <div className="flex items-start sm:items-center gap-3.5 min-w-0 flex-1">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-block-lime text-black flex items-center justify-center font-bold shadow-xs shrink-0">
-                    <Mic className="w-5 h-5 sm:w-6 sm:h-6" />
+              <div className="bg-surface-soft p-4 md:p-5 rounded-[14px] border border-hairline flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-2xs">
+                <div className="flex items-start md:items-center gap-3.5 min-w-0 flex-1 w-full">
+                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-block-lime text-black flex items-center justify-center font-bold shadow-xs shrink-0">
+                    <Mic className="w-5 h-5 md:w-6 md:h-6" />
                   </div>
 
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
+                  <div className="min-w-0 flex-1 flex flex-col items-start text-left space-y-1.5">
+                    <div className="flex items-center justify-start gap-2 flex-wrap w-full text-left">
                       <span className="font-bold text-sm text-black">
                         GAP Live Web Call Room
                       </span>
@@ -472,20 +472,20 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
                         CLOUD AUDIO
                       </span>
                     </div>
-                    <p className="text-xs text-neutral-600 leading-relaxed">
+                    <p className="text-xs text-neutral-600 leading-relaxed text-left w-full">
                       Launches full-duplex WebRTC room with Deepgram STT and Cartesia Neural TTS.
                     </p>
-                    <div className="flex items-center gap-1.5 text-[11px] font-mono text-neutral-500 bg-white px-2.5 py-1 rounded-[6px] border border-hairline max-w-full overflow-hidden">
+                    <div className="flex items-center justify-start gap-1.5 text-[11px] font-mono text-neutral-500 bg-white px-2.5 py-1 rounded-[6px] border border-hairline max-w-full overflow-hidden w-fit text-left">
                       <span className="shrink-0 text-neutral-400">URL:</span>
                       <span className="text-black font-semibold truncate">{webCallUrl}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="w-full sm:w-auto shrink-0 pt-1 sm:pt-0">
+                <div className="w-full md:w-auto shrink-0 pt-1 md:pt-0">
                   <button
                     onClick={handleStartWebCall}
-                    className="btn-pill-primary w-full sm:w-auto text-xs px-4 py-2.5 shadow-sm flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all font-bold whitespace-nowrap"
+                    className="btn-pill-primary w-full md:w-auto text-xs px-4 py-2.5 shadow-sm flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all font-bold whitespace-nowrap"
                   >
                     <ExternalLink className="w-4 h-4 shrink-0" />
                     <span>Start Web Call</span>

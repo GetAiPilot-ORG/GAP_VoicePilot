@@ -7,7 +7,7 @@ import { cookies } from "next/headers";
 async function getAdminClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 }
 
@@ -32,14 +32,14 @@ async function getWorkspaceId(): Promise<string> {
       .from('workspace_members')
       .select('workspace_id')
       .eq('user_id', user.id)
+      .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle();
 
     if (member?.workspace_id) return member.workspace_id;
   }
 
-  const { data: anyWs } = await adminClient.from('workspaces').select('id').limit(1).maybeSingle();
-  if (anyWs?.id) return anyWs.id;
+  // Fallback to ANY workspace removed to prevent random assignment
 
   return "00000000-0000-0000-0000-000000000000";
 }

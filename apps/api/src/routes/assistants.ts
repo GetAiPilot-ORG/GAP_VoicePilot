@@ -1,14 +1,9 @@
 import { Router } from 'express';
-import { createClient } from '@supabase/supabase-js';
 import { VomyraClient } from '../services/voice/providers/vomyra/client';
+import { supabaseAdmin as supabase } from '../config/supabase';
 
 export const assistantRouter = Router();
 const voiceProvider = new VomyraClient();
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://gkyilicraflkgcfgqypc.supabase.co',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdreWlsaWNyYWZsa2djZmdxeXBjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjA4Mzc0NiwiZXhwIjoyMTAxNjU5NzQ2fQ.DYf3RkJp3F8WFPNio6XiUVCYv2Fc7WztfKeLwI4N3eI'
-);
 
 export function buildDomainSpecificVoicePrompt(topic: string, name: string = 'Virtual Assistant'): string {
   const cleanTopic = topic.trim() || 'General Customer Inquiries & Services';

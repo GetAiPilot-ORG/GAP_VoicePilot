@@ -1,21 +1,21 @@
 import { Router, Request, Response } from 'express';
-import { createClient } from '@supabase/supabase-js';
 import { VomyraClient } from '../services/voice/providers/vomyra/client';
+import { optionalEnv } from '../config/env';
+import { supabaseAdmin as supabase } from '../config/supabase';
 
 export const phoneNumberRouter = Router();
 const vomyraClient = new VomyraClient();
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://gkyilicraflkgcfgqypc.supabase.co',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdreWlsaWNyYWZsa2djZmdxeXBjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjA4Mzc0NiwiZXhwIjoyMTAxNjU5NzQ2fQ.DYf3RkJp3F8WFPNio6XiUVCYv2Fc7WztfKeLwI4N3eI'
-);
-
-const DEFAULT_WORKSPACE_ID = "df2a5118-9106-4124-9cea-bcaadc13f2ef";
+const DEFAULT_WORKSPACE_ID = optionalEnv('DEFAULT_WORKSPACE_ID');
 
 // GET /api/v1/phone-numbers/my - Get user's purchased phone numbers
 phoneNumberRouter.get('/my', async (req: Request, res: Response) => {
   try {
     const workspaceId = (req.query.workspaceId as string) || DEFAULT_WORKSPACE_ID;
+
+    if (!workspaceId) {
+      return res.status(400).json({ error: 'workspaceId is required' });
+    }
 
     const { data: numbers, error } = await supabase
       .from('phone_numbers')
@@ -54,6 +54,10 @@ phoneNumberRouter.get('/available', async (req: Request, res: Response) => {
 phoneNumberRouter.post('/buy', async (req: Request, res: Response) => {
   try {
     const { numberId, phoneNumber, workspaceId = DEFAULT_WORKSPACE_ID, price = 2.00 } = req.body;
+
+    if (!workspaceId) {
+      return res.status(400).json({ error: 'workspaceId is required' });
+    }
 
     if (!phoneNumber) {
       return res.status(400).json({ error: 'phoneNumber is required' });
