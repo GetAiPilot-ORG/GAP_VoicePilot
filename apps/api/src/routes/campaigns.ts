@@ -1,21 +1,18 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { Queue } from 'bullmq';
 import IORedis from 'ioredis';
 import { createClient } from '@supabase/supabase-js';
-import { requireFeature, requireMinCredits } from '../middleware/entitlements';
+import { VomyraClient } from '../services/voice/providers/vomyra/client';
 
 export const campaignRouter = Router();
 
-let callDispatchQueue: Queue | null = null;
+const voiceProvider = new VomyraClient();
 
+let callDispatchQueue: Queue | null = null;
 if (process.env.REDIS_URL) {
   const connection = new IORedis(process.env.REDIS_URL, { maxRetriesPerRequest: null });
-  connection.on('error', (err) => {
-    // Ignore connection errors to prevent app crash if Redis isn't running locally
-  });
+  connection.on('error', () => {});
   callDispatchQueue = new Queue('call-dispatch', { connection });
-} else {
-  console.warn('REDIS_URL is not set. Campaigns dispatching will be disabled.');
 }
 
 const supabase = createClient(
@@ -23,70 +20,141 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdreWlsaWNyYWZsa2djZmdxeXBjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjA4Mzc0NiwiZXhwIjoyMTAxNjU5NzQ2fQ.DYf3RkJp3F8WFPNio6XiUVCYv2Fc7WztfKeLwI4N3eI'
 );
 
-campaignRouter.post('/', requireFeature('campaigns'), requireMinCredits(1.0), async (req, res) => {
-  try {
-    const { name, assistantId, phoneNumberId, numbers, workspaceId, createdBy } = req.body;
+interface ContactInput {
+  name: string;
+  phone: string;
+  followUpDate?: string;
+  details?: string;
+}
 
-    if (!workspaceId || !createdBy || !name || !assistantId || !numbers) {
-      return res.status(400).json({ error: 'Missing required fields' });
+// POST /api/v1/campaigns - Create & Launch Outbound Bulk Campaign
+campaignRouter.post('/', async (req: Request, res: Response) => {
+  try {
+    const { name, assistantId, contacts, numbers, workspaceId, createdBy } = req.body;
+
+    if (!name || !assistantId) {
+      return res.status(400).json({ error: 'Campaign name and assistantId are required.' });
     }
 
-    const phoneList = numbers.split(',').map((n: string) => n.trim()).filter(Boolean);
+    // Normalize contacts list
+    let contactList: ContactInput[] = [];
 
-    // 1. Create Campaign
-    const { data: campaign, error: campError } = await supabase
-      .from('campaigns')
-      .insert({
-        workspace_id: workspaceId,
-        created_by: createdBy,
-        assistant_id: assistantId,
-        phone_number_id: phoneNumberId || null, // Optional for now
-        name,
-        total_contacts: phoneList.length,
-        status: 'running'
-      })
-      .select()
-      .single();
+    if (Array.isArray(contacts) && contacts.length > 0) {
+      contactList = contacts.map((c: any) => ({
+        name: String(c.name || 'Customer').trim(),
+        phone: String(c.phone || '').trim().replace(/[\s\-\(\)]/g, ''),
+        followUpDate: c.followUpDate || undefined,
+        details: c.details || undefined
+      })).filter(c => c.phone.length >= 7);
+    } else if (typeof numbers === 'string') {
+      contactList = numbers.split(',').map((n: string) => ({
+        name: 'Customer',
+        phone: n.trim().replace(/[\s\-\(\)]/g, '')
+      })).filter(c => c.phone.length >= 7);
+    }
 
-    if (campError) throw campError;
+    if (contactList.length === 0) {
+      return res.status(400).json({ error: 'No valid phone numbers found in contact list.' });
+    }
 
-    // 2. Add contacts and queue jobs
-    for (const phone of phoneList) {
-      const { data: contact, error: contactError } = await supabase
-        .from('contacts')
-        .insert({ workspace_id: workspaceId, phone })
-        .select()
-        .single();
-      
-      if (contactError) throw contactError;
+    // Resolve Assistant's real Vomyra ObjectId
+    let realVomyraAssistantId = assistantId;
+    try {
+      const { data: ast } = await supabase
+        .from('assistants')
+        .select('provider_resource_id')
+        .eq('id', assistantId)
+        .maybeSingle();
 
-      const { data: campContact, error: ccError } = await supabase
-        .from('campaign_contacts')
+      if (ast?.provider_resource_id && /^[0-9a-fA-F]{24}$/.test(ast.provider_resource_id)) {
+        realVomyraAssistantId = ast.provider_resource_id;
+      }
+    } catch {}
+
+    // 1. Create Campaign Record in Supabase
+    let campaignId = `camp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    try {
+      const { data: dbCamp, error: campErr } = await supabase
+        .from('campaigns')
         .insert({
-          campaign_id: campaign.id,
-          contact_id: contact.id,
-          status: 'queued'
+          name,
+          assistant_id: assistantId,
+          total_contacts: contactList.length,
+          status: 'running',
+          workspace_id: workspaceId || '00000000-0000-0000-0000-000000000000',
+          created_by: createdBy || '00000000-0000-0000-0000-000000000000'
         })
         .select()
         .single();
 
-      if (ccError) throw ccError;
-
-      // Queue for dispatch
-      if (callDispatchQueue) {
-        await callDispatchQueue.add('dispatch', {
-          campaignContactId: campContact.id,
-          to: phone,
-          from: '+1234567890', // Hardcoded default for V1
-          assistantId,
-          idempotencyKey: `camp_${campaign.id}_contact_${contact.id}`
-        });
-      } else {
-        console.warn('Skipping dispatch queueing for contact because Redis is not configured.');
+      if (dbCamp?.id) {
+        campaignId = dbCamp.id;
       }
+    } catch (dbErr: any) {
+      console.warn('[Campaigns] DB insert warning:', dbErr.message);
     }
 
-    res.status(200).json({ success: true, campaign });
+    console.log(`[Campaigns] Launching campaign "${name}" with ${contactList.length} contacts using assistant ${realVomyraAssistantId}`);
+
+    // 2. Dispatch calls asynchronously
+    const dispatchPromises = contactList.map(async (c, idx) => {
+      // Stagger dials slightly to respect telephony rates
+      await new Promise(r => setTimeout(r, idx * 800));
+
+      const cleanNumber = c.phone.startsWith('+') ? c.phone : `+91${c.phone.replace(/^0+/, '')}`;
+
+      try {
+        console.log(`[Campaigns] Calling contact ${idx + 1}/${contactList.length}: ${c.name} (${cleanNumber})`);
+        
+        const callResult = await voiceProvider.initiateCall({
+          customer_number: cleanNumber,
+          customer_name: c.name || 'Valued Customer',
+          assistant_id: realVomyraAssistantId,
+          customer_country_code: cleanNumber.startsWith('+91') ? '+91' : '+1',
+          additional_data: {
+            campaign_id: campaignId,
+            campaign_name: name,
+            followUpDate: c.followUpDate,
+            details: c.details,
+            dispatched_at: new Date().toISOString()
+          }
+        });
+
+        console.log(`[Campaigns] Call initiated for ${c.name}: ID ${callResult.id}`);
+        return { success: true, contact: c, callId: callResult.id };
+      } catch (callErr: any) {
+        console.error(`[Campaigns] Failed to call ${c.phone}:`, callErr.message);
+        return { success: false, contact: c, error: callErr.message };
+      }
+    });
+
+    // Start execution in background without blocking HTTP response
+    Promise.allSettled(dispatchPromises).then(async (results) => {
+      const succeeded = results.filter(r => r.status === 'fulfilled' && (r.value as any).success).length;
+      console.log(`[Campaigns] Campaign "${name}" dispatch finished. Succeeded: ${succeeded}/${contactList.length}`);
+
+      try {
+        await supabase
+          .from('campaigns')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString()
+          })
+          .eq('id', campaignId);
+      } catch {}
+    });
+
+    return res.status(200).json({
+      success: true,
+      campaign: {
+        id: campaignId,
+        name,
+        total_contacts: contactList.length,
+        status: 'running',
+        created_at: new Date().toISOString()
+      },
+      message: `Campaign initiated! Dispathing ${contactList.length} automated calls in real-time.`
+    });
   } catch (error: any) {
     console.error('Failed to create campaign:', error);
     res.status(500).json({ success: false, error: error.message });

@@ -21,6 +21,7 @@ import {
   ChevronRight,
   Plus
 } from "lucide-react";
+import { launchBatchCampaignAction } from "@/app/actions/campaigns";
 
 export interface CampaignJob {
   id: string;
@@ -97,6 +98,8 @@ export function CampaignsClient({ initialCampaigns, assistants }: CampaignsClien
   );
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [selectedDetailRow, setSelectedDetailRow] = React.useState<ParsedRow | null>(null);
+  const [selectedJobLogs, setSelectedJobLogs] = React.useState<CampaignJob | null>(null);
+  const [isJobLogsModalOpen, setIsJobLogsModalOpen] = React.useState(false);
 
   // Pagination state
   const [currentPage, setCurrentPage] = React.useState(1);
@@ -108,7 +111,7 @@ export function CampaignsClient({ initialCampaigns, assistants }: CampaignsClien
   };
 
   const handleDownloadTemplate = () => {
-    const csvContent = "Name,Phone Number,Follow Up Date,Details\nJohn Doe,9174222385,2026-08-10,Interested in AI sales bot\nJane Smith,9198765432,2026-08-12,Scheduled product demo call";
+    const csvContent = "mobile,followUpdate,name\n9999999999,2:13:2025 2:37PM,sample\n9343418163,8:10:2026 03:20PM,shwet\n8839495434,8:10:2026 03:10PM,kundan";
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -134,44 +137,213 @@ export function CampaignsClient({ initialCampaigns, assistants }: CampaignsClien
     if (!selectedFile) return;
 
     try {
-      const rows: ParsedRow[] = [
-        { id: 1, name: "Rahul Sharma", phone: "+91 98765 43210", followUpDate: "2026-08-10", details: "High intent sales lead" },
-        { id: 2, name: "Anita Patel", phone: "+1 (800) 459-2901", followUpDate: "2026-08-12", details: "Demo follow up call" }
-      ];
-      setParsedRows(rows);
+      const data = await selectedFile.arrayBuffer();
+      const workbook = XLSX.read(data, { type: "array" });
+      const firstSheetName = workbook.SheetNames[0];
+      if (!firstSheetName) {
+        alert("The uploaded spreadsheet is empty.");
+        return;
+      }
+
+      const worksheet = workbook.Sheets[firstSheetName];
+      if (!worksheet) {
+        alert("The worksheet could not be read.");
+        return;
+      }
+
+      const rawRows = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet, { defval: "" });
+
+      if (rawRows.length === 0) {
+        alert("No valid rows found in the uploaded file.");
+        return;
+      }
+
+function normalizeFollowUpDate(raw: any): string {
+  if (raw === undefined || raw === null || raw === "") {
+    return new Date().toISOString().split("T")[0] || "2026-08-10";
+  }
+
+  // 1. Handle Excel Serial Numbers (e.g. 46244.63900462963)
+  const num = Number(raw);
+  if (!isNaN(num) && num > 10000 && num < 100000) {
+    try {
+      const utcDate = new Date(Math.round((num - 25569) * 86400 * 1000));
+      if (!isNaN(utcDate.getTime())) {
+        const yyyy = utcDate.getUTCFullYear();
+        const mm = String(utcDate.getUTCMonth() + 1).padStart(2, "0");
+        const dd = String(utcDate.getUTCDate()).padStart(2, "0");
+        const hh = String(utcDate.getUTCHours()).padStart(2, "0");
+        const min = String(utcDate.getUTCMinutes()).padStart(2, "0");
+        return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
+      }
+    } catch {}
+  }
+
+  const str = String(raw).trim();
+
+  // 2. Fix dates written with colons like "8:10:2026 03:10PM" or "8:10:2026"
+  const colonDateMatch = str.match(/^(\d{1,2}):(\d{1,2}):(\d{4})(.*)$/);
+  if (colonDateMatch && colonDateMatch[1] && colonDateMatch[2] && colonDateMatch[3]) {
+    const month = colonDateMatch[1].padStart(2, "0");
+    const day = colonDateMatch[2].padStart(2, "0");
+    const year = colonDateMatch[3];
+    const rest = (colonDateMatch[4] || "").trim();
+    return `${year}-${month}-${day}${rest ? " " + rest : ""}`;
+  }
+
+  // 3. Slashes "08/10/2026 03:10 PM"
+  const slashDateMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(.*)$/);
+  if (slashDateMatch && slashDateMatch[1] && slashDateMatch[2] && slashDateMatch[3]) {
+    const p1 = slashDateMatch[1].padStart(2, "0");
+    const p2 = slashDateMatch[2].padStart(2, "0");
+    const year = slashDateMatch[3];
+    const rest = (slashDateMatch[4] || "").trim();
+    return `${year}-${p1}-${p2}${rest ? " " + rest : ""}`;
+  }
+
+  return str;
+}
+
+      const defaultDate = new Date().toISOString().split("T")[0] || "2026-08-10";
+
+      const parsed: ParsedRow[] = rawRows.map((row, index) => {
+        // Find name column dynamically
+        const nameKey = Object.keys(row).find((k) =>
+          /name|full.?name|first.?name|customer.?name|contact.?name/i.test(k)
+        );
+        const nameVal = nameKey ? String(row[nameKey] ?? "").trim() : `Contact ${index + 1}`;
+
+        // Find phone column dynamically
+        const phoneKey = Object.keys(row).find((k) =>
+          /phone|mobile|contact.?number|customer.?number|cell|tel|number/i.test(k)
+        );
+        const phoneVal = phoneKey ? String(row[phoneKey] ?? "").trim() : "";
+
+        // Find follow up date column dynamically
+        const dateKey = Object.keys(row).find((k) =>
+          /follow.?up|date|time|schedule|slot/i.test(k)
+        );
+        const rawDate = dateKey ? String(row[dateKey] ?? "").trim() : "";
+        const dateVal = rawDate ? normalizeFollowUpDate(rawDate) : defaultDate;
+
+        // Find details / notes column dynamically
+        const detailsKey = Object.keys(row).find((k) =>
+          /detail|notes?|description|comment|info|message|intent|type/i.test(k)
+        );
+        const detailsVal = detailsKey ? String(row[detailsKey] ?? "").trim() : "Outbound Lead";
+
+        return {
+          id: index + 1,
+          name: nameVal || `Contact ${index + 1}`,
+          phone: phoneVal || "N/A",
+          followUpDate: dateVal,
+          details: detailsVal
+        };
+      });
+
+      setParsedRows(parsed);
       setModalStep("preview");
-    } catch (err) {
-      alert("Failed to parse file.");
+    } catch (err: any) {
+      console.error("Error parsing spreadsheet file:", err);
+      // Fallback to text CSV line parser if XLSX encounters an issue
+      try {
+        const text = await selectedFile.text();
+        const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+        if (lines.length <= 1) {
+          alert("CSV file does not contain contact rows.");
+          return;
+        }
+
+        const firstLine = lines[0] ?? "";
+        const headers = firstLine.split(",").map((h) => h.trim().toLowerCase());
+        const nameIdx = headers.findIndex((h) => /name/i.test(h));
+        const phoneIdx = headers.findIndex((h) => /phone|mobile|number|tel/i.test(h));
+        const dateIdx = headers.findIndex((h) => /date|time/i.test(h));
+        const detailsIdx = headers.findIndex((h) => /detail|note|info/i.test(h));
+
+        const fallbackDate = new Date().toISOString().split("T")[0] || "";
+        const rows: ParsedRow[] = [];
+        for (let i = 1; i < lines.length; i++) {
+          const currentLine = lines[i] ?? "";
+          const cols = currentLine.split(",").map((c) => c.trim().replace(/^["']|["']$/g, ""));
+          if (cols.length > 0 && cols.some((c) => c.length > 0)) {
+            const rawName = nameIdx !== -1 ? cols[nameIdx] : undefined;
+            const rawPhone = phoneIdx !== -1 ? cols[phoneIdx] : cols[0];
+            const rawDate = dateIdx !== -1 ? cols[dateIdx] : undefined;
+            const rawDetails = detailsIdx !== -1 ? cols[detailsIdx] : undefined;
+
+            rows.push({
+              id: i,
+              name: rawName ? rawName : `Lead #${i}`,
+              phone: rawPhone ? rawPhone : "N/A",
+              followUpDate: rawDate ? rawDate : fallbackDate,
+              details: rawDetails ? rawDetails : "Batch Contact"
+            });
+          }
+        }
+
+        if (rows.length > 0) {
+          setParsedRows(rows);
+          setModalStep("preview");
+          return;
+        }
+      } catch (fallbackErr) {
+        console.error("Fallback CSV parser error:", fallbackErr);
+      }
+      alert("Failed to parse file: " + (err.message || "Invalid spreadsheet format"));
     }
   };
 
   const handleProcessCall = async () => {
-    setIsProcessing(true);
-    setTimeout(() => {
-      const newJobId = `#JOB-${Math.floor(1000 + Math.random() * 9000)}`;
-      const newJob: CampaignJob = {
-        id: newJobId,
-        name: selectedFile ? selectedFile.name.replace(/\.[^/.]+$/, "") : "Outbound Dispatch Job",
-        assistant_id: selectedAssistantId,
-        total_contacts: parsedRows.length,
-        status: "completed",
-        created_at: new Date().toLocaleDateString("en-US", {
-          month: "short",
-          day: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true
-        })
-      };
+    if (!selectedAssistantId) {
+      alert("Please select a Voice Assistant for this campaign.");
+      return;
+    }
+    if (parsedRows.length === 0) {
+      alert("No valid contacts found in the file to call.");
+      return;
+    }
 
-      setCampaigns((prev) => [newJob, ...prev]);
-      setIsUploadModalOpen(false);
-      setSelectedFile(null);
-      setParsedRows([]);
-      setModalStep("upload");
+    setIsProcessing(true);
+    const campaignName = selectedFile ? selectedFile.name.replace(/\.[^/.]+$/, "") : "Outbound Dispatch Campaign";
+
+    try {
+      const res = await launchBatchCampaignAction({
+        name: campaignName,
+        assistantId: selectedAssistantId,
+        contacts: parsedRows
+      });
+
+      if (res.success) {
+        const newJob: CampaignJob = {
+          id: res.campaign?.id || `#JOB-${Math.floor(1000 + Math.random() * 9000)}`,
+          name: campaignName,
+          assistant_id: selectedAssistantId,
+          total_contacts: parsedRows.length,
+          status: "in_progress",
+          created_at: new Date().toLocaleDateString("en-US", {
+            month: "short",
+            day: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true
+          })
+        };
+
+        setCampaigns((prev) => [newJob, ...prev]);
+        setIsUploadModalOpen(false);
+        setSelectedFile(null);
+        setParsedRows([]);
+        setModalStep("upload");
+      } else {
+        alert("Failed to launch campaign: " + (res.error || "Unknown error"));
+      }
+    } catch (err: any) {
+      alert("Error initiating campaign: " + err.message);
+    } finally {
       setIsProcessing(false);
-    }, 600);
+    }
   };
 
   const totalJobs = campaigns.length;
@@ -285,7 +457,13 @@ export function CampaignsClient({ initialCampaigns, assistants }: CampaignsClien
                     )}
                   </td>
                   <td className="py-4 px-6 text-right">
-                    <button className="btn-pill-secondary rounded-[8px] text-[11px] px-3 py-1.5">
+                    <button
+                      onClick={() => {
+                        setSelectedJobLogs(job);
+                        setIsJobLogsModalOpen(true);
+                      }}
+                      className="btn-pill-primary rounded-[8px] text-[11px] px-3.5 py-1.5 shadow-xs hover:scale-[1.02] transition-transform"
+                    >
                       View Logs
                     </button>
                   </td>
@@ -295,6 +473,69 @@ export function CampaignsClient({ initialCampaigns, assistants }: CampaignsClien
           </table>
         </div>
       </div>
+
+      {/* Campaign Job Logs Modal */}
+      {isJobLogsModalOpen && selectedJobLogs && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="w-full max-w-md bg-white rounded-[16px] border border-hairline p-6 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-hairline pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-lg text-black">Campaign Dispatch</h3>
+                  <span className="font-mono text-xs bg-surface-soft px-2 py-0.5 rounded border border-hairline font-bold">
+                    {selectedJobLogs.id}
+                  </span>
+                </div>
+                <p className="text-xs text-neutral-500 mt-1">{selectedJobLogs.name}</p>
+              </div>
+              <button
+                onClick={() => setIsJobLogsModalOpen(false)}
+                className="p-1 rounded-full text-neutral-400 hover:text-black hover:bg-surface-soft transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="bg-surface-soft p-3 rounded-[10px] border border-hairline">
+                <p className="text-[10px] text-neutral-500 font-bold uppercase">Total Contacts</p>
+                <p className="text-xl font-bold text-black mt-0.5">{selectedJobLogs.total_contacts}</p>
+              </div>
+              <div className="bg-surface-soft p-3 rounded-[10px] border border-hairline">
+                <p className="text-[10px] text-neutral-500 font-bold uppercase">Status</p>
+                <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 mt-1 capitalize">
+                  {selectedJobLogs.status}
+                </span>
+              </div>
+              <div className="bg-surface-soft p-3 rounded-[10px] border border-hairline">
+                <p className="text-[10px] text-neutral-500 font-bold uppercase">AI Assistant</p>
+                <p className="font-bold text-black mt-0.5 truncate">{selectedJobLogs.assistant_name || "Voice Assistant"}</p>
+              </div>
+              <div className="bg-surface-soft p-3 rounded-[10px] border border-hairline">
+                <p className="text-[10px] text-neutral-500 font-bold uppercase">Dispatched At</p>
+                <p className="font-mono text-neutral-700 mt-0.5 text-[11px]">{selectedJobLogs.created_at}</p>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-hairline flex items-center justify-between">
+              <button
+                onClick={() => setIsJobLogsModalOpen(false)}
+                className="btn-pill-secondary rounded-[10px] text-xs px-4 py-2"
+              >
+                Close
+              </button>
+
+              <a
+                href="/dashboard/calls"
+                className="btn-pill-primary rounded-[10px] text-xs px-4 py-2 shadow-sm inline-flex items-center gap-1.5 hover:scale-[1.02] transition-transform"
+              >
+                <span>View Call Records</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Upload Modal */}
       {isUploadModalOpen && modalStep === "upload" && (
@@ -368,57 +609,105 @@ export function CampaignsClient({ initialCampaigns, assistants }: CampaignsClien
         </div>
       )}
 
-      {/* Review Modal */}
+      {/* Review & Edit Data Modal (1:1 Vomyra Parity) */}
       {isUploadModalOpen && modalStep === "preview" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-2xl bg-white rounded-[14px] border border-hairline p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="w-full max-w-3xl bg-white rounded-[16px] border border-hairline p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-hairline pb-4">
               <div>
-                <h3 className="font-bold text-lg text-black">Review Data ({parsedRows.length} contacts)</h3>
-                <p className="text-xs text-neutral-500 mt-1">Verify lead list before triggering automated calls.</p>
+                <h3 className="font-bold text-lg text-black">Review & Edit Data ({parsedRows.length} rows)</h3>
+                <p className="text-xs text-neutral-500 mt-0.5">Review and edit the parsed data before creating the job. Click on any date to adjust scheduling.</p>
               </div>
-              <button onClick={() => setIsUploadModalOpen(false)} className="text-neutral-500 hover:text-black">
-                <X className="h-4 w-4" />
+              <button onClick={() => setIsUploadModalOpen(false)} className="p-1 rounded-full text-neutral-400 hover:text-black hover:bg-surface-soft transition-colors">
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="rounded-[10px] border border-hairline overflow-hidden text-xs">
+            {/* Select Phone Number / Caller ID (Top Selector) */}
+            <div className="bg-surface-soft/80 border border-hairline rounded-[12px] p-3.5 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                <Phone className="w-4 h-4" />
+              </div>
+              <div className="flex-1">
+                <label className="text-[11px] font-bold text-black uppercase tracking-wider block mb-1">Select Phone Number / Caller ID</label>
+                <select
+                  value={selectedAssistantId}
+                  onChange={(e) => setSelectedAssistantId(e.target.value)}
+                  className="w-full bg-white border border-hairline rounded-[8px] px-3 py-1.5 text-xs font-semibold text-black focus:outline-none focus:ring-1 focus:ring-black"
+                >
+                  {assistants.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.phone_number || "7943494977"} - {a.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Contacts Table (1:1 Vomyra Column Order: #, Phone Number, Follow Up Date, Name, Details) */}
+            <div className="rounded-[12px] border border-hairline overflow-hidden text-xs shadow-xs">
               <table className="w-full text-left">
-                <thead className="bg-surface-soft font-bold border-b border-hairline">
+                <thead className="bg-surface-soft font-bold border-b border-hairline text-neutral-700">
                   <tr>
-                    <th className="p-3">#</th>
+                    <th className="p-3 w-12 text-center">#</th>
+                    <th className="p-3">Phone Number</th>
+                    <th className="p-3">Follow Up Date</th>
                     <th className="p-3">Name</th>
-                    <th className="p-3">Phone</th>
-                    <th className="p-3">Details</th>
+                    <th className="p-3 text-center">Details</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-hairline">
                   {parsedRows.map((r, i) => (
-                    <tr key={r.id}>
-                      <td className="p-3 text-neutral-400 font-mono">{i + 1}</td>
+                    <tr key={r.id} className="hover:bg-surface-soft/30 transition-colors">
+                      <td className="p-3 text-center text-neutral-400 font-mono">{i + 1}</td>
+                      <td className="p-3 font-mono font-semibold text-black">{r.phone}</td>
+                      <td className="p-3">
+                        <input
+                          type="text"
+                          value={r.followUpDate}
+                          onChange={(e) => {
+                            const updated = [...parsedRows];
+                            if (updated[i]) updated[i].followUpDate = e.target.value;
+                            setParsedRows(updated);
+                          }}
+                          placeholder="YYYY-MM-DD HH:mm (e.g. 2026-08-10 16:00)"
+                          className="w-full px-2.5 py-1 text-xs font-mono bg-surface-soft border border-hairline rounded-[6px] focus:bg-white focus:outline-none focus:ring-1 focus:ring-black"
+                        />
+                      </td>
                       <td className="p-3 font-bold text-black">{r.name}</td>
-                      <td className="p-3 font-mono text-emerald-700 font-semibold">{r.phone}</td>
-                      <td className="p-3 text-neutral-600">{r.details}</td>
+                      <td className="p-3 text-center">
+                        <span title={r.details} className="inline-flex items-center justify-center p-1 rounded-md text-emerald-600 hover:bg-emerald-50 cursor-pointer">
+                          <Eye className="w-4 h-4" />
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t border-hairline">
-              <button
-                onClick={() => setModalStep("upload")}
-                className="btn-pill-secondary rounded-[10px] text-xs px-4 py-2"
-              >
-                Back
-              </button>
-              <button
-                disabled={isProcessing}
-                onClick={handleProcessCall}
-                className="btn-pill-primary rounded-[10px] text-xs px-6 py-2"
-              >
-                {isProcessing ? "Launching Job..." : "Confirm & Launch Campaign"}
-              </button>
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-xs text-neutral-500 font-mono">
+                Showing 1 to {parsedRows.length} of {parsedRows.length} rows
+              </span>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setModalStep("upload")}
+                  className="btn-pill-secondary rounded-[10px] text-xs px-4 py-2"
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={isProcessing || parsedRows.length === 0}
+                  onClick={handleProcessCall}
+                  className="inline-flex items-center gap-2 rounded-[10px] bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-6 py-2.5 shadow-md transition-all hover:scale-[1.02] disabled:opacity-50"
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                  {isProcessing ? "Processing Calls..." : "Process Call"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -31,7 +31,7 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
 
   const initialCfg = assistant.config_snapshot || {};
   const initialTransfer = initialCfg.transfer_call_settings || {};
-  
+
   // Model state
   const [name, setName] = React.useState(assistant.name || initialCfg.name || "Untitled Assistant");
   const [aiProvider, setAiProvider] = React.useState(initialCfg.ai_provider || "openai");
@@ -64,7 +64,7 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
   const [languageSelectionMode, setLanguageSelectionMode] = React.useState(initialCfg.language_selection_mode || initialCfg.transcription?.mode || "single");
   const [transcriptionLanguage, setTranscriptionLanguage] = React.useState(initialCfg.transcription_language || initialCfg.transcription?.language || "hi-IN");
   const [transcriptionPrompt, setTranscriptionPrompt] = React.useState(initialCfg.transcription_prompt || initialCfg.transcription?.prompt || "");
-  
+
   // STT Provider specific state
   const [dgModel, setDgModel] = React.useState(initialCfg.deepgram?.model || "nova-2");
   const [dgUtteranceEnd, setDgUtteranceEnd] = React.useState<number>(initialCfg.deepgram?.utterance_end_ms ?? 1200);
@@ -89,18 +89,21 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
   // Tools state
   const [assignedToolIds, setAssignedToolIds] = React.useState<string[]>(assistant.assigned_tool_ids || []);
 
-  // Advance Settings state
+  // Advance Settings state (1:1 Vomyra Parity)
   const [maximumDuration, setMaximumDuration] = React.useState<number>(initialCfg.maximum_duration ?? 600);
   const [silenceTimeout, setSilenceTimeout] = React.useState<number>(initialCfg.silence_timeout ?? 12);
   const [inactivityMessage, setInactivityMessage] = React.useState(initialCfg.inactivity_message || "Are you still there?");
   const [timeoutEndMessage, setTimeoutEndMessage] = React.useState(initialCfg.timeout_end_message || "Thank you for calling. Goodbye!");
+  const [timeoutEndMessageDelay, setTimeoutEndMessageDelay] = React.useState<number>(initialCfg.timeout_end_message_delay ?? 5);
   const [fillerWordsEnabled, setFillerWordsEnabled] = React.useState<boolean>(initialCfg.filler_words_enabled ?? true);
-  const [fillerWords, setFillerWords] = React.useState(initialCfg.filler_words || "");
+  const [fillerWords, setFillerWords] = React.useState(initialCfg.filler_words || "हाँ, ठीक है जी, ठीक है, बिलकुल, जी, हाँ जी, अच्छा जी, अच्छा, हाँ ठीक hai");
+  const [callDetailsWebhookEnabled, setCallDetailsWebhookEnabled] = React.useState<boolean>(!!initialCfg.call_details_webhook_enabled);
+  const [callDetailsWebhookUrl, setCallDetailsWebhookUrl] = React.useState(initialCfg.call_details_webhook_url || "");
 
   // Derived catalog options
   const aiProviderOptions = VOMYRA_CATALOG.ai.providers;
   const modelOptions = VOMYRA_CATALOG.ai.models[aiProvider as keyof typeof VOMYRA_CATALOG.ai.models] || [];
-  
+
   const voiceProviderOptions = VOMYRA_CATALOG.voice.providers;
   const voiceNameOptions = VOMYRA_CATALOG.voice.voices[voiceProvider as keyof typeof VOMYRA_CATALOG.voice.voices] || [];
 
@@ -113,7 +116,7 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
       let generated = "";
       try {
         generated = await generatePromptAction(targetTopic);
-      } catch (e) {}
+      } catch (e) { }
 
       if (!generated) {
         const cleanTopic = targetTopic.trim() || 'General Customer Inquiries & Services';
@@ -287,8 +290,11 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
       silence_timeout: Number(silenceTimeout),
       inactivity_message: inactivityMessage,
       timeout_end_message: timeoutEndMessage,
+      timeout_end_message_delay: Number(timeoutEndMessageDelay),
       filler_words_enabled: fillerWordsEnabled,
-      filler_words: fillerWords
+      filler_words: fillerWords,
+      call_details_webhook_enabled: callDetailsWebhookEnabled,
+      call_details_webhook_url: callDetailsWebhookUrl
     };
 
     try {
@@ -313,9 +319,8 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-bold text-black">{name}</h2>
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                assistant.status === 'active' ? 'bg-block-lime text-black border border-black/10' : 'bg-surface-soft text-neutral-600'
-              }`}>
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${assistant.status === 'active' ? 'bg-block-lime text-black border border-black/10' : 'bg-surface-soft text-neutral-600'
+                }`}>
                 {assistant.status || 'draft'}
               </span>
             </div>
@@ -355,9 +360,8 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
         <button
           type="button"
           onClick={() => setActiveTab("model")}
-          className={`flex-1 py-2.5 px-4 rounded-[8px] text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
-            activeTab === "model" ? "bg-white text-black shadow-sm font-bold" : "text-neutral-500 hover:text-black"
-          }`}
+          className={`flex-1 py-2.5 px-4 rounded-[8px] text-xs font-semibold flex items-center justify-center gap-2 transition-all ${activeTab === "model" ? "bg-white text-black shadow-sm font-bold" : "text-neutral-500 hover:text-black"
+            }`}
         >
           <Bot className="w-3.5 h-3.5" />
           <span>Model & Prompts</span>
@@ -366,9 +370,8 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
         <button
           type="button"
           onClick={() => setActiveTab("speech")}
-          className={`flex-1 py-2.5 px-4 rounded-[8px] text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
-            activeTab === "speech" ? "bg-white text-black shadow-sm font-bold" : "text-neutral-500 hover:text-black"
-          }`}
+          className={`flex-1 py-2.5 px-4 rounded-[8px] text-xs font-semibold flex items-center justify-center gap-2 transition-all ${activeTab === "speech" ? "bg-white text-black shadow-sm font-bold" : "text-neutral-500 hover:text-black"
+            }`}
         >
           <Cpu className="w-3.5 h-3.5" />
           <span>Speech Input (STT)</span>
@@ -377,9 +380,8 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
         <button
           type="button"
           onClick={() => setActiveTab("voice")}
-          className={`flex-1 py-2.5 px-4 rounded-[8px] text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
-            activeTab === "voice" ? "bg-white text-black shadow-sm font-bold" : "text-neutral-500 hover:text-black"
-          }`}
+          className={`flex-1 py-2.5 px-4 rounded-[8px] text-xs font-semibold flex items-center justify-center gap-2 transition-all ${activeTab === "voice" ? "bg-white text-black shadow-sm font-bold" : "text-neutral-500 hover:text-black"
+            }`}
         >
           <Mic className="w-3.5 h-3.5" />
           <span>Voice Output (TTS)</span>
@@ -388,9 +390,8 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
         <button
           type="button"
           onClick={() => setActiveTab("tools")}
-          className={`flex-1 py-2.5 px-4 rounded-[8px] text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
-            activeTab === "tools" ? "bg-white text-black shadow-sm font-bold" : "text-neutral-500 hover:text-black"
-          }`}
+          className={`flex-1 py-2.5 px-4 rounded-[8px] text-xs font-semibold flex items-center justify-center gap-2 transition-all ${activeTab === "tools" ? "bg-white text-black shadow-sm font-bold" : "text-neutral-500 hover:text-black"
+            }`}
         >
           <Wrench className="w-3.5 h-3.5" />
           <span>Tools ({assignedToolIds.length})</span>
@@ -399,9 +400,8 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
         <button
           type="button"
           onClick={() => setActiveTab("advance")}
-          className={`flex-1 py-2.5 px-4 rounded-[8px] text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
-            activeTab === "advance" ? "bg-white text-black shadow-sm font-bold" : "text-neutral-500 hover:text-black"
-          }`}
+          className={`flex-1 py-2.5 px-4 rounded-[8px] text-xs font-semibold flex items-center justify-center gap-2 transition-all ${activeTab === "advance" ? "bg-white text-black shadow-sm font-bold" : "text-neutral-500 hover:text-black"
+            }`}
         >
           <Settings2 className="w-3.5 h-3.5" />
           <span>Advance Settings</span>
@@ -734,9 +734,8 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
                     <Button
                       type="button"
                       onClick={() => handleToggleTool(t.id)}
-                      className={`text-xs font-semibold px-4 py-1.5 rounded-full ${
-                        isAssigned ? "bg-black text-white hover:bg-neutral-800" : "bg-emerald-500 text-black hover:bg-emerald-400 font-bold"
-                      }`}
+                      className={`text-xs font-semibold px-4 py-1.5 rounded-full ${isAssigned ? "bg-black text-white hover:bg-neutral-800" : "bg-emerald-500 text-black hover:bg-emerald-400 font-bold"
+                        }`}
                     >
                       {isAssigned ? "Unassign Tool" : "Assign Tool"}
                     </Button>
@@ -748,7 +747,7 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
         </div>
       )}
 
-      {/* Advance Settings Tab */}
+      {/* Advance Settings Tab (1:1 Vomyra UI Parity) */}
       {activeTab === "advance" && (
         <div className="bg-white border border-hairline rounded-[14px] p-6 space-y-6 shadow-sm">
           <div>
@@ -756,44 +755,174 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
             <p className="text-xs text-neutral-500">Configure timeout, silence limits, filler words, and call termination messages.</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="eyebrow text-neutral-500">MAXIMUM DURATION (SECONDS)</Label>
-              <Input
-                type="number"
-                value={maximumDuration}
-                onChange={(e) => setMaximumDuration(parseInt(e.target.value) || 600)}
-                className="bg-surface-soft border border-hairline rounded-[10px] px-3 py-2 text-xs font-semibold text-black"
-              />
+          {/* 1. Wait Time Before Asking Again (Silence Timeout Slider) */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-xs font-bold text-black uppercase tracking-wider">Wait Time Before Asking Again</Label>
+                <p className="text-xs text-neutral-500">How long the system waits when the customer is silent before prompting them.</p>
+              </div>
+              <span className="font-mono text-xs font-bold text-black px-3 py-1 rounded bg-surface-soft border border-hairline">
+                {silenceTimeout} sec
+              </span>
             </div>
-
-            <div className="space-y-2">
-              <Label className="eyebrow text-neutral-500">SILENCE TIMEOUT (SECONDS)</Label>
-              <Input
-                type="number"
-                value={silenceTimeout}
-                onChange={(e) => setSilenceTimeout(parseInt(e.target.value) || 12)}
-                className="bg-surface-soft border border-hairline rounded-[10px] px-3 py-2 text-xs font-semibold text-black"
-              />
+            <input
+              type="range"
+              min="2"
+              max="60"
+              step="1"
+              value={silenceTimeout}
+              onChange={(e) => setSilenceTimeout(parseInt(e.target.value) || 12)}
+              className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+            />
+            <div className="flex justify-between text-[10px] font-mono text-neutral-400">
+              <span>2 (sec)</span>
+              <span>60 (sec)</span>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label className="eyebrow text-neutral-500">INACTIVITY MESSAGE</Label>
+          {/* 2. Max Call Length (Maximum Duration Slider) */}
+          <div className="space-y-2 pt-4 border-t border-hairline">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-xs font-bold text-black uppercase tracking-wider">Max Call Length</Label>
+                <p className="text-xs text-neutral-500">The longest time a call can last.</p>
+              </div>
+              <span className="font-mono text-xs font-bold text-black px-3 py-1 rounded bg-surface-soft border border-hairline">
+                {maximumDuration} sec
+              </span>
+            </div>
+            <input
+              type="range"
+              min="30"
+              max="3600"
+              step="30"
+              value={maximumDuration}
+              onChange={(e) => setMaximumDuration(parseInt(e.target.value) || 600)}
+              className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+            />
+            <div className="flex justify-between text-[10px] font-mono text-neutral-400">
+              <span>30 (sec)</span>
+              <span>3600 (sec)</span>
+            </div>
+          </div>
+
+          {/* 3. Prompt Message */}
+          <div className="space-y-1.5 pt-4 border-t border-hairline">
+            <Label className="text-xs font-bold text-black uppercase tracking-wider">Prompt Message</Label>
+            <p className="text-xs text-neutral-500">The message played to check if the customer is still there, e.g. "Are you there?"</p>
             <Input
               value={inactivityMessage}
               onChange={(e) => setInactivityMessage(e.target.value)}
-              className="bg-surface-soft border border-hairline rounded-[10px] px-3 py-2 text-xs font-semibold text-black"
+              placeholder="Are you still there?"
+              className="bg-surface-soft border border-hairline rounded-[10px] px-4 py-2.5 text-xs text-black font-semibold"
             />
           </div>
 
-          <div className="space-y-2">
-            <Label className="eyebrow text-neutral-500">TIMEOUT END MESSAGE</Label>
-            <Input
-              value={timeoutEndMessage}
-              onChange={(e) => setTimeoutEndMessage(e.target.value)}
-              className="bg-surface-soft border border-hairline rounded-[10px] px-3 py-2 text-xs font-semibold text-black"
-            />
+          {/* 4. Goodbye Message & Timeout Delay */}
+          <div className="space-y-3 pt-4 border-t border-hairline">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+              <div className="md:col-span-2 space-y-1.5">
+                <Label className="text-xs font-bold text-black uppercase tracking-wider">Goodbye Message</Label>
+                <p className="text-xs text-neutral-500">The final message before the call ends, e.g. "Thank you for calling. Goodbye!"</p>
+                <Input
+                  value={timeoutEndMessage}
+                  onChange={(e) => setTimeoutEndMessage(e.target.value)}
+                  placeholder="Thank you for calling. Goodbye!"
+                  className="bg-surface-soft border border-hairline rounded-[10px] px-4 py-2.5 text-xs text-black font-semibold"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-[11px] font-bold text-black uppercase">Timeout End Message Delay</Label>
+                  <span className="font-mono text-[11px] font-bold text-black px-2 py-0.5 rounded bg-surface-soft border border-hairline">
+                    {timeoutEndMessageDelay} sec
+                  </span>
+                </div>
+                <p className="text-[10px] text-neutral-400">Wait time after prompt before goodbye.</p>
+                <input
+                  type="range"
+                  min="5"
+                  max="300"
+                  step="5"
+                  value={timeoutEndMessageDelay}
+                  onChange={(e) => setTimeoutEndMessageDelay(parseInt(e.target.value) || 5)}
+                  className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-emerald-500 mt-1"
+                />
+                <div className="flex justify-between text-[9px] font-mono text-neutral-400">
+                  <span>5 sec</span>
+                  <span>300 sec</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 5. Instant Filler Words */}
+          <div className="space-y-3 pt-4 border-t border-hairline">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-xs font-bold text-black uppercase tracking-wider">Instant Filler Words</Label>
+                <p className="text-xs text-neutral-500">Play short acknowledgements (e.g., "hmm...", "okay...") while the assistant thinks.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-neutral-600">{fillerWordsEnabled ? "Enabled" : "Disabled"}</span>
+                <button
+                  type="button"
+                  onClick={() => setFillerWordsEnabled(!fillerWordsEnabled)}
+                  className={`w-11 h-6 rounded-full transition-colors relative p-0.5 ${fillerWordsEnabled ? 'bg-emerald-500' : 'bg-neutral-300'}`}
+                >
+                  <span className={`block w-5 h-5 rounded-full bg-white transition-transform ${fillerWordsEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                </button>
+              </div>
+            </div>
+
+            {fillerWordsEnabled && (
+              <div className="space-y-1.5">
+                <Textarea
+                  rows={3}
+                  value={fillerWords}
+                  onChange={(e) => setFillerWords(e.target.value)}
+                  placeholder="हाँ, ठीक है जी, ठीक है, बिलकुल, जी, हाँ जी, अच्छा जी, अच्छा, हाँ ठीक hai"
+                  className="bg-surface-soft border border-hairline rounded-[10px] p-3 text-xs text-black font-semibold leading-relaxed resize-y"
+                />
+                <p className="text-[11px] text-neutral-500">
+                  Separate phrases with commas or new lines. Defaults adapt to your transcription language.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* 6. Call Details Webhook */}
+          <div className="space-y-3 pt-4 border-t border-hairline">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-xs font-bold text-black uppercase tracking-wider">Call Details Webhook</Label>
+                <p className="text-xs text-neutral-500">Send call details to an external webhook after the call ends.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-neutral-600">{callDetailsWebhookEnabled ? "Enabled" : "Disabled"}</span>
+                <button
+                  type="button"
+                  onClick={() => setCallDetailsWebhookEnabled(!callDetailsWebhookEnabled)}
+                  className={`w-11 h-6 rounded-full transition-colors relative p-0.5 ${callDetailsWebhookEnabled ? 'bg-emerald-500' : 'bg-neutral-300'}`}
+                >
+                  <span className={`block w-5 h-5 rounded-full bg-white transition-transform ${callDetailsWebhookEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                </button>
+              </div>
+            </div>
+
+            {callDetailsWebhookEnabled && (
+              <div className="space-y-1.5">
+                <Input
+                  type="url"
+                  value={callDetailsWebhookUrl}
+                  onChange={(e) => setCallDetailsWebhookUrl(e.target.value)}
+                  placeholder="https://your-domain.com/api/webhook"
+                  className="bg-surface-soft border border-hairline rounded-[10px] px-4 py-2.5 text-xs text-black font-semibold"
+                />
+              </div>
+            )}
           </div>
         </div>
       )}
