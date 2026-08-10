@@ -54,35 +54,8 @@ interface ParsedRow {
   details: string;
 }
 
-const DEFAULT_SAMPLE_CAMPAIGNS: CampaignJob[] = [
-  {
-    id: "#JOB-9821a",
-    name: "Q3 Outbound Sales Outreach",
-    assistant_name: "Sales Prospector Bot",
-    total_contacts: 150,
-    completed_contacts: 142,
-    failed_contacts: 8,
-    status: "completed",
-    created_at: "Aug 08, 2026 09:30 AM",
-    completed_at: "Aug 08, 2026 10:15 AM"
-  },
-  {
-    id: "#JOB-4019b",
-    name: "Customer Feedback Voice Pulse",
-    assistant_name: "Support Pilot Pro",
-    total_contacts: 50,
-    completed_contacts: 38,
-    failed_contacts: 0,
-    status: "in_progress",
-    created_at: "Aug 08, 2026 10:45 AM",
-    completed_at: null
-  }
-];
-
 export function CampaignsClient({ initialCampaigns, assistants }: CampaignsClientProps) {
-  const [campaigns, setCampaigns] = React.useState<CampaignJob[]>(
-    initialCampaigns.length > 0 ? initialCampaigns : DEFAULT_SAMPLE_CAMPAIGNS
-  );
+  const [campaigns, setCampaigns] = React.useState<CampaignJob[]>(initialCampaigns);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
 
   // Modal States
@@ -292,6 +265,15 @@ export function CampaignsClient({ initialCampaigns, assistants }: CampaignsClien
                   </td>
                 </tr>
               ))}
+
+              {campaigns.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-neutral-500 bg-white">
+                    <p className="font-semibold text-black">No campaign jobs found</p>
+                    <p className="text-xs text-neutral-500 mt-1">Upload a lead CSV or Excel file to queue your first automated outbound calling campaign.</p>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
