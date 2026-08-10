@@ -4,15 +4,23 @@ export interface CreateAssistantInput {
 }
 
 export interface InitiateCallInput {
-  idempotency_key: string;
-  assistant: string;
-  to: string;
-  from: string;
+  customer_number: string | number;
+  customer_name: string;
+  assistant_id?: string;
+  assigned_number?: string | number;
+  customer_country_code?: string;
+  additional_data?: Record<string, any>;
+  idempotency_key?: string;
 }
 
 export interface ProviderCall {
   id: string;
   status: string;
+  assistant_number?: string;
+  customer_number?: string;
+  provider?: string;
+  additional_data?: any;
+  [key: string]: any;
 }
 
 export interface VoiceProvider {

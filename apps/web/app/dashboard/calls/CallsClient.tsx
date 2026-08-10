@@ -1,77 +1,32 @@
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
-import CallsClient from "./CallsClient";
+"use client";
 
-export const dynamic = "force-dynamic";
+import React, { useState } from "react";
+import { PhoneCall, Play, FileText, Download, Filter, Clock, Mic, CheckCircle2, AlertCircle, Plus } from "lucide-react";
+import AssistantTestModal from "@/components/AssistantTestModal";
 
-export default async function CallLogsPage() {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
+interface CallItem {
+  id: string;
+  assistant: string;
+  assistantId?: string;
+  number: string;
+  duration: string;
+  latency: string;
+  status: string;
+  cost: string;
+  time: string;
+  transcript: string;
+}
+
+interface CallsClientProps {
+  initialCalls: CallItem[];
+  assistants: Array<{ id: string; name: string }>;
+}
+
+export default function CallsClient({ initialCalls, assistants }: CallsClientProps) {
+  const [isTestModalOpen, setIsTestModalOpen] = useState(false);
+  const [selectedAssistant, setSelectedAssistant] = useState<{ id: string; name: string }>(
+    assistants[0] || { id: "ast_default", name: "Support Pilot Pro" }
   );
-
-  const adminClient = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-  );
-
-  let assistants: Array<{ id: string; name: string }> = [];
-
-  try {
-    const { data: dbAssistants } = await adminClient
-      .from("assistants")
-      .select("id, name")
-      .is("deleted_at", null)
-      .order("created_at", { ascending: false });
-
-    if (dbAssistants && dbAssistants.length > 0) {
-      assistants = dbAssistants.map((a: any) => ({ id: a.id, name: a.name }));
-    }
-  } catch (e) {
-    console.warn("Failed to fetch assistants for calls page:", e);
-  }
-
-  const sampleCalls = [
-    {
-      id: "call_9821a8f0",
-      assistant: assistants[0]?.name || "Support Pilot Pro",
-      assistantId: assistants[0]?.id,
-      number: "+1 (800) 459-2901",
-      duration: "2m 45s",
-      latency: "340ms",
-      status: "completed",
-      cost: "$0.08",
-      time: "10 mins ago",
-      transcript: "User: Hi, I want to reschedule my appointment. Agent: Sure! I can help you with that. What date works best for you?"
-    },
-    {
-      id: "call_7712b941",
-      assistant: assistants[1]?.name || "Sales Prospector",
-      assistantId: assistants[1]?.id,
-      number: "+91 98765 43210",
-      duration: "4m 12s",
-      latency: "380ms",
-      status: "completed",
-      cost: "$0.14",
-      time: "25 mins ago",
-      transcript: "User: Namaste, kya aap offer ke baare mein bata sakte ho? Agent: Namaste! Haan bilkul, humare pass Special Voice Automation plan hai."
-    },
-    {
-      id: "call_3321c109",
-      assistant: assistants[0]?.name || "Support Pilot Pro",
-      assistantId: assistants[0]?.id,
-      number: "+1 (888) 201-9922",
-      duration: "0m 48s",
-      latency: "310ms",
-      status: "completed",
-      cost: "$0.03",
-      time: "1 hour ago",
-      transcript: "User: Thanks for resolving my query quickly. Agent: You are welcome! Have a great day ahead."
-    }
-  ];
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -84,11 +39,18 @@ export default async function CallLogsPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <button className="btn-pill-secondary rounded-[10px] text-xs px-4 py-2">
+          <button
+            onClick={() => setIsTestModalOpen(true)}
+            className="btn-pill-primary rounded-[10px] text-xs px-4 py-2 shadow-sm flex items-center gap-2 hover:scale-[1.02] transition-transform"
+          >
+            <PhoneCall className="w-3.5 h-3.5" />
+            Quick Test Call
+          </button>
+          <button className="btn-pill-secondary rounded-[10px] text-xs px-4 py-2 flex items-center gap-1.5">
             <Filter className="w-3.5 h-3.5" />
             Filter Calls
           </button>
-          <button className="btn-pill-secondary rounded-[10px] text-xs px-4 py-2">
+          <button className="btn-pill-secondary rounded-[10px] text-xs px-4 py-2 flex items-center gap-1.5">
             <Download className="w-3.5 h-3.5" />
             Export CSV
           </button>
@@ -96,7 +58,7 @@ export default async function CallLogsPage() {
       </div>
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-block-lime rounded-[14px] p-5 text-black border border-black/5">
           <p className="eyebrow text-black/70">TOTAL DISPATCHED</p>
           <p className="text-3xl font-bold mt-2">1,248 Calls</p>
@@ -118,15 +80,15 @@ export default async function CallLogsPage() {
 
       {/* Calls Table */}
       <div className="bg-white border border-hairline rounded-[14px] overflow-hidden shadow-sm">
-        <div className="p-4 sm:p-5 border-b border-hairline flex items-center justify-between bg-surface-soft/40">
+        <div className="p-5 border-b border-hairline flex items-center justify-between bg-surface-soft/40">
           <h2 className="text-base font-bold text-black">Recent Voice Conversations</h2>
           <span className="eyebrow text-neutral-500 bg-white px-3 py-1 rounded-full border border-hairline text-[10px]">
-            {sampleCalls.length} RECENT CALLS
+            {initialCalls.length} RECENT CALLS
           </span>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[750px]">
+          <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-hairline bg-surface-soft text-black/70">
                 <th className="py-3 px-5 eyebrow text-[11px]">CALL ID</th>
@@ -139,7 +101,7 @@ export default async function CallLogsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-hairline text-xs">
-              {sampleCalls.map((c) => (
+              {initialCalls.map((c) => (
                 <tr key={c.id} className="hover:bg-surface-soft/60 transition-colors">
                   <td className="py-3.5 px-5 font-mono text-neutral-600 font-semibold">{c.id}</td>
                   <td className="py-3.5 px-5 font-bold text-black">{c.assistant}</td>
@@ -159,6 +121,18 @@ export default async function CallLogsPage() {
           </table>
         </div>
       </div>
+
+      {/* Test Call Modal */}
+      {selectedAssistant && (
+        <AssistantTestModal
+          isOpen={isTestModalOpen}
+          onClose={() => setIsTestModalOpen(false)}
+          assistant={{
+            id: selectedAssistant.id,
+            name: selectedAssistant.name
+          }}
+        />
+      )}
     </div>
   );
 }
