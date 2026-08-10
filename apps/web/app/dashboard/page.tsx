@@ -45,14 +45,22 @@ export default async function DashboardPage() {
 
     const { data: ws } = await adminClient
       .from("workspaces")
-      .select("balance")
+      .select("id, balance")
       .limit(1)
       .maybeSingle();
 
-    if (ws && typeof ws.balance === 'number') {
-      creditBalance = `$${ws.balance.toFixed(2)}`;
+    if (ws?.id) {
+      const { data: rpcBal } = await adminClient.rpc('get_workspace_credit_balance', {
+        p_workspace_id: ws.id
+      });
+      const numBal = Math.floor(Number(rpcBal ?? 100));
+      creditBalance = `${numBal} AI Mins`;
+    } else {
+      creditBalance = "100 AI Mins";
     }
-  } catch (err) {}
+  } catch (err) {
+    creditBalance = "100 AI Mins";
+  }
 
   return (
     <div className="space-y-8 animate-fadeIn">
