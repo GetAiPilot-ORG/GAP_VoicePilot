@@ -128,7 +128,7 @@ export default async function AssistantsPage() {
           </span>
         </div>
 
-        <div className="overflow-x-auto min-h-[220px]">
+        <div className="overflow-visible min-h-[280px]">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-hairline bg-surface-soft text-black/70">
@@ -146,8 +146,11 @@ export default async function AssistantsPage() {
                 return (
                   <tr key={ast.id} className="hover:bg-surface-soft/60 transition-colors group">
                     <td className="py-4 px-6 font-semibold text-black">
-                      <Link href={`/dashboard/assistants/${ast.id}`} className="hover:underline flex items-center gap-2 group-hover:text-black">
-                        {ast.name}
+                      <Link href={`/dashboard/assistants/${ast.id}`} className="hover:underline flex items-center gap-2.5 group-hover:text-black">
+                        <div className="w-8 h-8 rounded-full border border-hairline overflow-hidden shadow-sm shrink-0 bg-surface-soft">
+                          <video src="/assets/ai-agent-avatar.webm" autoPlay loop muted playsInline className="w-full h-full object-cover" />
+                        </div>
+                        <span>{ast.name}</span>
                         <ArrowUpRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </Link>
                     </td>
