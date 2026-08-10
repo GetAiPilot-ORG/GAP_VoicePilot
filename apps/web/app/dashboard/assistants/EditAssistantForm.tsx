@@ -10,7 +10,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { VOMYRA_CATALOG, VoiceOption } from "@/lib/catalog";
 import { updateAssistantAction, toggleAssistantToolAction, generatePromptAction } from "@/app/actions/assistants";
 import { Play, Pause, Volume2, Check, Wrench, Sparkles, PhoneCall, Wand2, X, Plus, Trash2, Bot, Cpu, Mic, Settings2 } from "lucide-react";
-import AssistantTestModal from "@/components/AssistantTestModal";
 
 interface EditAssistantFormProps {
   assistant: {
@@ -1182,8 +1181,8 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
 
       {/* Assistant Voice & Phone Test Modal */}
       <AssistantTestModal
-        isOpen={isTestCallModalOpen}
-        onClose={() => setIsTestCallModalOpen(false)}
+        isOpen={isTestModalOpen}
+        onClose={() => setIsTestModalOpen(false)}
         assistant={{
           id: assistant.id,
           name: name,
