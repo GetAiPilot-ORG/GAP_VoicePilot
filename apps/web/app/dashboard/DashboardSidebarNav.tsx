@@ -28,10 +28,6 @@ export default function DashboardSidebarNav() {
     { name: "Plans & Billing", href: "/dashboard/billing", icon: CreditCard },
   ];
 
-  const settingsNav = [
-    { name: "API & Webhooks", href: "/dashboard/settings", icon: Settings },
-  ];
-
   return (
     <div className="space-y-6">
       {/* Main Section */}
@@ -42,31 +38,6 @@ export default function DashboardSidebarNav() {
         {mainNav.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              className={`flex items-center gap-3 px-3 py-2 rounded-[10px] text-xs font-medium transition-all ${
-                isActive
-                  ? "bg-black text-white shadow-sm font-semibold"
-                  : "text-neutral-600 hover:text-black hover:bg-surface-soft"
-              }`}
-            >
-              <Icon className={`w-4 h-4 ${isActive ? "text-block-lime" : "text-neutral-500"}`} />
-              <span>{item.name}</span>
-            </Link>
-          );
-        })}
-      </div>
-
-      {/* Developer Section */}
-      <div className="space-y-1">
-        <p className="px-3 eyebrow text-[10px] text-neutral-400 font-mono tracking-wider mb-2">
-          DEVELOPER & CONFIG
-        </p>
-        {settingsNav.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href;
           return (
             <Link
               key={item.name}

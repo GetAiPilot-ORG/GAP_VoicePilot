@@ -107,3 +107,13 @@
     border-radius: 14px !important;
   }
 }
+
+/* Hide Next.js Dev Indicators & Dev Overlays */
+nextjs-portal,
+[data-nextjs-toast],
+[data-nextjs-dialog-overlay],
+#next-logo-container,
+div[class*="nextjs-portal"] {
+  display: none !important;
+}
+

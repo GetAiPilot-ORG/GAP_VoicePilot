@@ -39,12 +39,31 @@ export default function BillingClient({ initialData }: BillingClientProps) {
   const [loadingPlanId, setLoadingPlanId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Load Razorpay Script dynamically on mount
+  const [userProfile, setUserProfile] = useState<{ email: string; name: string }>({
+    email: "",
+    name: "Customer"
+  });
+
+  // Load Razorpay Script & Auth User dynamically on mount
   useEffect(() => {
     const script = document.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.async = true;
     document.body.appendChild(script);
+
+    const fetchUser = async () => {
+      try {
+        const { createClient } = await import("@/utils/supabase/client");
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const email = user.email || "";
+          const name = user.user_metadata?.full_name || user.user_metadata?.name || email.split("@")[0] || "Customer";
+          setUserProfile({ email, name });
+        }
+      } catch (e) {}
+    };
+    fetchUser();
   }, []);
 
   const hasActiveSub = data.subscription && data.subscription.status === 'active';
@@ -173,9 +192,9 @@ export default function BillingClient({ initialData }: BillingClientProps) {
           }
         },
         prefill: {
-          name: 'Voice Admin',
-          email: 'admin@gapvoice.ai',
-          contact: '9999999999'
+          name: userProfile.name,
+          email: userProfile.email,
+          contact: ''
         },
         theme: {
           color: '#7c3aed'
@@ -245,9 +264,9 @@ export default function BillingClient({ initialData }: BillingClientProps) {
           }
         },
         prefill: {
-          name: 'Voice Admin',
-          email: 'admin@gapvoice.ai',
-          contact: '9999999999'
+          name: userProfile.name,
+          email: userProfile.email,
+          contact: ''
         },
         theme: {
           color: '#7c3aed'
@@ -260,7 +279,7 @@ export default function BillingClient({ initialData }: BillingClientProps) {
   };
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-16">
+    <div className="space-y-8 w-full pb-16">
       {/* Top Section Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-hairline">
         <div>
@@ -311,7 +330,7 @@ export default function BillingClient({ initialData }: BillingClientProps) {
       )}
 
       {/* Purple Pricing Section */}
-      <div className="bg-[#c2b6f4] rounded-3xl p-6 md:p-12 text-black shadow-xl">
+      <div className="bg-[#c2b6f4] rounded-3xl p-4 sm:p-8 md:p-12 text-black shadow-xl">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
           <div>
             <p className="text-[11px] font-mono uppercase tracking-widest text-purple-950 font-extrabold mb-3">
@@ -360,7 +379,7 @@ export default function BillingClient({ initialData }: BillingClientProps) {
                     </div>
                   </div>
 
-                  <div className={`h-[1px] w-full mb-6 ${isDark ? "bg-neutral-800" : "bg-neutral-200"}`} />
+                  <hr className={`my-4 ${isDark ? "border-neutral-800" : "border-hairline"}`} />
 
                   {/* Feature Checklist */}
                   <div className="space-y-3 mb-8">
@@ -422,7 +441,7 @@ export default function BillingClient({ initialData }: BillingClientProps) {
 
         <div className="bg-white border border-hairline rounded-2xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs min-w-[550px]">
               <thead className="bg-surface-soft text-neutral-600 border-b border-hairline font-semibold uppercase tracking-wider">
                 <tr>
                   <th className="p-3.5">Date & Time</th>

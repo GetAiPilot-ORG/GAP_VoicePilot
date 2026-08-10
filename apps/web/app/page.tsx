@@ -1,3 +1,6 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { 
@@ -18,22 +21,40 @@ import {
   Cpu,
   Layers,
   Sliders,
-  Check
+  Check,
+  Menu,
+  X,
+  LogOut
 } from "lucide-react";
 
 export default function HomePage() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const checkUser = async () => {
+      try {
+        const { createClient } = await import("@/utils/supabase/client");
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        setUser(user);
+      } catch (e) {}
+    };
+    checkUser();
+  }, []);
+
   return (
     <div className="min-h-screen bg-white text-black font-sans selection:bg-block-lime selection:text-black">
-      {/* Public Navbar (accessible without login) */}
+      {/* Public Navbar */}
       <header className="sticky top-0 z-50 w-full h-[64px] border-b border-hairline bg-white/90 backdrop-blur-md">
-        <div className="max-w-[1340px] mx-auto px-6 h-full flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3 group cursor-pointer" title="GAP VoicePilot Home">
-            <div className="w-10 h-10 rounded-[10px] overflow-hidden shrink-0 group-hover:scale-105 transition-transform">
+        <div className="max-w-[1340px] mx-auto px-4 sm:px-6 h-full flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2.5 sm:gap-3 group cursor-pointer" title="GAP VoicePilot Home">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-[10px] overflow-hidden shrink-0 group-hover:scale-105 transition-transform">
               <Image src="/logo.png" alt="GAP VoicePilot Logo" width={40} height={40} className="w-full h-full object-cover" />
             </div>
             <div className="flex flex-col leading-none justify-center">
-              <span className="font-bold text-lg tracking-tight text-black">GAP</span>
-              <span className="text-[11px] font-mono tracking-widest text-neutral-400 font-semibold uppercase mt-[2px]">VOICEPILOT</span>
+              <span className="font-bold text-base sm:text-lg tracking-tight text-black">GAP</span>
+              <span className="text-[9px] sm:text-[11px] font-mono tracking-widest text-neutral-400 font-semibold uppercase mt-[1px]">VOICEPILOT</span>
             </div>
           </Link>
 
@@ -52,45 +73,160 @@ export default function HomePage() {
             </a>
           </nav>
 
-          <div className="flex items-center gap-3">
-            <Link href="/login" className="btn-pill-secondary rounded-[10px] text-xs px-4 py-2">
-              Sign In
-            </Link>
-            <Link href="/dashboard" className="btn-pill-primary rounded-[10px] text-xs px-5 py-2 shadow-sm hover:scale-[1.02] transition-transform">
-              Launch Dashboard
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+          <div className="hidden sm:flex items-center gap-3">
+            {user ? (
+              <>
+                <span className="text-xs font-semibold text-neutral-700 max-w-[180px] truncate" title={user.email}>
+                  {user.user_metadata?.full_name || user.user_metadata?.name || (user.email ? user.email.split("@")[0] : "User")}
+                </span>
+                <Link href="/dashboard" className="btn-pill-primary rounded-[10px] text-xs px-5 py-2 shadow-sm hover:scale-[1.02] transition-transform">
+                  Go to Dashboard
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+                <button 
+                  onClick={async () => {
+                    const { signOut } = await import("@/app/actions/auth");
+                    await signOut();
+                  }}
+                  className="p-2 rounded-[10px] text-neutral-500 hover:text-red-600 hover:bg-surface-soft border border-hairline transition-colors"
+                  title="Sign Out"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </>
+            ) : (
+              <>
+                <Link href="/login" className="btn-pill-secondary rounded-[10px] text-xs px-4 py-2">
+                  Sign In
+                </Link>
+                <Link href="/dashboard" className="btn-pill-primary rounded-[10px] text-xs px-5 py-2 shadow-sm hover:scale-[1.02] transition-transform">
+                  Launch Dashboard
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </>
+            )}
           </div>
+
+          {/* Mobile Hamburger Menu Button */}
+          <button 
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden p-2 rounded-[10px] text-neutral-700 hover:text-black hover:bg-surface-soft border border-hairline transition-colors"
+            aria-label="Toggle navigation menu"
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
         </div>
+
+        {/* Mobile Navigation Drawer */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-b border-hairline bg-white px-4 py-5 space-y-4 animate-in slide-in-from-top-2 duration-200">
+            <nav className="flex flex-col space-y-2">
+              <a 
+                href="#features" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-3 py-2 rounded-[8px] text-sm font-medium text-neutral-800 hover:bg-surface-soft transition-colors"
+              >
+                Capabilities
+              </a>
+              <a 
+                href="#engine" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-3 py-2 rounded-[8px] text-sm font-medium text-neutral-800 hover:bg-surface-soft transition-colors"
+              >
+                Voice Engine
+              </a>
+              <a 
+                href="#pricing" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-3 py-2 rounded-[8px] text-sm font-medium text-neutral-800 hover:bg-surface-soft transition-colors"
+              >
+                Pricing
+              </a>
+              <a 
+                href="#faq" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-3 py-2 rounded-[8px] text-sm font-medium text-neutral-800 hover:bg-surface-soft transition-colors"
+              >
+                FAQ
+              </a>
+            </nav>
+            <div className="pt-2 border-t border-hairline flex flex-col gap-2.5">
+              {user ? (
+                <>
+                  <p className="text-xs text-neutral-500 font-semibold px-1 truncate">
+                    {user.user_metadata?.full_name || user.user_metadata?.name || (user.email ? user.email.split("@")[0] : "User")}
+                  </p>
+                  <Link 
+                    href="/dashboard" 
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="btn-pill-primary rounded-[10px] text-xs w-full justify-center py-2.5"
+                  >
+                    Go to Dashboard
+                    <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                  </Link>
+                  <button 
+                    onClick={async () => {
+                      setMobileMenuOpen(false);
+                      const { signOut } = await import("@/app/actions/auth");
+                      await signOut();
+                    }}
+                    className="btn-pill-secondary rounded-[10px] text-xs w-full justify-center py-2.5 text-red-600 border-red-200"
+                  >
+                    Sign Out
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link 
+                    href="/login" 
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="btn-pill-secondary rounded-[10px] text-xs w-full justify-center py-2.5"
+                  >
+                    Sign In
+                  </Link>
+                  <Link 
+                    href="/dashboard" 
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="btn-pill-primary rounded-[10px] text-xs w-full justify-center py-2.5"
+                  >
+                    Launch Dashboard
+                    <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                  </Link>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </header>
 
       {/* Hero Section */}
-      <section className="max-w-[1340px] mx-auto px-6 pt-16 pb-20 md:pt-24 md:pb-28">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          <div className="lg:col-span-7 space-y-6">
+      <section className="max-w-[1340px] mx-auto px-4 sm:px-6 pt-10 pb-16 md:pt-24 md:pb-28">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+          <div className="lg:col-span-7 space-y-5 sm:space-y-6">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-soft border border-hairline">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="eyebrow text-neutral-800">// REAL-TIME VOICE AI PLATFORM</span>
+              <span className="eyebrow text-neutral-800 text-[9px] sm:text-[11px]">// REAL-TIME VOICE AI PLATFORM</span>
             </div>
 
-            <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-black leading-[1.05]">
+            <h1 className="text-3xl sm:text-5xl md:text-7xl font-bold tracking-tight text-black leading-[1.1]">
               Autonomous Voice Agents with <span className="underline decoration-block-lime decoration-wavy decoration-2">Sub-400ms</span> Latency.
             </h1>
 
-            <p className="text-xl text-neutral-600 max-w-2xl font-normal leading-relaxed">
+            <p className="text-base sm:text-xl text-neutral-600 max-w-2xl font-normal leading-relaxed">
               GAP VoicePilot powers human-like conversational AI for outbound sales, automated customer support, and instant telephony dispatch across global phone networks.
             </p>
 
-            <div className="flex flex-wrap items-center gap-4 pt-4">
-              <Link href="/dashboard" className="btn-pill-primary rounded-[10px] text-base px-7 py-3 shadow-lg hover:scale-[1.02] transition-transform">
-                Start Free Trial
-                <ArrowRight className="w-4 h-4 ml-1" />
+            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3.5 pt-2 sm:pt-4">
+              <Link href="/dashboard" className="btn-pill-primary rounded-[10px] text-sm sm:text-base px-7 py-3 text-center shadow-lg hover:scale-[1.02] transition-transform">
+                {user ? "Go to Dashboard" : "Start Free Trial"}
+                <ArrowRight className="w-4 h-4 ml-1 inline-block" />
               </Link>
 
-              <Link href="/dashboard/assistants" className="btn-pill-secondary rounded-[10px] text-base px-6 py-3">
+              <Link href="/dashboard/assistants" className="btn-pill-secondary rounded-[10px] text-sm sm:text-base px-6 py-3 text-center">
                 Explore Voice Assistants
               </Link>
             </div>
+
 
             {/* Badges strip */}
             <div className="pt-8 flex flex-wrap items-center gap-6 text-xs font-medium text-neutral-500 border-t border-hairline mt-8">
@@ -393,7 +529,7 @@ export default function HomePage() {
             <Link href="/dashboard" className="hover:text-black transition-colors">Dashboard</Link>
             <Link href="/dashboard/assistants" className="hover:text-black transition-colors">Assistants</Link>
             <Link href="/dashboard/calls" className="hover:text-black transition-colors">Call Logs</Link>
-            <Link href="/dashboard/settings" className="hover:text-black transition-colors">API Docs</Link>
+            <Link href="/dashboard/billing" className="hover:text-black transition-colors">Plans & Billing</Link>
           </div>
           <p>© 2026 GAP VoicePilot Platform. All rights reserved.</p>
         </div>

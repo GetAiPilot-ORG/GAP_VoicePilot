@@ -119,18 +119,18 @@ export function PhoneNumbersClient({
       if (res.fetchedNumbersCount && res.fetchedNumbersCount > 0) {
         setToastMessage({
           type: 'success',
-          text: `Fetched & saved ${res.fetchedNumbersCount} phone number(s) from Vomyra API to Supabase!`
+          text: `Fetched & saved ${res.fetchedNumbersCount} phone number(s) to Supabase!`
         });
       } else {
         setToastMessage({
           type: 'info',
-          text: "No assigned phone numbers found in your Vomyra API account."
+          text: "No assigned phone numbers found in your Telephony account."
         });
       }
     } catch (e: any) {
       setToastMessage({
         type: 'error',
-        text: "Failed to fetch from Vomyra API: " + e.message
+        text: "Failed to fetch phone numbers: " + e.message
       });
     } finally {
       setIsFetching(false);
@@ -214,26 +214,26 @@ export function PhoneNumbersClient({
         </div>
 
         {/* Balance & API Fetch Button */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
           <button
             disabled={isFetching}
             onClick={handleFetchVomyraNumbers}
             className="btn-pill-primary rounded-[10px] text-xs px-3.5 py-2 shadow-sm flex items-center gap-2"
           >
             <Download className={`w-3.5 h-3.5 ${isFetching ? "animate-bounce" : ""}`} />
-            {isFetching ? "Fetching Vomyra..." : "Fetch Vomyra Numbers"}
+            {isFetching ? "Syncing..." : "Sync Telephony Numbers"}
           </button>
 
           <div className="flex items-center gap-2 bg-block-cream border border-black/10 px-3.5 py-2 rounded-[10px] text-xs">
             <Wallet className="h-4 w-4 text-black" />
-            <span className="text-neutral-600 font-medium">AI Calling Balance:</span>
+            <span className="text-neutral-600 font-medium hidden sm:inline">AI Calling Balance:</span>
             <span className="font-bold text-black font-mono">{Math.floor(balance)} Mins</span>
           </div>
         </div>
       </div>
 
       {/* Navigation Sub-Tabs */}
-      <div className="flex items-center gap-2 border-b border-hairline pb-2">
+      <div className="flex flex-wrap items-center gap-2 border-b border-hairline pb-2">
         <button
           onClick={() => setActiveTab("my-numbers")}
           className={`flex items-center gap-2 px-4 py-2 rounded-[10px] text-xs font-bold transition-all ${
@@ -255,7 +255,7 @@ export function PhoneNumbersClient({
           }`}
         >
           <ShoppingBag className="h-3.5 w-3.5" />
-          <span>Buy / Available Numbers ({availableNumbers.length})</span>
+          <span>Available Marketplace ({availableNumbers.length})</span>
         </button>
       </div>
 
@@ -263,7 +263,7 @@ export function PhoneNumbersClient({
       {activeTab === "my-numbers" && (
         <div className="space-y-6">
           {/* Status Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="p-4 rounded-[10px] bg-block-lime/30 border border-hairline flex flex-col justify-between">
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-black/60">Purchased Numbers</span>
               <span className="text-3xl font-extrabold text-black mt-2">{totalMyNumbers}</span>
@@ -281,18 +281,18 @@ export function PhoneNumbersClient({
           {/* Numbers Table */}
           <div className="bg-white border border-hairline rounded-[10px] overflow-hidden shadow-sm">
             {myNumbers.length === 0 ? (
-              <div className="p-12 text-center space-y-3">
+              <div className="p-8 sm:p-12 text-center space-y-3">
                 <Phone className="w-8 h-8 text-neutral-300 mx-auto" />
                 <p className="text-xs font-semibold text-neutral-700">No phone numbers assigned to your workspace yet.</p>
-                <p className="text-[11px] text-neutral-500">Click "Fetch Vomyra Numbers" to query Vomyra API, or browse available marketplace numbers below.</p>
-                <div className="flex items-center justify-center gap-3 pt-2">
+                <p className="text-[11px] text-neutral-500">Click "Sync Telephony Numbers" to query your gateway, or browse available marketplace numbers below.</p>
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                   <button
                     disabled={isFetching}
                     onClick={handleFetchVomyraNumbers}
                     className="btn-pill-primary text-xs px-4 py-2 inline-flex items-center gap-2"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    {isFetching ? "Fetching API..." : "Fetch Vomyra Numbers"}
+                    {isFetching ? "Syncing API..." : "Sync Telephony Numbers"}
                   </button>
                   <button
                     onClick={() => setActiveTab("buy-numbers")}
@@ -305,7 +305,7 @@ export function PhoneNumbersClient({
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
+                <table className="w-full text-left text-xs min-w-[650px]">
                   <thead className="bg-surface-soft text-neutral-500 uppercase tracking-wider font-mono font-semibold border-b border-hairline">
                     <tr>
                       <th className="p-4">Phone Number</th>

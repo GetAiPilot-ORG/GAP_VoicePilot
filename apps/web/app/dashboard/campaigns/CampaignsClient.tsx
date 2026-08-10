@@ -55,35 +55,8 @@ interface ParsedRow {
   details: string;
 }
 
-const DEFAULT_SAMPLE_CAMPAIGNS: CampaignJob[] = [
-  {
-    id: "#JOB-9821a",
-    name: "Q3 Outbound Sales Outreach",
-    assistant_name: "Sales Prospector Bot",
-    total_contacts: 150,
-    completed_contacts: 142,
-    failed_contacts: 8,
-    status: "completed",
-    created_at: "Aug 08, 2026 09:30 AM",
-    completed_at: "Aug 08, 2026 10:15 AM"
-  },
-  {
-    id: "#JOB-4019b",
-    name: "Customer Feedback Voice Pulse",
-    assistant_name: "Support Pilot Pro",
-    total_contacts: 50,
-    completed_contacts: 38,
-    failed_contacts: 0,
-    status: "in_progress",
-    created_at: "Aug 08, 2026 10:45 AM",
-    completed_at: null
-  }
-];
-
 export function CampaignsClient({ initialCampaigns, assistants }: CampaignsClientProps) {
-  const [campaigns, setCampaigns] = React.useState<CampaignJob[]>(
-    initialCampaigns.length > 0 ? initialCampaigns : DEFAULT_SAMPLE_CAMPAIGNS
-  );
+  const [campaigns, setCampaigns] = React.useState<CampaignJob[]>(initialCampaigns);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
 
   // Modal States
@@ -363,7 +336,7 @@ function normalizeFollowUpDate(raw: any): string {
           <p className="text-sm text-neutral-600">Monitor and manage high-concurrency bulk AI call jobs.</p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
           <button
             onClick={handleRefresh}
             title="Refresh jobs"
@@ -374,10 +347,11 @@ function normalizeFollowUpDate(raw: any): string {
 
           <button
             onClick={handleDownloadTemplate}
-            className="btn-pill-secondary rounded-[10px] text-xs px-4 py-2.5"
+            className="btn-pill-secondary rounded-[10px] text-xs px-3.5 sm:px-4 py-2.5"
           >
             <Download className="h-3.5 w-3.5" />
-            Download CSV Template
+            <span className="hidden sm:inline">Download CSV Template</span>
+            <span className="sm:hidden">CSV Template</span>
           </button>
 
           <button
@@ -385,7 +359,7 @@ function normalizeFollowUpDate(raw: any): string {
               setIsUploadModalOpen(true);
               setModalStep("upload");
             }}
-            className="btn-pill-primary rounded-[10px] text-xs px-5 py-2.5 shadow-sm"
+            className="btn-pill-primary rounded-[10px] text-xs px-4 sm:px-5 py-2.5 shadow-sm"
           >
             <Plus className="h-3.5 w-3.5" />
             Add New Job
@@ -413,7 +387,7 @@ function normalizeFollowUpDate(raw: any): string {
 
       {/* Jobs Table */}
       <div className="bg-white border border-hairline rounded-[14px] overflow-hidden shadow-sm">
-        <div className="p-5 border-b border-hairline flex items-center justify-between bg-surface-soft/40">
+        <div className="p-4 sm:p-5 border-b border-hairline flex items-center justify-between bg-surface-soft/40">
           <h2 className="text-base font-bold text-black">Active & Historic Jobs</h2>
           <span className="eyebrow text-neutral-500 bg-white px-3 py-1 rounded-full border border-hairline text-[10px]">
             {totalJobs} JOBS
@@ -421,7 +395,7 @@ function normalizeFollowUpDate(raw: any): string {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse min-w-[600px]">
             <thead>
               <tr className="border-b border-hairline bg-surface-soft text-black/70">
                 <th className="py-3.5 px-6 eyebrow text-[11px]">JOB ID</th>
@@ -469,6 +443,15 @@ function normalizeFollowUpDate(raw: any): string {
                   </td>
                 </tr>
               ))}
+
+              {campaigns.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-neutral-500 bg-white">
+                    <p className="font-semibold text-black">No campaign jobs found</p>
+                    <p className="text-xs text-neutral-500 mt-1">Upload a lead CSV or Excel file to queue your first automated outbound calling campaign.</p>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
