@@ -29,22 +29,7 @@ async function getOrCreateWorkspace(supabase: any, user: any): Promise<string> {
     }, { onConflict: 'id' });
   } catch (e) {}
 
-  const { data: anyWs } = await adminClient
-    .from('workspaces')
-    .select('id')
-    .limit(1)
-    .maybeSingle();
-
-  if (anyWs?.id) {
-    try {
-      await adminClient.from('workspace_members').upsert({
-        workspace_id: anyWs.id,
-        user_id: user.id,
-        role: 'owner'
-      }, { onConflict: 'workspace_id,user_id' });
-    } catch (e) {}
-    return anyWs.id;
-  }
+  // Fallback removed to prevent assigning users to random workspaces
 
   try {
     const { data: newWs } = await adminClient

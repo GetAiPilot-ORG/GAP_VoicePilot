@@ -268,26 +268,40 @@ export function PhoneNumbersClient({
           <div className="bg-white border border-hairline rounded-[10px] overflow-hidden shadow-sm">
             {myNumbers.length === 0 ? (
               <div className="p-8 sm:p-12 text-center space-y-3">
-                <Phone className="w-8 h-8 text-neutral-300 mx-auto" />
-                <p className="text-xs font-semibold text-neutral-700">No phone numbers assigned to your workspace yet.</p>
-                <p className="text-[11px] text-neutral-500">Click "Sync Telephony Numbers" to query your gateway, or browse available marketplace numbers below.</p>
-                <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-                  <button
-                    disabled={isFetching}
-                    onClick={handleFetchVomyraNumbers}
-                    className="btn-pill-primary text-xs px-4 py-2 inline-flex items-center gap-2"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    {isFetching ? "Syncing API..." : "Sync Telephony Numbers"}
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("buy-numbers")}
-                    className="btn-pill-secondary text-xs px-4 py-2 inline-flex items-center gap-1.5"
-                  >
-                    Browse Available Numbers
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                {(!kycStatus || kycStatus.status !== 'approved') ? (
+                  <>
+                    <ShieldCheck className="w-8 h-8 text-neutral-300 mx-auto" />
+                    <p className="text-xs font-semibold text-neutral-700">Identity verification required</p>
+                    <p className="text-[11px] text-neutral-500 max-w-md mx-auto">
+                      You must verify your business identity (KYC) before you can purchase or assign phone numbers to your workspace.
+                    </p>
+                    <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                      <button
+                        onClick={() => setActiveTab("buy-numbers")}
+                        className="btn-pill-primary bg-black hover:bg-neutral-800 text-white text-xs px-5 py-2.5 inline-flex items-center gap-2 rounded-[10px] shadow-sm"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        Verify KYC Now
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <Phone className="w-8 h-8 text-neutral-300 mx-auto" />
+                    <p className="text-xs font-semibold text-neutral-700">No phone numbers assigned to your workspace yet.</p>
+                    <p className="text-[11px] text-neutral-500">Click "Sync Telephony Numbers" to query your gateway, or request numbers via the KYC tab.</p>
+                    <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                      <button
+                        disabled={isFetching}
+                        onClick={handleFetchVomyraNumbers}
+                        className="btn-pill-primary text-xs px-4 py-2 inline-flex items-center gap-2"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        {isFetching ? "Syncing API..." : "Sync Telephony Numbers"}
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             ) : (
               <div className="overflow-x-auto">

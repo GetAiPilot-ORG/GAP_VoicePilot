@@ -5,6 +5,23 @@ import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 
+async function verifyAdmin() {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
+  );
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+  
+  const adminEmails = (process.env.ADMIN_EMAILS || "priyanshgour817@gmail.com").split(",").map(e => e.trim().toLowerCase());
+  const userEmail = user.email?.toLowerCase() || "";
+  if (!adminEmails.includes(userEmail)) {
+    throw new Error("Unauthorized: Admins only");
+  }
+}
+
 async function getAdminClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,17 +56,30 @@ async function getWorkspaceId(): Promise<string> {
       .from('workspace_members')
       .select('workspace_id')
       .eq('user_id', user.id)
+      .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle();
 
     if (member?.workspace_id) return member.workspace_id;
   }
 
-  const { data: anyWs } = await adminClient.from('workspaces').select('id').limit(1).maybeSingle();
-  if (anyWs?.id) return anyWs.id;
+  const { data: newWs } = await adminClient.from('workspaces').insert({ 
+    name: `${user?.email?.split('@')[0] || 'Default'}'s Workspace`, 
+    owner_id: user?.id || '00000000-0000-0000-0000-000000000000',
+    status: 'active'
+  }).select('id').single();
 
-  const { data: newWs } = await adminClient.from('workspaces').insert({ name: 'Default Workspace', owner_id: user?.id || '00000000-0000-0000-0000-000000000000' }).select().single();
-  return newWs.id;
+  if (newWs?.id && user?.id) {
+    try {
+      await adminClient.from('workspace_members').insert({
+        workspace_id: newWs.id,
+        user_id: user.id,
+        role: 'owner'
+      });
+    } catch (e) {}
+    return newWs.id;
+  }
+  return newWs?.id || '';
 }
 
 export async function getWorkspaceKycStatus() {
@@ -125,9 +155,9 @@ export async function submitKycRequest(formData: FormData) {
 }
 
 export async function getAdminKycRequests() {
+  await verifyAdmin();
   const adminClient = await getAdminClient();
   
-  // In a real app, you would verify if the user is an admin here!
   // We'll fetch all requests with workspace info
   const { data, error } = await adminClient
     .from("kyc_requests")
@@ -142,6 +172,7 @@ export async function getAdminKycRequests() {
 }
 
 export async function approveKycAndAssignNumber(kycId: string, workspaceId: string, phoneNumber: string) {
+  await verifyAdmin();
   const adminClient = await getAdminClient();
 
   if (!phoneNumber) return { success: false, error: "Phone number is required." };
@@ -181,6 +212,7 @@ export async function approveKycAndAssignNumber(kycId: string, workspaceId: stri
 }
 
 export async function getAvailableVomyraNumbers() {
+  await verifyAdmin();
   const adminClient = await getAdminClient();
   const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || "https://api.vomyra.com";
   const vomyraApiKey = process.env.VOMYRA_API_KEY || "";
