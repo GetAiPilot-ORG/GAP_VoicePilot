@@ -170,6 +170,29 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
 
   const handleUpdate = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+  const handleSaveKycConfig = () => {
+    setIsKycModalOpen(false);
+  };
+
+  const handlePreviewVoice = (e: React.MouseEvent, language: string) => {
+    e.preventDefault();
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+    
+    window.speechSynthesis.cancel();
+    const msg = new SpeechSynthesisUtterance();
+    msg.text = language.includes('hi') ? "नमस्ते, मैं आपकी वॉइस असिस्टेंट हूँ।" : "Hello, I am your voice assistant.";
+    msg.lang = language;
+    
+    const voices = window.speechSynthesis.getVoices();
+    const match = voices.find(v => v.lang.includes(language.substring(0, 2)));
+    if (match) {
+      msg.voice = match;
+    }
+    
+    window.speechSynthesis.speak(msg);
+  };
+
+  const handleUpdate = async () => {
     setIsUpdating(true);
 
     const payload = {
@@ -626,6 +649,232 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
                   </option>
                 ))}
               </select>
+          {/* Voice Output Tab (Vomyra Parity) */}
+          {activeTab === "voice" && (
+            <div className="bg-white border border-hairline rounded-[14px] p-6 space-y-6 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-black">Voice</h3>
+                  <p className="text-xs text-neutral-500 mt-1">Configure voice settings for the Assistant.</p>
+                </div>
+                <Button
+                  type="button"
+                  onClick={handleUpdate}
+                  disabled={isUpdating}
+                  className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs px-6 py-2 rounded-md shadow-sm"
+                >
+                  {isUpdating ? "Updating..." : "Update"}
+                </Button>
+              </div>
+
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <Label className="text-sm font-bold text-black">Voice Provider</Label>
+                  <select
+                    value={voiceProvider}
+                    onChange={(e) => setVoiceProvider(e.target.value)}
+                    className="w-full bg-surface-soft border border-hairline rounded-[8px] px-4 py-3 text-sm font-semibold text-black appearance-none"
+                  >
+                    {voiceProviderOptions.map((p) => (
+                      <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-bold text-black">Voice</Label>
+                  <select
+                    value={voiceName}
+                    onChange={(e) => setVoiceName(e.target.value)}
+                    className="w-full bg-surface-soft border border-hairline rounded-[8px] px-4 py-3 text-sm font-semibold text-black appearance-none"
+                  >
+                    {voiceNameOptions.map((v) => (
+                      <option key={v.name} value={v.name}>{v.title || v.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-bold text-black">Language <span className="text-red-500">*</span></Label>
+                  <select
+                    value={voiceLanguage}
+                    onChange={(e) => setVoiceLanguage(e.target.value)}
+                    className="w-full bg-surface-soft border border-hairline rounded-[8px] px-4 py-3 text-sm font-semibold text-black appearance-none"
+                  >
+                    <option value="hi-IN">Hindi (India)</option>
+                    <option value="en-IN">English (India)</option>
+                    <option value="en-US">English (US)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-bold text-black">Voice Rate</Label>
+                    <span className="text-black font-bold text-sm">{(voiceSpeed * 20).toFixed(0)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="40"
+                    step="1"
+                    value={voiceSpeed * 20}
+                    onChange={(e) => setVoiceSpeed(parseInt(e.target.value) / 20)}
+                    className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                  />
+                </div>
+              </div>
+
+              {/* Featured Voices Cards */}
+              <div className="pt-6">
+                <h3 className="text-xl font-bold text-black mb-4">Featured Voices</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  
+                  {/* Card 1: Aarti Hindi */}
+                  <div className="bg-surface-soft/40 rounded-[12px] p-5 flex flex-col justify-between border border-hairline hover:border-emerald-500/50 transition-colors cursor-pointer group">
+                    <div>
+                      <div className="flex items-start justify-between">
+                        <h4 className="font-bold text-lg text-black">Aarti - Azure</h4>
+                        <div className="w-8 h-8 rounded-full bg-white border border-hairline flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Copy className="w-4 h-4 text-neutral-500" />
+                        </div>
+                      </div>
+                      <p className="text-[11px] font-mono text-neutral-500 mt-1">hi-IN-AartiNeural</p>
+                      
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-[10px] font-bold">Azure</span>
+                        <span className="bg-neutral-200 text-neutral-700 px-2 py-0.5 rounded-full text-[10px] font-bold">Hindi</span>
+                      </div>
+                      
+                      {voiceName === "hi-IN-AartiNeural" && (
+                        <div className="mt-3 bg-black text-white px-3 py-1 rounded-full w-fit text-[10px] font-bold">
+                          Selected
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-end justify-between mt-6">
+                      <button type="button" onClick={(e) => handlePreviewVoice(e, 'hi-IN')} className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center hover:bg-emerald-400 transition-colors shadow-sm">
+                        <Play className="w-4 h-4 text-black ml-0.5" />
+                      </button>
+                      <div className="text-right">
+                        <p className="text-[10px] text-neutral-500">Details:</p>
+                        <p className="text-xs font-bold text-black">IN • female</p>
+                        <p className="text-[10px] text-neutral-500">general</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card 2: Arjun Hindi */}
+                  <div className="bg-surface-soft/40 rounded-[12px] p-5 flex flex-col justify-between border border-hairline hover:border-emerald-500/50 transition-colors cursor-pointer group">
+                    <div>
+                      <div className="flex items-start justify-between">
+                        <h4 className="font-bold text-lg text-black">Arjun - Azure</h4>
+                        <div className="w-8 h-8 rounded-full bg-white border border-hairline flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Copy className="w-4 h-4 text-neutral-500" />
+                        </div>
+                      </div>
+                      <p className="text-[11px] font-mono text-neutral-500 mt-1">hi-IN-ArjunNeural</p>
+                      
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-[10px] font-bold">Azure</span>
+                        <span className="bg-neutral-200 text-neutral-700 px-2 py-0.5 rounded-full text-[10px] font-bold">Hindi</span>
+                        <span className="bg-neutral-200 text-neutral-700 px-2 py-0.5 rounded-full text-[10px] font-bold">male</span>
+                      </div>
+
+                      {voiceName === "hi-IN-ArjunNeural" && (
+                        <div className="mt-3 bg-black text-white px-3 py-1 rounded-full w-fit text-[10px] font-bold">
+                          Selected
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-end justify-between mt-6">
+                      <button type="button" onClick={(e) => handlePreviewVoice(e, 'hi-IN')} className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center hover:bg-emerald-400 transition-colors shadow-sm">
+                        <Play className="w-4 h-4 text-black ml-0.5" />
+                      </button>
+                      <div className="text-right">
+                        <p className="text-[10px] text-neutral-500">Details:</p>
+                        <p className="text-xs font-bold text-black">IN • male</p>
+                        <p className="text-[10px] text-neutral-500">general</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card 3: Aarti English */}
+                  <div className="bg-surface-soft/40 rounded-[12px] p-5 flex flex-col justify-between border border-hairline hover:border-emerald-500/50 transition-colors cursor-pointer group">
+                    <div>
+                      <div className="flex items-start justify-between">
+                        <h4 className="font-bold text-lg text-black">Aarti - Azure</h4>
+                        <div className="w-8 h-8 rounded-full bg-white border border-hairline flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Copy className="w-4 h-4 text-neutral-500" />
+                        </div>
+                      </div>
+                      <p className="text-[11px] font-mono text-neutral-500 mt-1">en-IN-AartiNeural</p>
+                      
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-[10px] font-bold">Azure</span>
+                        <span className="bg-neutral-200 text-neutral-700 px-2 py-0.5 rounded-full text-[10px] font-bold">English</span>
+                        <span className="bg-neutral-200 text-neutral-700 px-2 py-0.5 rounded-full text-[10px] font-bold">female</span>
+                      </div>
+
+                      {voiceName === "en-IN-AartiNeural" && (
+                        <div className="mt-3 bg-black text-white px-3 py-1 rounded-full w-fit text-[10px] font-bold">
+                          Selected
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-end justify-between mt-6">
+                      <button type="button" onClick={(e) => handlePreviewVoice(e, 'en-IN')} className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center hover:bg-emerald-400 transition-colors shadow-sm">
+                        <Play className="w-4 h-4 text-black ml-0.5" />
+                      </button>
+                      <div className="text-right">
+                        <p className="text-[10px] text-neutral-500">Details:</p>
+                        <p className="text-xs font-bold text-black">IN • female</p>
+                        <p className="text-[10px] text-neutral-500">general</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card 4: Arjun English */}
+                  <div className="bg-surface-soft/40 rounded-[12px] p-5 flex flex-col justify-between border border-hairline hover:border-emerald-500/50 transition-colors cursor-pointer group">
+                    <div>
+                      <div className="flex items-start justify-between">
+                        <h4 className="font-bold text-lg text-black">Arjun - Azure</h4>
+                        <div className="w-8 h-8 rounded-full bg-white border border-hairline flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Copy className="w-4 h-4 text-neutral-500" />
+                        </div>
+                      </div>
+                      <p className="text-[11px] font-mono text-neutral-500 mt-1">en-IN-ArjunNeural</p>
+                      
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-[10px] font-bold">Azure</span>
+                        <span className="bg-neutral-200 text-neutral-700 px-2 py-0.5 rounded-full text-[10px] font-bold">English</span>
+                        <span className="bg-neutral-200 text-neutral-700 px-2 py-0.5 rounded-full text-[10px] font-bold">male</span>
+                      </div>
+
+                      {voiceName === "en-IN-ArjunNeural" && (
+                        <div className="mt-3 bg-black text-white px-3 py-1 rounded-full w-fit text-[10px] font-bold">
+                          Selected
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-end justify-between mt-6">
+                      <button type="button" onClick={(e) => handlePreviewVoice(e, 'en-IN')} className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center hover:bg-emerald-400 transition-colors shadow-sm">
+                        <Play className="w-4 h-4 text-black ml-0.5" />
+                      </button>
+                      <div className="text-right">
+                        <p className="text-[10px] text-neutral-500">Details:</p>
+                        <p className="text-xs font-bold text-black">IN • male</p>
+                        <p className="text-[10px] text-neutral-500">general</p>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -1197,5 +1446,16 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
         }}
       />
     </form>
+
+      {/* Floating Action Button (Vomyra Parity) */}
+      <button
+        type="button"
+        onClick={() => setIsTestCallModalOpen(true)}
+        className="fixed bottom-8 right-8 w-14 h-14 bg-[#10b981] hover:bg-[#059669] text-white rounded-full flex items-center justify-center shadow-[0_4px_20px_rgba(16,185,129,0.4)] transition-all hover:scale-110 z-40 group border-2 border-emerald-400/30"
+        title="Test Assistant"
+      >
+        <Bot className="w-6 h-6 text-white group-hover:animate-pulse" />
+      </button>
+    </div>
   );
 }
