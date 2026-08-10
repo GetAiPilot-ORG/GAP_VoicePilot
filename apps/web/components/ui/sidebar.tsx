@@ -283,17 +283,6 @@ export function SessionNavBar({ mobileOpen = false, setMobileOpen, isPinned = fa
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" sideOffset={8} className="w-56 bg-white border border-hairline shadow-md text-black">
                   <DropdownMenuItem asChild className="flex items-center gap-2 cursor-pointer text-xs">
-                    <Link href="/dashboard/settings">
-                      <UserCog className="h-4 w-4 text-black" /> Manage Organization
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild className="flex items-center gap-2 cursor-pointer text-xs">
-                    <Link href="/dashboard/settings">
-                      <Blocks className="h-4 w-4 text-black" /> API & Integrations
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-hairline" />
-                  <DropdownMenuItem asChild className="flex items-center gap-2 cursor-pointer text-xs">
                     <Link href="/dashboard/assistants/create">
                       <Plus className="h-4 w-4 text-black" /> New Voice Agent
                     </Link>
@@ -415,11 +404,6 @@ export function SessionNavBar({ mobileOpen = false, setMobileOpen, isPinned = fa
                     <DropdownMenuItem asChild className="flex items-center gap-2 cursor-pointer text-xs">
                       <Link href="/dashboard/billing">
                         <CreditCard className="h-4 w-4 text-black" /> Plans & Billing
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild className="flex items-center gap-2 cursor-pointer text-xs">
-                      <Link href="/dashboard/settings">
-                        <Settings className="h-4 w-4 text-black" /> Settings
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem 

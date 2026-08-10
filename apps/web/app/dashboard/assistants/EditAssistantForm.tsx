@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import AssistantTestModal from "@/components/AssistantTestModal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -1613,8 +1614,8 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
 
       {/* Assistant Voice & Phone Test Modal */}
       <AssistantTestModal
-        isOpen={isTestModalOpen}
-        onClose={() => setIsTestModalOpen(false)}
+        isOpen={isTestCallModalOpen}
+        onClose={() => setIsTestCallModalOpen(false)}
         assistant={{
           id: assistant.id,
           name: name,
