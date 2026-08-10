@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
-import { PhoneNumbersClient, PhoneNumberRecord, AvailableNumberItem, AssistantOption } from "./PhoneNumbersClient";
+import { PhoneNumbersClient, PhoneNumberRecord, AssistantOption } from "./PhoneNumbersClient";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,6 @@ export default async function PhoneNumbersPage() {
   );
 
   let initialMyNumbers: PhoneNumberRecord[] = [];
-  let initialAvailableNumbers: AvailableNumberItem[] = [];
   let assistantOptions: AssistantOption[] = [];
   let workspaceBalance = 0;
 
@@ -73,23 +72,10 @@ export default async function PhoneNumbersPage() {
       workspaceBalance = Number(balanceData || 0);
     }
 
-    // 3. Fetch available numbers
-    const { data: dbUnassigned } = await adminClient
-      .from("phone_numbers")
-      .select("*")
-      .is("workspace_id", null)
-      .is("deleted_at", null);
-
-    if (dbUnassigned && dbUnassigned.length > 0) {
-      initialAvailableNumbers = dbUnassigned.map((n: any) => ({
-        id: n.id,
-        phone_number: n.phone_number,
-        country: "United States",
-        country_code: "US",
-        provider: n.provider || "vomyra",
-        monthly_price: 2.00
-      }));
-    }
+    // 3. Fetch current KYC status
+    const { getWorkspaceKycStatus } = await import("@/app/actions/kyc");
+    const kycRes = await getWorkspaceKycStatus();
+    let initialKyc = kycRes.success ? kycRes.kyc : null;
 
     // 4. Fetch assistants list
     const { data: dbAssistants } = await adminClient
@@ -103,16 +89,24 @@ export default async function PhoneNumbersPage() {
         name: a.name
       }));
     }
+
+    return (
+      <PhoneNumbersClient
+        initialMyNumbers={initialMyNumbers}
+        initialKyc={initialKyc}
+        assistants={assistantOptions}
+        workspaceBalance={workspaceBalance}
+      />
+    );
   } catch (e) {
     console.warn("Failed to fetch phone numbers page data:", e);
+    return (
+      <PhoneNumbersClient
+        initialMyNumbers={initialMyNumbers}
+        initialKyc={null}
+        assistants={assistantOptions}
+        workspaceBalance={workspaceBalance}
+      />
+    );
   }
-
-  return (
-    <PhoneNumbersClient
-      initialMyNumbers={initialMyNumbers}
-      initialAvailableNumbers={initialAvailableNumbers}
-      assistants={assistantOptions}
-      workspaceBalance={workspaceBalance}
-    />
-  );
 }
