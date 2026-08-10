@@ -2,8 +2,9 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { MoreVertical, Copy, Trash2, AlertTriangle, X } from "lucide-react";
+import { MoreVertical, Copy, Trash2, AlertTriangle, X, PhoneCall } from "lucide-react";
 import { deleteAssistantAction, duplicateAssistantAction } from "@/app/actions/assistants";
+import AssistantTestModal from "@/components/AssistantTestModal";
 
 interface AssistantActionMenuProps {
   assistantId: string;
@@ -13,6 +14,7 @@ interface AssistantActionMenuProps {
 export default function AssistantActionMenu({ assistantId, assistantName }: AssistantActionMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isTestModalOpen, setIsTestModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -55,6 +57,15 @@ export default function AssistantActionMenu({ assistantId, assistantName }: Assi
   return (
     <>
       <div className="relative inline-flex items-center gap-2 text-left" ref={menuRef}>
+        <button
+          onClick={() => setIsTestModalOpen(true)}
+          className="btn-pill-secondary text-xs px-2.5 py-1.5 font-semibold text-emerald-700 hover:bg-emerald-50 border-emerald-200 transition-colors flex items-center gap-1"
+          title="Test Voice Agent"
+        >
+          <PhoneCall className="w-3 h-3 text-emerald-600" />
+          Test
+        </button>
+
         <Link href={`/dashboard/assistants/${assistantId}`}>
           <button className="btn-pill-secondary text-xs px-3 py-1.5 font-semibold hover:bg-black hover:text-white transition-colors">
             Configure
@@ -73,6 +84,17 @@ export default function AssistantActionMenu({ assistantId, assistantName }: Assi
         {/* 3-Dots Dropdown Menu (Positioned upwards to avoid table overflow clipping) */}
         {isOpen && (
           <div className="absolute right-0 bottom-full mb-1.5 w-40 bg-white text-black border border-black/10 rounded-[12px] p-1.5 shadow-xl z-50 animate-fadeIn space-y-0.5">
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                setIsTestModalOpen(true);
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-[8px] hover:bg-surface-soft text-neutral-700 hover:text-black transition-colors text-left"
+            >
+              <PhoneCall className="w-3.5 h-3.5 text-emerald-600" />
+              Test Voice Call
+            </button>
+
             <button
               onClick={handleDuplicate}
               className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-[8px] hover:bg-surface-soft text-neutral-700 hover:text-black transition-colors text-left"
@@ -145,6 +167,16 @@ export default function AssistantActionMenu({ assistantId, assistantName }: Assi
           </div>
         </div>
       )}
+
+      {/* Test Call Modal */}
+      <AssistantTestModal
+        isOpen={isTestModalOpen}
+        onClose={() => setIsTestModalOpen(false)}
+        assistant={{
+          id: assistantId,
+          name: assistantName
+        }}
+      />
     </>
   );
 }

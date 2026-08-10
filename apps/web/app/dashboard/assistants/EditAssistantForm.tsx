@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { VOMYRA_CATALOG, VoiceOption } from "@/lib/catalog";
 import { updateAssistantAction, toggleAssistantToolAction, generatePromptAction } from "@/app/actions/assistants";
 import { Play, Pause, Volume2, Check, Wrench, Sparkles, PhoneCall, Wand2, X, Plus, Trash2, Bot, Cpu, Mic, Settings2 } from "lucide-react";
+import AssistantTestModal from "@/components/AssistantTestModal";
 
 interface EditAssistantFormProps {
   assistant: {
@@ -26,6 +27,7 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
   const [activeTab, setActiveTab] = React.useState<"model" | "speech" | "voice" | "tools" | "advance">("model");
   const [isUpdating, setIsUpdating] = React.useState(false);
   const [saveSuccess, setSaveSuccess] = React.useState(false);
+  const [isTestModalOpen, setIsTestModalOpen] = React.useState(false);
 
   const initialCfg = assistant.config_snapshot || {};
   const initialTransfer = initialCfg.transfer_call_settings || {};
@@ -329,6 +331,14 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
               <Check className="w-4 h-4" /> Changes saved live!
             </span>
           )}
+          <button
+            type="button"
+            onClick={() => setIsTestModalOpen(true)}
+            className="btn-pill-secondary text-xs font-bold px-4 py-2.5 shadow-sm border border-black/10 hover:border-black flex items-center gap-2 transition-all hover:scale-[1.02]"
+          >
+            <PhoneCall className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Test Voice Agent</span>
+          </button>
           <Button
             type="button"
             onClick={handleUpdate}
@@ -1013,6 +1023,24 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
           </div>
         </div>
       )}
+
+      {/* Assistant Voice & Phone Test Modal */}
+      <AssistantTestModal
+        isOpen={isTestModalOpen}
+        onClose={() => setIsTestModalOpen(false)}
+        assistant={{
+          id: assistant.id,
+          name: name,
+          provider_resource_id: assistant.provider_resource_id,
+          config_snapshot: {
+            welcome_message: dynamicWelcomeEnabled ? dynamicWelcomeMessage : welcomeMessage,
+            system_prompt: systemPrompt,
+            voice: { name: voiceName, language: voiceLanguage, provider: voiceProvider }
+          },
+          welcome_message: dynamicWelcomeEnabled ? dynamicWelcomeMessage : welcomeMessage,
+          system_prompt: systemPrompt
+        }}
+      />
     </div>
   );
 }
