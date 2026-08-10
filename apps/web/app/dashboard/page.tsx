@@ -53,13 +53,13 @@ export default async function DashboardPage() {
       const { data: rpcBal } = await adminClient.rpc('get_workspace_credit_balance', {
         p_workspace_id: ws.id
       });
-      const numBal = Math.floor(Number(rpcBal ?? 100));
+      const numBal = Math.floor(Number(rpcBal ?? 0));
       creditBalance = `${numBal} AI Mins`;
     } else {
-      creditBalance = "100 AI Mins";
+      creditBalance = "0 AI Mins";
     }
   } catch (err) {
-    creditBalance = "100 AI Mins";
+    creditBalance = "0 AI Mins";
   }
 
   return (
