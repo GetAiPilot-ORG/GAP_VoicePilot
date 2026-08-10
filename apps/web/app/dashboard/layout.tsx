@@ -16,28 +16,28 @@ export default function DashboardLayout({
       {/* Main Content Area (offset by collapsed sidebar width pl-16) */}
       <div className="flex-1 flex flex-col min-w-0 pl-16">
         {/* Top Header Bar */}
-        <header className="h-[64px] border-b border-hairline px-8 flex items-center justify-between bg-white sticky top-0 z-30">
+        <header className="h-[54px] border-b border-hairline px-6 flex items-center justify-between bg-white sticky top-0 z-30">
           <div className="flex items-center gap-4 flex-1 max-w-md">
             <div className="relative w-full">
-              <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input 
                 type="text"
                 placeholder="Search assistants, campaigns, calls..." 
-                className="w-full pl-9 pr-4 py-1.5 text-xs bg-surface-soft border border-hairline rounded-[10px] focus:outline-none focus:border-black/30 transition-colors"
+                className="w-full pl-8 pr-4 py-1 text-xs bg-surface-soft border border-hairline rounded-[8px] focus:outline-none focus:border-black/30 transition-colors"
               />
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             {/* Live AI Calling Balance Badge (Navigates to /dashboard/billing on click) */}
             <HeaderBalanceBadge />
 
-            <button className="p-2 rounded-[10px] hover:bg-surface-soft text-neutral-600 border border-hairline transition-colors relative" title="Notifications">
-              <Bell className="w-4 h-4" />
-              <span className="w-2 h-2 rounded-full bg-emerald-500 absolute top-1.5 right-1.5"></span>
+            <button className="p-1.5 rounded-[8px] hover:bg-surface-soft text-neutral-600 border border-hairline transition-colors relative" title="Notifications">
+              <Bell className="w-3.5 h-3.5" />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 absolute top-1 right-1"></span>
             </button>
 
-            <Link href="/dashboard/assistants/create" className="btn-pill-primary rounded-[10px] text-xs px-4 py-2 shadow-sm">
+            <Link href="/dashboard/assistants/create" className="btn-pill-primary rounded-[8px] text-xs px-3.5 py-1.5 shadow-sm">
               <Plus className="w-3.5 h-3.5" />
               New Agent
             </Link>
@@ -45,7 +45,7 @@ export default function DashboardLayout({
         </header>
 
         {/* Dynamic Page Content */}
-        <main className="flex-1 p-8 overflow-y-auto">
+        <main className="flex-1 p-5 md:p-6 overflow-y-auto max-w-[1400px]">
           {children}
         </main>
       </div>

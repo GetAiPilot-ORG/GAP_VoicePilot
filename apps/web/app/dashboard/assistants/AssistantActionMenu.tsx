@@ -70,9 +70,9 @@ export default function AssistantActionMenu({ assistantId, assistantName }: Assi
           <MoreVertical className={`w-4 h-4 ${isDeleting || isDuplicating ? "animate-spin" : ""}`} />
         </button>
 
-        {/* 3-Dots Dropdown Menu (Positioned upwards to avoid table overflow clipping) */}
+        {/* 3-Dots Dropdown Menu */}
         {isOpen && (
-          <div className="absolute right-0 bottom-full mb-1.5 w-40 bg-white text-black border border-black/10 rounded-[12px] p-1.5 shadow-xl z-50 animate-fadeIn space-y-0.5">
+          <div className="absolute right-0 top-full mt-1.5 w-40 bg-white text-black border border-black/10 rounded-[12px] p-1.5 shadow-2xl z-[100] animate-fadeIn space-y-0.5">
             <button
               onClick={handleDuplicate}
               className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-[8px] hover:bg-surface-soft text-neutral-700 hover:text-black transition-colors text-left"

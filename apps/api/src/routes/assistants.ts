@@ -150,12 +150,8 @@ assistantRouter.post('/', async (req, res) => {
 
     const vomyraData = vomyraAssistant.data || vomyraAssistant || {};
     const finalSnapshot = {
-      ...assistantPayload,
       ...vomyraData,
-      whatsapp_summary_prompt: assistantPayload.whatsapp_summary_prompt,
-      whatsapp_summary_phone: assistantPayload.whatsapp_summary_phone,
-      outcome_prompt: assistantPayload.outcome_prompt,
-      transfer_call_settings: assistantPayload.transfer_call_settings
+      ...assistantPayload
     };
 
     const { data, error } = await supabase.from('assistants').insert({
@@ -207,12 +203,8 @@ assistantRouter.get('/:id', async (req, res) => {
         const vomyraRes = await voiceProvider.getAssistant(dbAssistant.provider_resource_id);
         const vomyraData = vomyraRes?.data || vomyraRes || {};
         liveConfig = {
-          ...(dbAssistant.config_snapshot || {}),
           ...vomyraData,
-          whatsapp_summary_prompt: dbAssistant.config_snapshot?.whatsapp_summary_prompt || vomyraData.whatsapp_summary_prompt,
-          whatsapp_summary_phone: dbAssistant.config_snapshot?.whatsapp_summary_phone || vomyraData.whatsapp_summary_phone,
-          outcome_prompt: dbAssistant.config_snapshot?.outcome_prompt || vomyraData.outcome_prompt,
-          transfer_call_settings: dbAssistant.config_snapshot?.transfer_call_settings || vomyraData.transfer_call_settings
+          ...(dbAssistant.config_snapshot || {})
         };
       } catch (err: any) {
         console.warn(`Could not fetch live Vomyra assistant ${dbAssistant.provider_resource_id}, using snapshot:`, err.message);
@@ -261,12 +253,8 @@ assistantRouter.put('/:id', async (req, res) => {
         const vomyraData = vomyraRes?.data || vomyraRes || {};
         updatedConfig = {
           ...(dbAssistant.config_snapshot || {}),
-          ...updatePayload,
           ...vomyraData,
-          whatsapp_summary_prompt: updatePayload.whatsapp_summary_prompt ?? dbAssistant.config_snapshot?.whatsapp_summary_prompt,
-          whatsapp_summary_phone: updatePayload.whatsapp_summary_phone ?? dbAssistant.config_snapshot?.whatsapp_summary_phone,
-          outcome_prompt: updatePayload.outcome_prompt ?? dbAssistant.config_snapshot?.outcome_prompt,
-          transfer_call_settings: updatePayload.transfer_call_settings ?? dbAssistant.config_snapshot?.transfer_call_settings
+          ...updatePayload
         };
       } catch (err: any) {
         console.warn(`Could not update Vomyra assistant ${dbAssistant.provider_resource_id}:`, err.message);
