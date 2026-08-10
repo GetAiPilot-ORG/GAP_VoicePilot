@@ -20,7 +20,7 @@ export default async function CreateCampaignPage() {
   const { data: assistants } = await supabase.from('assistants').select('id, name');
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="w-full space-y-6">
       <div>
         <h2 className="text-3xl font-bold tracking-tight">Start Campaign</h2>
         <p className="text-muted-foreground">Queue up automated calls to a list of contacts.</p>

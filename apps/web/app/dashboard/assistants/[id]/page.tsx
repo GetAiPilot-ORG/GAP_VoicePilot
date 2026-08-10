@@ -86,7 +86,7 @@ export default async function AssistantDetailPage({ params }: AssistantPageProps
     .is('deleted_at', null);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl space-y-6">
       <EditAssistantForm assistant={assistant} workspaceTools={tools || []} />
     </div>
   );

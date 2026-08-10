@@ -25,12 +25,14 @@ import { campaignRouter } from './routes/campaigns';
 import { assistantRouter } from './routes/assistants';
 import { phoneNumberRouter } from './routes/phoneNumbers';
 import { paymentRouter } from './routes/payments';
+import { webhookRouter } from './routes/webhooks';
 
 app.use('/api/v1/calls', callRouter);
 app.use('/api/v1/campaigns', campaignRouter);
 app.use('/api/v1/assistants', assistantRouter);
 app.use('/api/v1/phone-numbers', phoneNumberRouter);
 app.use('/api/v1/payments', paymentRouter);
+app.use('/api/v1/webhooks', webhookRouter);
 
 app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', provider: 'vomyra' });
