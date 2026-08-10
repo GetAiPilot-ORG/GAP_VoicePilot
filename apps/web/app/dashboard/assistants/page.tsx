@@ -117,19 +117,19 @@ export default async function AssistantsPage() {
       </div>
 
       {/* Main Table Container in Figma Card style */}
-      <div className="bg-white border border-hairline rounded-[14px] shadow-sm">
-        <div className="p-6 border-b border-hairline flex items-center justify-between bg-surface-soft/40">
+      <div className="bg-white border border-hairline rounded-[14px] shadow-sm overflow-hidden">
+        <div className="p-4 sm:p-6 border-b border-hairline flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface-soft/40">
           <div>
-            <h2 className="text-xl font-bold tracking-tight text-black">Voice Assistants Library</h2>
-            <p className="text-sm text-neutral-500">Configure parameters, test voices, or launch campaigns.</p>
+            <h2 className="text-lg sm:text-xl font-bold tracking-tight text-black">Voice Assistants Library</h2>
+            <p className="text-xs sm:text-sm text-neutral-500">Configure parameters, test voices, or launch campaigns.</p>
           </div>
-          <span className="eyebrow text-neutral-500 bg-white px-3 py-1 rounded-full border border-hairline">
+          <span className="eyebrow text-neutral-500 bg-white px-3 py-1 rounded-full border border-hairline self-start sm:self-auto text-[10px] sm:text-xs">
             {assistants.length} ASSISTANTS
           </span>
         </div>
 
-        <div className="overflow-visible min-h-[280px]">
-          <table className="w-full text-left border-collapse">
+        <div className="overflow-x-auto min-h-[280px]">
+          <table className="w-full text-left border-collapse min-w-[650px]">
             <thead>
               <tr className="border-b border-hairline bg-surface-soft text-black/70">
                 <th className="py-3.5 px-6 eyebrow text-xs">ASSISTANT NAME</th>

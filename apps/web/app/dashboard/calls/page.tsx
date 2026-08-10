@@ -61,7 +61,7 @@ export default function CallLogsPage() {
       </div>
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-block-lime rounded-[14px] p-5 text-black border border-black/5">
           <p className="eyebrow text-black/70">TOTAL DISPATCHED</p>
           <p className="text-3xl font-bold mt-2">1,248 Calls</p>
@@ -83,7 +83,7 @@ export default function CallLogsPage() {
 
       {/* Calls Table */}
       <div className="bg-white border border-hairline rounded-[14px] overflow-hidden shadow-sm">
-        <div className="p-5 border-b border-hairline flex items-center justify-between bg-surface-soft/40">
+        <div className="p-4 sm:p-5 border-b border-hairline flex items-center justify-between bg-surface-soft/40">
           <h2 className="text-base font-bold text-black">Recent Voice Conversations</h2>
           <span className="eyebrow text-neutral-500 bg-white px-3 py-1 rounded-full border border-hairline text-[10px]">
             {sampleCalls.length} RECENT CALLS
@@ -91,7 +91,7 @@ export default function CallLogsPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse min-w-[750px]">
             <thead>
               <tr className="border-b border-hairline bg-surface-soft text-black/70">
                 <th className="py-3 px-5 eyebrow text-[11px]">CALL ID</th>
