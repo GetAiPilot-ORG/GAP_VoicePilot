@@ -18,6 +18,8 @@ import {
   FileText,
   BarChart3,
   CreditCard,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import Image from "next/image";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -82,10 +84,13 @@ const staggerVariants = {
 interface SessionNavBarProps {
   mobileOpen?: boolean;
   setMobileOpen?: (open: boolean) => void;
+  isPinned?: boolean;
+  setIsPinned?: (pinned: boolean) => void;
 }
 
-export function SessionNavBar({ mobileOpen = false, setMobileOpen }: SessionNavBarProps) {
-  const [isCollapsed, setIsCollapsed] = useState(true);
+export function SessionNavBar({ mobileOpen = false, setMobileOpen, isPinned = false, setIsPinned }: SessionNavBarProps) {
+  const [isHovered, setIsHovered] = useState(false);
+  const isCollapsed = !isPinned && !isHovered;
   const pathname = usePathname();
   const [userProfile, setUserProfile] = useState<{ email: string; name: string; initials: string }>({
     email: "Loading...",
@@ -174,9 +179,9 @@ export function SessionNavBar({ mobileOpen = false, setMobileOpen }: SessionNavB
                       href={item.href}
                       onClick={() => setMobileOpen?.(false)}
                       className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-sm font-medium transition-colors",
+                        "flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-sm font-semibold transition-colors",
                         isActive
-                          ? "bg-black text-white font-semibold shadow-sm"
+                          ? "bg-black text-white font-bold shadow-sm"
                           : "text-neutral-600 hover:text-black hover:bg-surface-soft"
                       )}
                     >
@@ -192,9 +197,9 @@ export function SessionNavBar({ mobileOpen = false, setMobileOpen }: SessionNavB
                   href="/dashboard/settings"
                   onClick={() => setMobileOpen?.(false)}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-sm font-medium transition-colors",
+                    "flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-sm font-semibold transition-colors",
                     pathname === "/dashboard/settings"
-                      ? "bg-black text-white font-semibold shadow-sm"
+                      ? "bg-black text-white font-bold shadow-sm"
                       : "text-neutral-600 hover:text-black hover:bg-surface-soft"
                   )}
                 >
@@ -230,8 +235,8 @@ export function SessionNavBar({ mobileOpen = false, setMobileOpen }: SessionNavB
         animate={isCollapsed ? "closed" : "open"}
         variants={sidebarVariants}
         transition={transitionProps}
-        onMouseEnter={() => setIsCollapsed(false)}
-        onMouseLeave={() => setIsCollapsed(true)}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
 
       <motion.div
@@ -240,10 +245,20 @@ export function SessionNavBar({ mobileOpen = false, setMobileOpen }: SessionNavB
       >
         <motion.ul variants={staggerVariants} className="flex h-full flex-col">
           <div className="flex grow flex-col items-center w-full">
-            {/* Header with Organization Dropdown */}
-            <div className="flex h-[64px] w-full shrink-0 items-center justify-center border-b border-hairline px-2">
+            {/* Header with Organization Dropdown & Pin Toggle */}
+            <div className="flex h-[64px] w-full shrink-0 items-center border-b border-hairline px-2">
+              {!isCollapsed && (
+                <button 
+                  onClick={() => setIsPinned?.(!isPinned)} 
+                  className="p-1.5 mr-1 rounded-[8px] text-neutral-400 hover:text-black hover:bg-surface-soft shrink-0 transition-colors"
+                  title={isPinned ? "Collapse Sidebar" : "Keep Sidebar Open"}
+                >
+                  {isPinned ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+                </button>
+              )}
+
               <DropdownMenu modal={false}>
-                <DropdownMenuTrigger className="w-full" asChild>
+                <DropdownMenuTrigger className="flex-1 min-w-0" asChild>
                   <button
                     className="flex w-full items-center gap-3 px-2 py-1.5 rounded-[10px] hover:bg-surface-soft transition-colors text-black"
                   >
@@ -256,9 +271,9 @@ export function SessionNavBar({ mobileOpen = false, setMobileOpen }: SessionNavB
                     >
                       {!isCollapsed && (
                         <>
-                          <div className="flex flex-col text-left leading-none">
-                            <span className="text-base font-bold tracking-tight text-black">GAP</span>
-                            <span className="text-[10px] font-mono tracking-widest text-neutral-400 font-semibold uppercase mt-0.5">VOICEPILOT</span>
+                          <div className="flex flex-col text-left leading-none truncate pr-2">
+                            <span className="text-base font-bold tracking-tight text-black truncate">GAP</span>
+                            <span className="text-[10px] font-mono tracking-widest text-neutral-400 font-semibold uppercase mt-0.5 truncate">VOICEPILOT</span>
                           </div>
                           <ChevronsUpDown className="h-3.5 w-3.5 text-neutral-400 shrink-0 ml-auto" />
                         </>
@@ -300,10 +315,10 @@ export function SessionNavBar({ mobileOpen = false, setMobileOpen }: SessionNavB
                           key={item.name}
                           href={item.href}
                           className={cn(
-                            "flex h-9 w-full items-center rounded-[10px] text-xs font-medium transition-all",
+                            "flex h-9 w-full items-center rounded-[10px] text-xs font-semibold transition-all",
                             isCollapsed ? "justify-center px-0" : "px-3 justify-start gap-3",
                             isActive
-                              ? "bg-black text-white font-semibold shadow-sm"
+                              ? "bg-black text-white font-bold shadow-sm"
                               : "text-neutral-600 hover:text-black hover:bg-surface-soft"
                           )}
                           title={isCollapsed ? item.name : undefined}
@@ -313,7 +328,7 @@ export function SessionNavBar({ mobileOpen = false, setMobileOpen }: SessionNavB
                           </div>
                           <motion.li variants={variants}>
                             {!isCollapsed && (
-                              <span className="text-xs font-medium whitespace-nowrap">{item.name}</span>
+                              <span className="text-xs font-semibold whitespace-nowrap">{item.name}</span>
                             )}
                           </motion.li>
                         </Link>
@@ -325,10 +340,10 @@ export function SessionNavBar({ mobileOpen = false, setMobileOpen }: SessionNavB
                     <Link
                       href="/dashboard/settings"
                       className={cn(
-                        "flex h-9 w-full items-center rounded-[10px] text-xs font-medium transition-all",
+                        "flex h-9 w-full items-center rounded-[10px] text-xs font-semibold transition-all",
                         isCollapsed ? "justify-center px-0" : "px-3 justify-start gap-3",
                         pathname === "/dashboard/settings"
-                          ? "bg-black text-white font-semibold shadow-sm"
+                          ? "bg-black text-white font-bold shadow-sm"
                           : "text-neutral-600 hover:text-black hover:bg-surface-soft"
                       )}
                       title={isCollapsed ? "API & Webhooks" : undefined}
@@ -339,7 +354,7 @@ export function SessionNavBar({ mobileOpen = false, setMobileOpen }: SessionNavB
                       <motion.li variants={variants}>
                         {!isCollapsed && (
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-medium whitespace-nowrap">API & Webhooks</span>
+                            <span className="text-xs font-semibold whitespace-nowrap">API & Webhooks</span>
                             <Badge className="bg-block-lime text-black border-none text-[9px] px-1.5 py-0 font-bold" variant="outline">
                               LIVE
                             </Badge>

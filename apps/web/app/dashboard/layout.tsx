@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Plus, Search, Bell, Menu } from "lucide-react";
 import { SessionNavBar } from "@/components/ui/sidebar";
 import HeaderBalanceBadge from "@/components/HeaderBalanceBadge";
+import { cn } from "@/lib/utils";
 
 export default function DashboardLayout({
   children,
@@ -13,14 +14,15 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isPinned, setIsPinned] = useState(false);
 
   return (
     <div className="min-h-screen flex bg-white text-black font-sans selection:bg-block-lime selection:text-black">
       {/* Animated Collapsible Sidebar & Mobile Drawer */}
-      <SessionNavBar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+      <SessionNavBar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} isPinned={isPinned} setIsPinned={setIsPinned} />
 
       {/* Main Content Area (responsive offset: pl-0 on mobile, pl-16 on desktop) */}
-      <div className="flex-1 flex flex-col min-w-0 pl-0 md:pl-16">
+      <div className={cn("flex-1 flex flex-col min-w-0 pl-0 transition-all duration-200", isPinned ? "md:pl-60" : "md:pl-16")}>
         {/* Top Header Bar */}
         <header className="h-[54px] border-b border-hairline px-3 sm:px-6 flex items-center justify-between bg-white sticky top-0 z-30 gap-2">
           <div className="flex items-center gap-2 sm:gap-4 flex-1 max-w-md">
