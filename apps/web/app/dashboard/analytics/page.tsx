@@ -168,7 +168,7 @@ export default async function AnalyticsPage() {
             successRateStr = `${((completedCount / filteredCalls.length) * 100).toFixed(1)}%`;
             recentCalls = [...filteredCalls]
               .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
-              .slice(0, 8);
+              .slice(0, 5);
           }
         }
       }
@@ -187,7 +187,8 @@ export default async function AnalyticsPage() {
     0
   );
   const lastCallTime = recentCalls[0]?.created_at ? formatClock(recentCalls[0].created_at) : "Waiting";
-  const hasActivity = totalCalls > 0;
+  const activeHours = hourlyHistogram.filter((count) => count > 0).length;
+  const visibleRecentCount = Math.min(recentCalls.length, 5);
 
   return (
     <section className="min-h-[calc(100vh-124px)] animate-fadeIn [letter-spacing:0]">
@@ -283,41 +284,52 @@ export default async function AnalyticsPage() {
         </div>
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_420px]">
-        <section className="rounded-[14px] border border-hairline bg-white shadow-[0_16px_50px_rgba(0,0,0,0.06)]">
-          <div className="flex flex-col gap-3 border-b border-hairline p-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_420px]">
+        <section className="overflow-hidden rounded-[14px] bg-white shadow-[0_18px_60px_rgba(0,0,0,0.08)] ring-1 ring-black/8">
+          <div className="flex flex-col gap-4 border-b border-hairline bg-[#fbfbfa] p-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="flex items-center gap-2 text-xl font-bold text-black [letter-spacing:0]">
                 <BarChart3 className="h-5 w-5" />
                 24-hour call exposure
               </h2>
-              <p className="mt-1 text-sm text-neutral-500">
-                Each strip is one hour. The dark mark is where calling pressure concentrated most.
+              <p className="mt-1 max-w-2xl text-sm leading-5 text-neutral-500">
+                Hourly call pressure, newest on the right. Dark marks the peak, lime marks the current hour.
               </p>
             </div>
-            <div className="rounded-[10px] bg-surface-soft px-3 py-2 text-xs font-semibold text-neutral-600">
+            <div className="inline-flex w-fit items-center rounded-[10px] bg-black px-3 py-2 text-xs font-bold text-block-lime">
               Peak hour: {peakHourIndex === 23 ? "Now" : `${23 - peakHourIndex}h ago`}
             </div>
           </div>
 
-          <div className="p-4 sm:p-6">
-            <div className="flex h-[292px] items-end gap-1.5 rounded-[12px] bg-[#f7f7f5] p-3 sm:gap-2 sm:p-5">
+          <div className="grid gap-0 lg:grid-cols-[160px_minmax(0,1fr)]">
+            <div className="grid grid-cols-3 gap-2 border-b border-hairline p-4 lg:block lg:border-b-0 lg:border-r lg:p-5">
+              <ChartStat label="Active hours" value={`${activeHours}/24`} />
+              <ChartStat label="Peak load" value={`${maxVolume}`} />
+              <ChartStat label="Window" value="24h" />
+            </div>
+
+            <div className="p-4 sm:p-5">
+              <div className="relative h-[236px] overflow-hidden rounded-[12px] bg-[#f6f5f4] p-4">
+                <div className="absolute inset-x-4 top-1/4 border-t border-black/[0.06]" />
+                <div className="absolute inset-x-4 top-1/2 border-t border-black/[0.06]" />
+                <div className="absolute inset-x-4 top-3/4 border-t border-black/[0.06]" />
+                <div className="relative flex h-full items-end gap-1.5 sm:gap-2">
               {hourlyHistogram.map((count, index) => {
                 const heightPercent = count === 0 ? 4 : Math.max(12, Math.round((count / maxVolume) * 100));
                 const isPeak = index === peakHourIndex && count > 0;
                 const isCurrentHour = index === 23;
 
                 return (
-                  <div key={index} className="group flex h-full min-w-0 flex-1 flex-col justify-end gap-2">
+                  <div key={index} className="group flex h-full min-w-0 flex-1 flex-col justify-end">
                     <div className="relative flex h-full items-end justify-center">
-                      <div className="absolute -top-8 z-10 rounded-[8px] bg-black px-2 py-1 text-[11px] font-bold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+                      <div className="absolute -top-7 z-10 rounded-[8px] bg-black px-2 py-1 text-[11px] font-bold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
                         {count} calls
                       </div>
                       <div
                         style={{ height: `${heightPercent}%` }}
-                        className={`w-full max-w-[26px] rounded-[7px] transition-all duration-200 group-hover:scale-x-110 ${
+                        className={`w-full max-w-[24px] rounded-t-[8px] rounded-b-[3px] transition-all duration-200 group-hover:scale-x-110 ${
                           isPeak
-                            ? "bg-black"
+                            ? "bg-black shadow-[0_0_0_4px_rgba(0,0,0,0.06)]"
                             : isCurrentHour
                               ? "bg-block-lime"
                               : count > 0
@@ -329,23 +341,28 @@ export default async function AnalyticsPage() {
                   </div>
                 );
               })}
+                </div>
             </div>
 
-            <div className="mt-4 flex items-center justify-between text-xs font-semibold text-neutral-400">
-              <span>24h ago</span>
-              <span>12h ago</span>
-              <span>Now</span>
+              <div className="mt-4 grid grid-cols-3 text-xs font-bold text-neutral-400">
+                <span>24h ago</span>
+                <span className="text-center">12h ago</span>
+                <span className="text-right">Now</span>
+              </div>
             </div>
           </div>
         </section>
 
-        <section className="rounded-[14px] border border-hairline bg-white shadow-[0_16px_50px_rgba(0,0,0,0.06)]">
-          <div className="flex items-center justify-between border-b border-hairline p-5">
+        <section className="overflow-hidden rounded-[14px] bg-white shadow-[0_18px_60px_rgba(0,0,0,0.08)] ring-1 ring-black/8">
+          <div className="flex items-center justify-between gap-4 border-b border-hairline bg-[#fbfbfa] p-5">
             <div>
-              <h2 className="text-xl font-bold text-black [letter-spacing:0]">Recent call evidence</h2>
-              <p className="mt-1 text-sm text-neutral-500">Newest workspace calls, sorted by provider timestamp.</p>
+              <h2 className="text-xl font-bold text-black [letter-spacing:0]">Recent calls</h2>
+              <p className="mt-1 text-sm text-neutral-500">Showing the latest {visibleRecentCount || 5} calls only.</p>
             </div>
-            <Link href="/dashboard/calls" className="text-sm font-bold text-black underline-offset-4 hover:underline">
+            <Link
+              href="/dashboard/calls"
+              className="inline-flex h-10 shrink-0 items-center justify-center rounded-[10px] bg-black px-3 text-sm font-bold text-white transition-colors hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-black/20"
+            >
               View all
             </Link>
           </div>
@@ -368,11 +385,11 @@ export default async function AnalyticsPage() {
                 const customer = call.customer_number || call.phone_number || "Unknown number";
 
                 return (
-                  <li key={call.id || `${customer}-${index}`} className="p-4 transition-colors hover:bg-surface-soft">
+                  <li key={call.id || `${customer}-${index}`} className="p-4 transition-colors hover:bg-[#fbfbfa]">
                     <div className="flex items-start gap-3">
                       <div
-                        className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] ${
-                          isSuccess ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
+                        className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] ${
+                          isSuccess ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100" : "bg-rose-50 text-rose-700 ring-1 ring-rose-100"
                         }`}
                       >
                         {isSuccess ? <CheckCircle2 className="h-5 w-5" /> : <XCircle className="h-5 w-5" />}
@@ -389,11 +406,16 @@ export default async function AnalyticsPage() {
                             <p className="mt-1 text-xs text-neutral-400">{formatClock(call.created_at)}</p>
                           </div>
                         </div>
-                        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-soft">
-                          <div
-                            className={`h-full rounded-full ${isSuccess ? "bg-emerald-500" : "bg-rose-500"}`}
-                            style={{ width: `${Math.min(100, Math.max(8, durationSecs ? durationSecs / 3 : 8))}%` }}
-                          />
+                        <div className="mt-3 flex items-center gap-2">
+                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-soft">
+                            <div
+                              className={`h-full rounded-full ${isSuccess ? "bg-emerald-500" : "bg-rose-500"}`}
+                              style={{ width: `${Math.min(100, Math.max(8, durationSecs ? durationSecs / 3 : 8))}%` }}
+                            />
+                          </div>
+                          <span className={`text-[11px] font-bold ${isSuccess ? "text-emerald-700" : "text-rose-700"}`}>
+                            {isSuccess ? "Complete" : "Review"}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -405,6 +427,15 @@ export default async function AnalyticsPage() {
         </section>
       </div>
     </section>
+  );
+}
+
+function ChartStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[10px] bg-white p-3 ring-1 ring-black/5 lg:mb-3">
+      <p className="text-[11px] font-bold text-neutral-400">{label}</p>
+      <p className="mt-1 text-xl font-bold text-black [letter-spacing:0]">{value}</p>
+    </div>
   );
 }
 
