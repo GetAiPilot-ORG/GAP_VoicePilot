@@ -1,6 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { Queue } from 'bullmq';
-import IORedis from 'ioredis';
+
 import { requireFeature, requireMinCredits } from '../middleware/entitlements';
 import { supabaseAdmin as supabase } from '../config/supabase';
 import { VomyraClient } from '../services/voice/providers/vomyra/client';
@@ -9,12 +8,7 @@ export const campaignRouter = Router();
 
 const voiceProvider = new VomyraClient();
 
-let callDispatchQueue: Queue | null = null;
-if (process.env.REDIS_URL) {
-  const connection = new IORedis(process.env.REDIS_URL, { maxRetriesPerRequest: null });
-  connection.on('error', () => {});
-  callDispatchQueue = new Queue('call-dispatch', { connection });
-}
+
 
 interface ContactInput {
   name: string;

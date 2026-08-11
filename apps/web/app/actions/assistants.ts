@@ -131,7 +131,7 @@ export async function createAssistantAction(formData: FormData) {
     throw new Error(errMessage);
   }
 
-  return redirect("/dashboard/assistants");
+  return { success: true };
 }
 
 export async function updateAssistantAction(id: string, payload: any) {

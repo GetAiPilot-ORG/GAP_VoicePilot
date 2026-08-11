@@ -93,10 +93,11 @@ export function SessionNavBar({ mobileOpen = false, setMobileOpen, isPinned = fa
   const [isHovered, setIsHovered] = useState(false);
   const isCollapsed = !isPinned && !isHovered;
   const pathname = usePathname();
-  const [userProfile, setUserProfile] = useState<{ email: string; name: string; initials: string }>({
+  const [userProfile, setUserProfile] = useState<{ email: string; name: string; initials: string; isAdmin: boolean }>({
     email: "Loading...",
     name: "User",
-    initials: "GV"
+    initials: "GV",
+    isAdmin: false
   });
 
   useEffect(() => {
@@ -119,7 +120,11 @@ export function SessionNavBar({ mobileOpen = false, setMobileOpen, isPinned = fa
           } else if (email) {
             initials = email.substring(0, 2).toUpperCase();
           }
-          setUserProfile({ email, name, initials });
+          
+          const { checkIsAdminAction } = await import('@/app/actions/kyc');
+          const isAdmin = await checkIsAdminAction();
+
+          setUserProfile({ email, name, initials, isAdmin });
         }
       } catch (e) {
         console.warn("Could not load user profile in sidebar:", e);
@@ -136,8 +141,11 @@ export function SessionNavBar({ mobileOpen = false, setMobileOpen, isPinned = fa
     { name: "Call Logs", href: "/dashboard/calls", icon: FileText },
     { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
     { name: "Plans & Billing", href: "/dashboard/billing", icon: CreditCard },
-    { name: "Admin KYC", href: "/dashboard/admin/kyc", icon: ShieldCheck, isNew: true },
   ];
+
+  if (userProfile.isAdmin) {
+    mainNav.push({ name: "Admin KYC", href: "/dashboard/admin/kyc", icon: ShieldCheck, isNew: true } as any);
+  }
 
   return (
     <>
