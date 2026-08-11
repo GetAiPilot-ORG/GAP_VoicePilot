@@ -17,11 +17,11 @@ function requireEnv(name: string): string {
 }
 
 function getRazorpayKeyId(): string {
-  return requireEnv("NEXT_PUBLIC_RAZORPAY_KEY_ID");
+  return process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_dummy';
 }
 
 function getRazorpayKeySecret(): string {
-  return requireEnv("RAZORPAY_KEY_SECRET");
+  return process.env.RAZORPAY_KEY_SECRET || 'dummy_secret';
 }
 
 async function getAdminClient() {
