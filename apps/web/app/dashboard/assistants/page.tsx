@@ -13,29 +13,35 @@ export default async function AssistantsPage() {
     { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   );
 
-  let assistants: any[] = [];
-  const { data: userAssistants } = await supabase
-    .from("assistants")
-    .select("*")
-    .is("deleted_at", null)
-    .order('created_at', { ascending: false });
+  const { data: { user } } = await supabase.auth.getUser();
 
-  if (userAssistants && userAssistants.length > 0) {
-    assistants = userAssistants;
-  } else {
-    try {
-      const adminClient = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      );
-      const { data: dbAssistants } = await adminClient
+  let assistants: any[] = [];
+
+  if (user) {
+    const adminClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    const { data: members } = await adminClient
+      .from("workspace_members")
+      .select("workspace_id")
+      .eq("user_id", user.id);
+
+    const wIds = members?.map((m: any) => m.workspace_id) || [];
+
+    if (wIds.length > 0) {
+      const { data: userAssistants } = await adminClient
         .from("assistants")
         .select("*")
+        .in("workspace_id", wIds)
         .is("deleted_at", null)
         .order('created_at', { ascending: false });
 
-      if (dbAssistants) assistants = dbAssistants;
-    } catch (e) {}
+      if (userAssistants) {
+        assistants = userAssistants;
+      }
+    }
   }
 
   const activeCount = assistants.filter(a => a.status === 'active').length;
