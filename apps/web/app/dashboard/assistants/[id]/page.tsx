@@ -21,11 +21,6 @@ export default async function AssistantDetailPage({ params }: AssistantPageProps
     { cookies: { getAll: () => cookieStore.getAll(), setAll: () => { } } }
   );
 
-  const adminClient = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-  );
-
   let assistant: any = null;
   let tools: any[] = [];
 
@@ -39,17 +34,8 @@ export default async function AssistantDetailPage({ params }: AssistantPageProps
 
     if (dbAssistant) {
       assistant = dbAssistant;
-    } else {
-      const { data: adminAssistant } = await adminClient
-        .from("assistants")
-        .select("*")
-        .eq("id", assistantId)
-        .maybeSingle();
-
-      if (adminAssistant) {
-        assistant = adminAssistant;
-      }
     }
+
   } catch (err) {
     console.warn("Error fetching assistant from database:", err);
   }
@@ -57,7 +43,7 @@ export default async function AssistantDetailPage({ params }: AssistantPageProps
   // 2. Fetch assigned tools for this assistant
   if (assistant) {
     try {
-      const { data: assignedTools } = await adminClient
+      const { data: assignedTools } = await supabase
         .from("assistant_tools")
         .select("tool_id")
         .eq("assistant_id", assistantId);
@@ -115,7 +101,7 @@ export default async function AssistantDetailPage({ params }: AssistantPageProps
 
   // 5. Fetch Workspace Tools & Vomyra Tools
   try {
-    const { data: dbTools } = await adminClient
+    const { data: dbTools } = await supabase
       .from("tools")
       .select("*")
       .is("deleted_at", null);

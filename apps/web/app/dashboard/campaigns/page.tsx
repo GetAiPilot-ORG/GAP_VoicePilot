@@ -13,59 +13,65 @@ export default async function CampaignsPage() {
     { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   );
 
-  const adminClient = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-
   let initialCampaigns: CampaignJob[] = [];
   let assistantOptions: AssistantOption[] = [];
 
-  // 1. Fetch Assistants
   try {
-    const { data: dbAssistants } = await adminClient
-      .from("assistants")
-      .select("id, name")
-      .is("deleted_at", null);
+    const { data: { user } } = await supabase.auth.getUser();
 
-    if (dbAssistants) {
-      assistantOptions = dbAssistants.map((a: any) => ({
-        id: a.id,
-        name: a.name,
-        phone_number: "7943494977"
-      }));
+    if (user) {
+      const adminClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+
+      const { data: members } = await adminClient
+        .from("workspace_members")
+        .select("workspace_id")
+        .eq("user_id", user.id);
+
+      const wIds = members?.map((m: any) => m.workspace_id) || [];
+
+      if (wIds.length > 0) {
+        // 1. Fetch Assistants
+        const { data: dbAssistants } = await adminClient
+          .from("assistants")
+          .select("id, name")
+          .in("workspace_id", wIds)
+          .is("deleted_at", null);
+
+        if (dbAssistants) {
+          assistantOptions = dbAssistants.map((a: any) => ({
+            id: a.id,
+            name: a.name
+          }));
+        }
+
+        // 2. Fetch Supabase Campaigns
+        const { data: dbCampaigns } = await adminClient
+          .from("campaigns")
+          .select("*, assistants(name)")
+          .in("workspace_id", wIds)
+          .order("created_at", { ascending: false });
+
+        if (dbCampaigns && dbCampaigns.length > 0) {
+          initialCampaigns = dbCampaigns.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            status: c.status || "paused",
+            target_audience: c.target_audience || "Unknown",
+            assistant_name: c.assistants?.name || "Unknown Agent",
+            total_contacts: c.total_contacts || c.total_phone_numbers || 0,
+            completed_contacts: c.completed_contacts || 0,
+            failed_contacts: c.failed_contacts || 0,
+            success_rate: c.success_rate_percent ? `${c.success_rate_percent}%` : "0%",
+            created_at: c.created_at
+          }));
+        }
+      }
     }
-  } catch (e) {
-    console.warn("Failed to fetch assistants:", e);
-  }
-
-  // 2. Fetch Supabase Campaigns
-  try {
-    const { data: dbCampaigns } = await adminClient
-      .from("campaigns")
-      .select("*, assistants(name)")
-      .order("created_at", { ascending: false });
-
-    if (dbCampaigns && dbCampaigns.length > 0) {
-      initialCampaigns = dbCampaigns.map((c: any) => ({
-        id: c.id,
-        name: c.name,
-        assistant_id: c.assistant_id,
-        assistant_name: c.assistants?.name || "Voice Assistant",
-        total_contacts: c.total_contacts || 1,
-        status: (c.status === "running" ? "in_progress" : c.status) || "completed",
-        created_at: new Date(c.created_at).toLocaleDateString("en-US", {
-          month: "short",
-          day: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true
-        })
-      }));
-    }
-  } catch (e) {
-    console.warn("Failed to fetch Supabase campaigns:", e);
+  } catch (err) {
+    console.warn("Failed to fetch campaigns DB data:", err);
   }
 
   // 3. Fetch & Reconstruct All Vomyra Bulk Campaign Dispatches from Live Call API
@@ -80,7 +86,17 @@ export default async function CampaignsPage() {
 
     if (res.ok) {
       const data = await res.json();
-      const rawCalls = data.data || data.calls || (Array.isArray(data) ? data : []);
+      const allRawCalls = data.data || data.calls || (Array.isArray(data) ? data : []);
+
+      // Filter to only show calls from this user's assistants
+      const userAssistantIds = new Set(assistantOptions.map(a => a.id));
+      const userAssistantNames = new Set(assistantOptions.map(a => a.name));
+      
+      const rawCalls = allRawCalls.filter((c: any) => {
+        const astId = c.assistant?.id || "";
+        const astName = c.assistant?.name || (c.additional_data?.campaign_name || "");
+        return userAssistantIds.has(astId) || userAssistantNames.has(astName);
+      });
 
       // Group calls placed within 5-minute batches (campaign dispatches)
       const batches: Record<string, { time: string; assistant: string; count: number; completed: number; id: string }> = {};

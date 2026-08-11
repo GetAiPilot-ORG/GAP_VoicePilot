@@ -13,6 +13,7 @@ export default async function PhoneNumbersPage() {
     { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   );
 
+
   const adminClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -25,31 +26,23 @@ export default async function PhoneNumbersPage() {
   try {
     // Resolve current user workspace
     const { data: { user } } = await supabase.auth.getUser();
-    let workspaceId: string | null = null;
+    let workspaceIds: string[] = [];
 
     if (user) {
-      const { data: member } = await adminClient
+      const { data: members } = await adminClient
         .from("workspace_members")
         .select("workspace_id")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
+        .eq("user_id", user.id);
 
-      if (member?.workspace_id) workspaceId = member.workspace_id;
+      workspaceIds = members?.map((m: any) => m.workspace_id) || [];
     }
 
-    if (!workspaceId) {
-      const { data: anyWs } = await adminClient.from("workspaces").select("id").limit(1).maybeSingle();
-      if (anyWs?.id) workspaceId = anyWs.id;
-    }
-
-    if (workspaceId) {
+    if (workspaceIds.length > 0) {
       // 1. Fetch user's purchased numbers
       const { data: dbMyNumbers } = await adminClient
         .from("phone_numbers")
         .select("*, assistants(id, name)")
-        .eq("workspace_id", workspaceId)
+        .in("workspace_id", workspaceIds)
         .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
@@ -67,10 +60,12 @@ export default async function PhoneNumbersPage() {
       }
 
       // 2. Fetch workspace balance from credit ledger RPC
-      const { data: balanceData } = await adminClient.rpc("get_workspace_credit_balance", {
-        p_workspace_id: workspaceId
-      });
-      workspaceBalance = Number(balanceData || 0);
+      for (const wId of workspaceIds) {
+        const { data: balanceData } = await adminClient.rpc("get_workspace_credit_balance", {
+          p_workspace_id: wId
+        });
+        workspaceBalance += Number(balanceData || 0);
+      }
     }
 
     // 3. Fetch current KYC status
@@ -79,16 +74,19 @@ export default async function PhoneNumbersPage() {
     let initialKyc = kycRes.success ? kycRes.kyc : null;
 
     // 4. Fetch assistants list
-    const { data: dbAssistants } = await adminClient
-      .from("assistants")
-      .select("id, name")
-      .is("deleted_at", null);
+    if (workspaceIds.length > 0) {
+      const { data: dbAssistants } = await adminClient
+        .from("assistants")
+        .select("id, name")
+        .in("workspace_id", workspaceIds)
+        .is("deleted_at", null);
 
-    if (dbAssistants) {
-      assistantOptions = dbAssistants.map((a: any) => ({
-        id: a.id,
-        name: a.name
-      }));
+      if (dbAssistants) {
+        assistantOptions = dbAssistants.map((a: any) => ({
+          id: a.id,
+          name: a.name
+        }));
+      }
     }
 
     return (

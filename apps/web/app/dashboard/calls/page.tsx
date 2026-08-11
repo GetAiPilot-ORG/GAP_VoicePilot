@@ -13,23 +13,37 @@ export default async function CallLogsPage() {
     { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   );
 
-  const adminClient = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-
   let assistants: Array<{ id: string; name: string }> = [];
   let callsList: CallItem[] = [];
 
   try {
-    const { data: dbAssistants } = await adminClient
-      .from("assistants")
-      .select("id, name")
-      .is("deleted_at", null)
-      .order("created_at", { ascending: false });
+    const { data: { user } } = await supabase.auth.getUser();
 
-    if (dbAssistants && dbAssistants.length > 0) {
-      assistants = dbAssistants.map((a: any) => ({ id: a.id, name: a.name }));
+    if (user) {
+      const adminClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+
+      const { data: members } = await adminClient
+        .from("workspace_members")
+        .select("workspace_id")
+        .eq("user_id", user.id);
+
+      const wIds = members?.map((m: any) => m.workspace_id) || [];
+
+      if (wIds.length > 0) {
+        const { data: dbAssistants } = await adminClient
+          .from("assistants")
+          .select("id, name")
+          .in("workspace_id", wIds)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false });
+        
+        if (dbAssistants) {
+          assistants = dbAssistants;
+        }
+      }
     }
   } catch (e) {
     console.warn("Failed to fetch assistants for calls page:", e);
@@ -49,7 +63,17 @@ export default async function CallLogsPage() {
       const data = await res.json();
       const rawCalls = data.data || data.calls || (Array.isArray(data) ? data : []);
 
-      callsList = rawCalls.map((c: any) => {
+      // Filter to only show calls from this user's assistants
+      const userAssistantIds = new Set(assistants.map(a => a.id));
+      const userAssistantNames = new Set(assistants.map(a => a.name));
+      
+      const filteredCalls = rawCalls.filter((c: any) => {
+        const astId = c.assistant?.id || "";
+        const astName = c.assistant?.name || (c.additional_data?.campaign_name || "");
+        return userAssistantIds.has(astId) || userAssistantNames.has(astName);
+      });
+
+      callsList = filteredCalls.map((c: any) => {
         let durationStr = "0s";
         let durationSeconds = 0;
         if (c.call_duration) {

@@ -15,10 +15,39 @@ async function verifyAdmin() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
   
-  const adminEmails = (process.env.ADMIN_EMAILS || "priyanshgour817@gmail.com").split(",").map(e => e.trim().toLowerCase());
-  const userEmail = user.email?.toLowerCase() || "";
-  if (!adminEmails.includes(userEmail)) {
+  const adminClient = await getAdminClient();
+  const { data: profile } = await adminClient
+    .from('profiles')
+    .select('is_super_admin')
+    .eq('id', user.id)
+    .single();
+
+  if (!profile?.is_super_admin) {
     throw new Error("Unauthorized: Admins only");
+  }
+}
+
+export async function checkIsAdminAction() {
+  try {
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+      { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
+    );
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+
+    const adminClient = await getAdminClient();
+    const { data: profile } = await adminClient
+      .from('profiles')
+      .select('is_super_admin')
+      .eq('id', user.id)
+      .single();
+
+    return profile?.is_super_admin === true;
+  } catch (e) {
+    return false;
   }
 }
 
