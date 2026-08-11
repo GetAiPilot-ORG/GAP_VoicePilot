@@ -8,6 +8,8 @@ import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { PrimaryButton } from "@/components/ui/primary-button";
+import { RuixenGradientFooter } from "@/components/ui/ruixen-gradient-footer";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,9 +21,11 @@ import {
 import {
   Activity,
   ArrowRight,
+  ArrowUp,
   BarChart3,
   Bot,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   Clock3,
   Code2,
@@ -170,6 +174,21 @@ export default function HomePage() {
   const pageRef = useRef<HTMLDivElement>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 350);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   useEffect(() => {
     const checkUser = async () => {
@@ -249,88 +268,78 @@ export default function HomePage() {
         FORM: Established DESIGN.md world extended into a full persuasive homepage; GSAP animates one staged reveal system.
       */}
 
-      <header className="sticky top-0 z-50 border-b border-hairline bg-white/92 backdrop-blur-xl">
-        <div className="mx-auto flex h-20 max-w-[1440px] items-center justify-between px-5 sm:px-8 lg:px-10">
-          <Link href="/" className="flex min-w-0 items-center gap-4" title="GAP VoicePilot Home">
-            <span className="relative flex h-16 w-16 shrink-0 overflow-hidden">
-              <Image src="/logo.png" alt="GAP VoicePilot Logo" width={64} height={64} className="h-full w-full object-contain" priority />
-            </span>
-            <span className="hidden flex-col leading-none sm:flex">
-              <span className="text-xl font-semibold tracking-[-0.02em] text-black">GAP</span>
-              <span className="mt-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.34em] text-black/50">
-                VoicePilot
+      <header className="sticky top-4 z-50 mx-auto w-full md:w-[82%] lg:w-[76%] max-w-[1080px] px-3 sm:px-4">
+        <div className="flex h-16 items-center justify-between rounded-full border border-white/70 bg-white/75 p-2 pl-4 pr-2 shadow-[0_10px_35px_rgba(0,0,0,0.06),0_1px_0_rgba(255,255,255,0.9)_inset] backdrop-blur-2xl ring-1 ring-black/5 transition-all duration-300">
+          <Link href="/" className="flex items-center gap-2.5 shrink-0" title="GAP VoicePilot Home">
+            <Image src="/logo.png" alt="GAP VoicePilot Logo" width={40} height={40} className="h-10 w-10 object-contain" priority />
+            <span className="flex flex-col leading-none">
+              <span className="text-base font-extrabold tracking-tight text-black">GAP</span>
+              <span className="font-array text-[11.5px] font-bold uppercase tracking-[0.08em] text-black/75 -mt-0.5">
+                VOICEPILOT
               </span>
             </span>
           </Link>
 
           <nav
-            className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 md:flex"
+            className="hidden items-center gap-1 md:flex"
             aria-label="Primary navigation"
           >
             {navItems.map((item) => (
               <a
                 key={item.href}
                 href={item.href}
-                className="text-sm font-semibold text-black/58 transition-colors hover:text-black"
+                className="rounded-full px-3.5 py-1.5 text-xs font-semibold text-black/70 transition-all hover:bg-black/5 hover:text-black"
               >
                 {item.label}
               </a>
             ))}
           </nav>
 
-          <div className="hidden items-center gap-3 sm:flex">
+          <div className="hidden items-center gap-2 sm:flex shrink-0">
             {user ? (
-              <>
-                <Link href="/dashboard" className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-black px-6 text-sm font-semibold text-white transition-transform hover:scale-[1.02]">
-                  Dashboard
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      className="flex h-11 w-11 items-center justify-center rounded-full border border-hairline bg-white text-black transition-colors hover:bg-surface-soft"
-                      aria-label="Open account menu"
-                    >
-                      <Avatar className="h-9 w-9">
-                        <AvatarFallback className="bg-black text-sm font-semibold uppercase text-white">
-                          {displayName.slice(0, 1)}
-                        </AvatarFallback>
-                      </Avatar>
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" sideOffset={12} className="w-64 rounded-[18px] border-hairline bg-white p-2">
-                    <DropdownMenuLabel className="px-3 py-2">
-                      <span className="block truncate text-sm font-semibold text-black">{displayName}</span>
-                      {user.email ? <span className="mt-1 block truncate text-xs font-medium text-black/45">{user.email}</span> : null}
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator className="bg-hairline" />
-                    <DropdownMenuItem asChild className="rounded-xl px-3 py-2.5 font-medium">
-                      <Link href="/dashboard">Open Dashboard</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="rounded-xl px-3 py-2.5 font-medium text-red-600 focus:bg-block-pink focus:text-red-700"
-                      onSelect={async () => {
-                        const { signOut } = await import("@/app/actions/auth");
-                        await signOut();
-                      }}
-                    >
-                      <LogOut className="mr-2 h-4 w-4" />
-                      Sign out
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-black/10 bg-white shadow-sm transition-all duration-200 hover:border-black/25 hover:shadow-md hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black"
+                    aria-label="Open account menu"
+                  >
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="bg-gradient-to-br from-black via-neutral-900 to-neutral-800 text-xs font-semibold uppercase tracking-wider text-white shadow-inner">
+                        {displayName.slice(0, 1)}
+                      </AvatarFallback>
+                    </Avatar>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" sideOffset={12} className="w-64 rounded-[20px] border border-black/10 bg-white/95 p-2 shadow-2xl backdrop-blur-xl">
+                  <DropdownMenuLabel className="px-3.5 py-2.5">
+                    <span className="block truncate text-sm font-semibold text-black">{displayName}</span>
+                    {user.email ? <span className="mt-0.5 block truncate text-xs font-medium text-black/45">{user.email}</span> : null}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-black/5" />
+                  <DropdownMenuItem asChild className="rounded-xl px-3.5 py-2.5 font-medium transition-colors cursor-pointer">
+                    <Link href="/dashboard">Open Dashboard</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="rounded-xl px-3.5 py-2.5 font-medium text-red-600 focus:bg-red-50 focus:text-red-700 cursor-pointer"
+                    onSelect={async () => {
+                      const { signOut } = await import("@/app/actions/auth");
+                      await signOut();
+                    }}
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
               <>
-                <Link href="/login" className="rounded-full px-5 py-3 text-sm font-semibold text-black/60 transition-colors hover:bg-surface-soft hover:text-black">
+                <Link href="/login" className="rounded-full px-3.5 py-2 text-xs font-semibold text-black/70 transition-colors hover:bg-black/5 hover:text-black">
                   Sign In
                 </Link>
-                <Link href="/dashboard" className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-black px-6 text-sm font-semibold text-white transition-transform hover:scale-[1.02]">
-                  Launch Dashboard
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
+                <PrimaryButton href="/dashboard" className="h-10 min-w-[145px]">
+                  Get Started
+                </PrimaryButton>
               </>
             )}
           </div>
@@ -338,36 +347,35 @@ export default function HomePage() {
           <button
             type="button"
             onClick={() => setMobileMenuOpen((open) => !open)}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-surface-soft text-black transition-transform active:scale-95 md:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-black/5 text-black transition-transform active:scale-95 md:hidden"
             aria-label="Toggle navigation menu"
             aria-expanded={mobileMenuOpen}
           >
-            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
           </button>
         </div>
 
-        <div className={`md:hidden ${mobileMenuOpen ? "border-t border-hairline bg-white" : "hidden"}`}>
-          <nav className="mx-auto flex max-w-[1440px] flex-col gap-1 px-5 py-5" aria-label="Mobile navigation">
+        <div className={`mt-2 md:hidden ${mobileMenuOpen ? "block" : "hidden"}`}>
+          <nav className="flex flex-col gap-1 rounded-3xl border border-black/10 bg-white/95 p-4 shadow-2xl backdrop-blur-xl" aria-label="Mobile navigation">
             {navItems.map((item) => (
               <a
                 key={item.href}
                 href={item.href}
                 onClick={closeMobileMenu}
-                className="rounded-2xl px-4 py-3 text-base font-semibold text-black hover:bg-surface-soft"
+                className="rounded-xl px-4 py-2.5 text-sm font-semibold text-black hover:bg-surface-soft"
               >
                 {item.label}
               </a>
             ))}
-            <div className="mt-4 grid gap-2 border-t border-hairline pt-4">
+            <div className="mt-3 grid gap-2 border-t border-black/5 pt-3">
               {user ? (
                 <>
-                  <div className="rounded-2xl bg-surface-soft px-4 py-3">
+                  <div className="rounded-xl bg-surface-soft px-4 py-2.5">
                     <p className="truncate text-sm font-semibold text-black">{displayName}</p>
-                    {user.email ? <p className="mt-1 truncate text-xs font-medium text-black/45">{user.email}</p> : null}
+                    {user.email ? <p className="mt-0.5 truncate text-xs font-medium text-black/45">{user.email}</p> : null}
                   </div>
-                  <Link href="/dashboard" onClick={closeMobileMenu} className="btn-pill-primary rounded-full py-3">
+                  <Link href="/dashboard" onClick={closeMobileMenu} className="btn-pill-primary rounded-full py-2.5 text-center text-xs">
                     Dashboard
-                    <ArrowRight className="h-4 w-4" />
                   </Link>
                   <button
                     type="button"
@@ -376,20 +384,19 @@ export default function HomePage() {
                       const { signOut } = await import("@/app/actions/auth");
                       await signOut();
                     }}
-                    className="btn-pill-secondary rounded-full py-3 text-red-600"
+                    className="btn-pill-secondary rounded-full py-2.5 text-xs text-red-600"
                   >
                     Sign Out
                   </button>
                 </>
               ) : (
                 <>
-                  <Link href="/login" onClick={closeMobileMenu} className="btn-pill-secondary rounded-full py-3">
+                  <Link href="/login" onClick={closeMobileMenu} className="btn-pill-secondary rounded-full py-2.5 text-center text-xs">
                     Sign In
                   </Link>
-                  <Link href="/dashboard" onClick={closeMobileMenu} className="btn-pill-primary rounded-full py-3">
-                    Launch Dashboard
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
+                  <PrimaryButton href="/dashboard" onClick={closeMobileMenu} className="h-10 w-full justify-between">
+                    Get Started
+                  </PrimaryButton>
                 </>
               )}
             </div>
@@ -399,7 +406,7 @@ export default function HomePage() {
 
       <main>
         <section className="min-h-[calc(100svh-80px)] w-full bg-white">
-          <div className="hero-reveal relative flex min-h-[calc(100svh-80px)] w-full flex-col overflow-hidden bg-white px-5 pb-0 pt-16 sm:px-8 sm:pt-20 lg:px-14">
+          <div className="hero-reveal relative flex min-h-[calc(100svh-80px)] w-full flex-col overflow-hidden bg-white px-5 pb-0 pt-16 sm:px-8 sm:pt-16 lg:px-14">
             <div className="mx-auto flex max-w-5xl flex-1 flex-col items-center text-center">
               <div className="inline-flex items-center gap-2 rounded-full bg-surface-soft px-4 py-2 text-xs font-semibold text-black shadow-[0_10px_30px_rgba(0,0,0,0.04)]">
                 <span className="flex items-center gap-0.5 text-[#ff4b2f]" aria-label="Five star rating">
@@ -419,13 +426,9 @@ export default function HomePage() {
               </p>
 
               <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <Link
-                  href="/dashboard"
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#ff4b2f] px-7 text-base font-semibold text-white shadow-[0_16px_34px_rgba(255,75,47,0.24)] transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4b2f] focus-visible:ring-offset-2"
-                >
+                <PrimaryButton href="/dashboard">
                   {user ? "Open Dashboard" : "Start for free"}
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
+                </PrimaryButton>
                 <Link
                   href="/dashboard/assistants"
                   className="inline-flex h-12 items-center justify-center rounded-full border border-[#ff4b2f]/55 bg-white px-7 text-base font-semibold text-[#d93620] transition-colors hover:bg-[#fff3ef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4b2f] focus-visible:ring-offset-2"
@@ -435,7 +438,9 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="hero-pulse relative mx-auto mt-auto h-[34vh] min-h-[260px] w-full max-w-[1380px] sm:min-h-[300px] lg:min-h-[340px]">
+            <div className="hero-pulse relative mx-auto mt-auto h-[36vh] min-h-[280px] w-full max-w-[1380px] sm:min-h-[320px] lg:min-h-[360px]">
+              <div className="absolute left-1/2 top-1/2 h-[220px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-r from-[#ff4b2f]/10 via-[#ff9a3c]/15 to-[#ff4b2f]/10 blur-3xl pointer-events-none" />
+
               <svg
                 className="absolute inset-0 h-full w-full"
                 viewBox="0 0 1180 360"
@@ -449,8 +454,9 @@ export default function HomePage() {
                     key={`left-${y}`}
                     d={`M 0 ${y} C 215 ${y + 34 + index * 4}, 370 ${178 + index * 3}, 590 205`}
                     stroke="#ff4b2f"
-                    strokeWidth="1.4"
-                    strokeOpacity={0.14 + index * 0.035}
+                    strokeWidth="1.6"
+                    strokeOpacity={0.12 + index * 0.03}
+                    className="animate-pulse-glow"
                   />
                 ))}
                 {[74, 114, 154, 194, 234, 274].map((y, index) => (
@@ -458,50 +464,43 @@ export default function HomePage() {
                     key={`right-${y}`}
                     d={`M 1180 ${y} C 965 ${y + 34 + index * 4}, 810 ${178 + index * 3}, 590 205`}
                     stroke="#ff4b2f"
-                    strokeWidth="1.4"
-                    strokeOpacity={0.14 + index * 0.035}
+                    strokeWidth="1.6"
+                    strokeOpacity={0.12 + index * 0.03}
+                    className="animate-pulse-glow"
                   />
                 ))}
               </svg>
 
-              <div className="absolute left-1/2 top-[58%] z-10 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[24px] bg-[#ff4b2f] shadow-[0_28px_70px_rgba(255,75,47,0.34)] sm:h-24 sm:w-24">
-                <span className="flex h-12 w-12 items-center justify-center rounded-[16px] bg-white sm:h-14 sm:w-14">
-                  <Image src="/logo.png" alt="GAP VoicePilot" width={44} height={44} className="h-10 w-10 object-contain sm:h-11 sm:w-11" />
-                </span>
+              <div className="absolute left-1/2 top-[57%] z-30 flex flex-col items-center -translate-x-1/2 -translate-y-1/2">
+                <div className="relative flex h-12 w-12 items-center justify-center rounded-[16px] border border-black/10 bg-white p-1 shadow-[0_14px_35px_rgba(0,0,0,0.1)] transition-all duration-300 hover:scale-105 sm:h-14 sm:w-14 sm:p-1.5">
+                  <Image src="/logo.png" alt="GAP VoicePilot" width={56} height={56} className="h-full w-full object-contain rounded-[10px]" />
+                </div>
               </div>
 
               {[
-                { name: "Agent", className: "left-[12%] top-[18%]", icon: Bot, surface: "bg-block-lime" },
-                { name: "Calls", className: "left-[27%] top-[58%]", icon: PhoneCall, surface: "bg-white" },
-                { name: "Reports", className: "left-[11%] bottom-[9%]", icon: BarChart3, surface: "bg-black text-white" },
-                { name: "CRM", className: "right-[29%] top-[57%]", icon: DatabaseZap, surface: "bg-block-pink" },
-                { name: "Support", className: "right-[12%] top-[19%]", icon: Headphones, surface: "bg-white" },
-                { name: "Campaigns", className: "right-[11%] bottom-[9%]", icon: Activity, surface: "bg-block-navy text-white" },
+                { name: "Agent", label: "AI Voice Agent", className: "left-[5%] sm:left-[10%] top-[14%] sm:top-[16%]", icon: Bot, surface: "bg-[#f4fce3] border-[#d8f5a2] text-[#2b5200]", float: "animate-float-slow" },
+                { name: "Calls", label: "Live Call Routing", className: "left-[18%] sm:left-[24%] top-[54%] sm:top-[56%]", icon: PhoneCall, surface: "bg-white border-black/10 text-black shadow-md", float: "animate-float-reverse" },
+                { name: "Reports", label: "Realtime Analytics", className: "left-[4%] sm:left-[9%] bottom-[12%] sm:bottom-[8%]", icon: BarChart3, surface: "bg-black border-black text-white shadow-xl", float: "animate-float-slow" },
+                { name: "CRM", label: "CRM Auto-Sync", className: "right-[20%] sm:right-[26%] top-[53%] sm:top-[55%]", icon: DatabaseZap, surface: "bg-[#fff0f6] border-[#ffdeeb] text-[#a61e4d]", float: "animate-float-reverse" },
+                { name: "Support", label: "Support Handoff", className: "right-[5%] sm:right-[10%] top-[15%] sm:top-[17%]", icon: Headphones, surface: "bg-white border-black/10 text-black shadow-md", float: "animate-float-slow" },
+                { name: "Campaigns", label: "Outbound Dialing", className: "right-[4%] sm:right-[9%] bottom-[12%] sm:bottom-[8%]", icon: Activity, surface: "bg-[#0c192c] border-black/20 text-white shadow-xl", float: "animate-float-reverse" },
               ].map((tile) => {
                 const TileIcon = tile.icon;
                 return (
                   <div
                     key={tile.name}
-                    className={`absolute z-10 hidden h-16 w-16 items-center justify-center rounded-[18px] border border-black/8 shadow-[0_22px_55px_rgba(0,0,0,0.13)] sm:flex ${tile.className} ${tile.surface}`}
-                    aria-label={tile.name}
+                    className={`group absolute z-20 flex items-center gap-2.5 rounded-full border px-3.5 py-2 shadow-lg transition-all duration-300 hover:z-30 hover:scale-105 hover:shadow-2xl sm:px-4 sm:py-2.5 ${tile.className} ${tile.surface} ${tile.float}`}
+                    aria-label={tile.label}
                   >
-                    <TileIcon className="h-7 w-7" />
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-black/5 p-1 group-hover:scale-110 transition-transform">
+                      <TileIcon className="h-4 w-4" />
+                    </span>
+                    <span className="text-xs font-semibold tracking-tight whitespace-nowrap">
+                      {tile.label}
+                    </span>
                   </div>
                 );
               })}
-
-              <div className="absolute inset-x-0 bottom-0 z-20 grid grid-cols-3 gap-3 sm:hidden">
-                {[
-                  ["Voice", "Hindi + English"],
-                  ["Calls", "Live routing"],
-                  ["CRM", "Auto sync"],
-                ].map(([label, value]) => (
-                  <div key={label} className="rounded-[16px] bg-surface-soft p-3 text-left">
-                    <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-black/45">{label}</p>
-                    <p className="mt-1 text-xs font-semibold text-black">{value}</p>
-                  </div>
-                ))}
-              </div>
             </div>
           </div>
         </section>
@@ -711,47 +710,161 @@ export default function HomePage() {
                 <h2 className="text-4xl font-[340] leading-[1.04] tracking-[-0.03em] md:text-5xl">
                   Questions before the first call?
                 </h2>
-                <Link href="/dashboard" className="mt-8 inline-flex items-center gap-2 rounded-full bg-black px-6 py-3 text-sm font-semibold text-white">
+                <PrimaryButton href="/dashboard" variant="light" className="mt-8">
                   Open Dashboard
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
+                </PrimaryButton>
               </div>
 
               <div className="grid gap-3">
-                {faqs.map((faq) => (
-                  <div key={faq.question} className="rounded-[18px] bg-white p-5">
-                    <h3 className="text-base font-semibold tracking-[-0.01em] text-black">{faq.question}</h3>
-                    <p className="mt-3 text-sm font-light leading-6 text-black">{faq.answer}</p>
-                  </div>
-                ))}
+                {faqs.map((faq, index) => {
+                  const isOpen = openFaqIndex === index;
+                  return (
+                    <div
+                      key={faq.question}
+                      className="overflow-hidden rounded-[18px] bg-white border border-black/5 shadow-sm transition-all duration-200"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setOpenFaqIndex(isOpen ? null : index)}
+                        className="flex w-full items-center justify-between gap-4 p-5 text-left transition-colors hover:bg-black/[0.02]"
+                        aria-expanded={isOpen}
+                      >
+                        <h3 className="text-base font-semibold tracking-[-0.01em] text-black">
+                          {faq.question}
+                        </h3>
+                        <span
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-transform duration-300 ${
+                            isOpen
+                              ? "rotate-180 bg-black text-white"
+                              : "bg-surface-soft text-black/60"
+                          }`}
+                        >
+                          <ChevronDown className="h-4 w-4" />
+                        </span>
+                      </button>
+                      {isOpen && (
+                        <div className="px-5 pb-5 pt-0 text-sm font-light leading-6 text-black/80">
+                          <p className="border-t border-black/5 pt-3">{faq.answer}</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
         </section>
       </main>
 
-      <footer className="border-t border-hairline bg-white py-12">
-        <div className="mx-auto flex max-w-[1340px] flex-col gap-8 px-6 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 overflow-hidden rounded-full bg-black">
-              <Image src="/logo.png" alt="GAP Logo" width={36} height={36} className="h-full w-full object-cover" />
-            </span>
-            <div>
-              <p className="text-sm font-semibold tracking-tight text-black">GAP VoicePilot</p>
-              <p className="mt-1 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-black/45">Realtime AI calling</p>
+      <RuixenGradientFooter gradientHeight="50vh" minReveal={0} className="relative z-10 border-t border-black/10 bg-white/90 backdrop-blur-sm pt-20 pb-10">
+        <div className="mx-auto w-full max-w-[1340px] px-6 lg:px-8">
+          <div className="grid gap-12 pb-16 lg:grid-cols-12">
+            <div className="flex flex-col justify-between lg:col-span-5">
+              <div>
+                <div className="flex items-center gap-3.5">
+                  <span className="relative flex h-11 w-11 shrink-0 overflow-hidden">
+                    <Image src="/logo.png" alt="GAP Logo" width={44} height={44} className="h-full w-full object-contain" />
+                  </span>
+                  <span className="flex flex-col leading-none">
+                    <span className="text-base font-bold tracking-tight text-black">GAP</span>
+                    <span className="mt-1 font-array text-xs font-semibold uppercase tracking-[0.22em] text-black/50">
+                      VoicePilot
+                    </span>
+                  </span>
+                </div>
+
+                <p className="mt-5 max-w-md text-sm font-normal leading-relaxed text-black/70">
+                  Deploy ultra-low latency Hindi, English, and Hinglish AI voice agents for automated calling, lead qualification, and customer support.
+                </p>
+
+                <form onSubmit={(e) => e.preventDefault()} className="mt-7 flex max-w-md items-center gap-2 rounded-full border border-black/15 bg-surface-soft/80 p-1.5 shadow-sm transition-all focus-within:border-black/40 focus-within:ring-2 focus-within:ring-black/5">
+                  <input
+                    type="email"
+                    placeholder="Enter work email for updates"
+                    className="w-full bg-transparent px-4 text-xs text-black placeholder:text-black/40 focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    className="inline-flex shrink-0 items-center justify-center rounded-full bg-black px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-black/85 active:scale-[0.98]"
+                  >
+                    Subscribe
+                  </button>
+                </form>
+              </div>
+
+              <div className="mt-8 flex items-center gap-2.5 rounded-full border border-emerald-500/20 bg-emerald-50/80 px-3.5 py-1.5 w-fit text-xs font-medium text-emerald-900">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                </span>
+                <span>All systems operational & active</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:col-span-7">
+              <div>
+                <h3 className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-black">Product</h3>
+                <ul className="mt-5 flex flex-col gap-3.5 text-xs font-medium text-black/65">
+                  <li><Link href="/dashboard" className="transition-all hover:text-black hover:translate-x-1 inline-block">Dashboard Overview</Link></li>
+                  <li><Link href="/dashboard/assistants" className="transition-all hover:text-black hover:translate-x-1 inline-block">AI Voice Assistants</Link></li>
+                  <li><Link href="/dashboard/calls" className="transition-all hover:text-black hover:translate-x-1 inline-block">Realtime Call Logs</Link></li>
+                  <li><Link href="/dashboard/phone-numbers" className="transition-all hover:text-black hover:translate-x-1 inline-block">Phone Numbers</Link></li>
+                  <li><Link href="/dashboard/billing" className="transition-all hover:text-black hover:translate-x-1 inline-block">Credits & Subscriptions</Link></li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-black">Capabilities</h3>
+                <ul className="mt-5 flex flex-col gap-3.5 text-xs font-medium text-black/65">
+                  <li><Link href="#capabilities" className="transition-all hover:text-black hover:translate-x-1 inline-block">Hinglish Voice Models</Link></li>
+                  <li><Link href="#capabilities" className="transition-all hover:text-black hover:translate-x-1 inline-block">Sub-second Latency</Link></li>
+                  <li><Link href="#capabilities" className="transition-all hover:text-black hover:translate-x-1 inline-block">Dynamic Campaign Flow</Link></li>
+                  <li><Link href="#pricing" className="transition-all hover:text-black hover:translate-x-1 inline-block">Flexible Usage Plans</Link></li>
+                  <li><Link href="#faq" className="transition-all hover:text-black hover:translate-x-1 inline-block">Frequently Asked Questions</Link></li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-black">Company & Legal</h3>
+                <ul className="mt-5 flex flex-col gap-3.5 text-xs font-medium text-black/65">
+                  <li><a href="#" className="transition-all hover:text-black hover:translate-x-1 inline-block">About GAP Platform</a></li>
+                  <li><a href="#" className="transition-all hover:text-black hover:translate-x-1 inline-block">Privacy Policy</a></li>
+                  <li><a href="#" className="transition-all hover:text-black hover:translate-x-1 inline-block">Terms of Service</a></li>
+                  <li><a href="#" className="transition-all hover:text-black hover:translate-x-1 inline-block">Security Architecture</a></li>
+                  <li><a href="#" className="transition-all hover:text-black hover:translate-x-1 inline-block">Contact Support</a></li>
+                </ul>
+              </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm font-medium text-black/65">
-            <Link href="/dashboard" className="hover:text-black">Dashboard</Link>
-            <Link href="/dashboard/assistants" className="hover:text-black">Assistants</Link>
-            <Link href="/dashboard/calls" className="hover:text-black">Call Logs</Link>
-            <Link href="/dashboard/billing" className="hover:text-black">Plans</Link>
+          <div className="flex flex-col items-center justify-between gap-4 border-t border-black/10 pt-8 text-xs font-medium text-black/50 sm:flex-row">
+            <p>© 2026 GAP VoicePilot. All rights reserved.</p>
+            <div className="flex items-center gap-4 font-mono text-[11px] uppercase tracking-wider text-black/60">
+              <span className="transition-colors hover:text-black cursor-pointer">Privacy</span>
+              <span>•</span>
+              <span className="transition-colors hover:text-black cursor-pointer">Terms</span>
+              <span>•</span>
+              <span className="transition-colors hover:text-black cursor-pointer">Cookies</span>
+            </div>
+            <p className="font-mono text-[11px] uppercase tracking-wider text-black/40">Engineered for Next-Gen AI Calling</p>
           </div>
-
-          <p className="text-xs font-medium text-black/45">2026 GAP VoicePilot Platform.</p>
         </div>
-      </footer>
+      </RuixenGradientFooter>
+
+      {/* Floating Scroll to Top Button */}
+      <button
+        type="button"
+        onClick={scrollToTop}
+        aria-label="Scroll to top of page"
+        title="Scroll to top"
+        className={`group fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-black/10 bg-white/90 text-black shadow-[0_12px_32px_rgba(0,0,0,0.14)] backdrop-blur-xl transition-all duration-300 hover:scale-110 hover:bg-black hover:text-white active:scale-95 sm:bottom-8 sm:right-8 ${
+          showScrollTop
+            ? "translate-y-0 opacity-100 pointer-events-auto"
+            : "translate-y-6 opacity-0 pointer-events-none"
+        }`}
+      >
+        <ArrowUp className="h-5 w-5 transition-transform duration-300 group-hover:-translate-y-0.5" />
+      </button>
     </div>
   );
 }

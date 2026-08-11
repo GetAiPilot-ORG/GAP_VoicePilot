@@ -23,6 +23,12 @@ const geistMono = localFont({
   variable: "--font-geist-mono",
 });
 
+const arrayFont = localFont({
+  src: "./fonts/Array-Regular.otf",
+  variable: "--font-array",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "GAP | VoicePilot",
   description: "Autonomous AI Voice Agents & Telephony Platform",
@@ -41,7 +47,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn("font-sans", geist.variable, instrumentSerif.variable)} suppressHydrationWarning>
+    <html lang="en" className={cn("font-sans", geist.variable, instrumentSerif.variable, arrayFont.variable)} suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -57,7 +63,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${geist.className} ${geistMono.variable} font-sans font-normal text-black antialiased`} suppressHydrationWarning>
+      <body className={`${geist.className} ${geistMono.variable} ${arrayFont.variable} font-sans font-normal text-black antialiased`} suppressHydrationWarning>
         {children}
       </body>
     </html>
