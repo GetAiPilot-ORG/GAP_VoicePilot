@@ -1,6 +1,4 @@
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
+import { getAdminClient } from "@/lib/workspace";
 import { notFound } from "next/navigation";
 import { EditAssistantForm } from "../EditAssistantForm";
 
@@ -14,39 +12,48 @@ export default async function AssistantDetailPage({ params }: AssistantPageProps
   const resolvedParams = await params;
   const assistantId = resolvedParams.id;
 
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => { } } }
-  );
-
+  const adminClient = await getAdminClient();
   let assistant: any = null;
   let tools: any[] = [];
 
-  // 1. Fetch Assistant from Supabase (first user-scoped, then admin-scoped)
-  try {
-    const { data: dbAssistant } = await supabase
-      .from("assistants")
-      .select("*")
-      .eq("id", assistantId)
-      .maybeSingle();
+  // 1. Fetch Assistant from Supabase using Admin Client (checks both UUID and provider_resource_id)
+  if (adminClient) {
+    try {
+      // Check by primary ID
+      const { data: dbAssistant } = await adminClient
+        .from("assistants")
+        .select("*")
+        .eq("id", assistantId)
+        .is("deleted_at", null)
+        .maybeSingle();
 
-    if (dbAssistant) {
-      assistant = dbAssistant;
+      if (dbAssistant) {
+        assistant = dbAssistant;
+      } else {
+        // Check by provider_resource_id if passed
+        const { data: altAssistant } = await adminClient
+          .from("assistants")
+          .select("*")
+          .eq("provider_resource_id", assistantId)
+          .is("deleted_at", null)
+          .maybeSingle();
+
+        if (altAssistant) {
+          assistant = altAssistant;
+        }
+      }
+    } catch (err) {
+      console.warn("Error fetching assistant from database:", err);
     }
-
-  } catch (err) {
-    console.warn("Error fetching assistant from database:", err);
   }
 
   // 2. Fetch assigned tools for this assistant
-  if (assistant) {
+  if (assistant && adminClient) {
     try {
-      const { data: assignedTools } = await supabase
+      const { data: assignedTools } = await adminClient
         .from("assistant_tools")
         .select("tool_id")
-        .eq("assistant_id", assistantId);
+        .eq("assistant_id", assistant.id);
 
       assistant = {
         ...assistant,
@@ -56,23 +63,10 @@ export default async function AssistantDetailPage({ params }: AssistantPageProps
     } catch (e) {}
   }
 
-  // 3. Fallback: Check backend Express API / Vomyra API if not in Supabase
-  if (!assistant) {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-    try {
-      const res = await fetch(`${apiUrl}/api/v1/assistants/${assistantId}`, { cache: "no-store" });
-      if (res.ok) {
-        assistant = await res.json();
-      }
-    } catch (e) {
-      console.warn("Could not fetch assistant from backend API:", e);
-    }
-  }
-
-  // 4. Fallback: Check if this is a Vomyra assistant ID
+  // 3. Fallback: Check Vomyra API directly if not in Supabase
   if (!assistant) {
     try {
-      const vomyraApiKey = process.env.VOMYRA_API_KEY || "0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx";
+      const vomyraApiKey = process.env.VOMYRA_API_KEY || "";
       const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || "https://api.vomyra.com";
       const res = await fetch(`${vomyraBaseUrl}/v1/assistants/${assistantId}`, {
         headers: { "x-api-key": vomyraApiKey },
@@ -86,10 +80,21 @@ export default async function AssistantDetailPage({ params }: AssistantPageProps
           id: raw.id || assistantId,
           name: raw.name || "AI Assistant",
           status: raw.status || "active",
-          provider_resource_id: raw.id || raw.provider_resource_id,
+          provider_resource_id: raw.id || raw.provider_resource_id || assistantId,
           config_snapshot: raw.config || raw,
           assigned_tool_ids: raw.tools || []
         };
+      }
+    } catch (e) {}
+  }
+
+  // 4. Fallback: Check backend Express API
+  if (!assistant) {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/assistants/${assistantId}`, { cache: "no-store" });
+      if (res.ok) {
+        assistant = await res.json();
       }
     } catch (e) {}
   }
@@ -100,20 +105,22 @@ export default async function AssistantDetailPage({ params }: AssistantPageProps
   }
 
   // 5. Fetch Workspace Tools & Vomyra Tools
-  try {
-    const { data: dbTools } = await supabase
-      .from("tools")
-      .select("*")
-      .is("deleted_at", null);
+  if (adminClient) {
+    try {
+      const { data: dbTools } = await adminClient
+        .from("tools")
+        .select("*")
+        .is("deleted_at", null);
 
-    if (dbTools && dbTools.length > 0) {
-      tools = dbTools;
-    }
-  } catch (e) {}
+      if (dbTools && dbTools.length > 0) {
+        tools = dbTools;
+      }
+    } catch (e) {}
+  }
 
   // Also fetch Vomyra Live Tools
   try {
-    const vomyraApiKey = process.env.VOMYRA_API_KEY || "0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx";
+    const vomyraApiKey = process.env.VOMYRA_API_KEY || "";
     const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || "https://api.vomyra.com";
     const toolRes = await fetch(`${vomyraBaseUrl}/v1/tools`, {
       headers: { "x-api-key": vomyraApiKey },

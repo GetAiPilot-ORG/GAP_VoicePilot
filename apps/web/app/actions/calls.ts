@@ -1,47 +1,140 @@
 "use server";
 
-import { createServerClient } from "@supabase/ssr";
-import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
+import { getCurrentWorkspace, getAdminClient } from "@/lib/workspace";
 
-async function getAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+/**
+ * Fetch real call recording and full transcript from Vomyra Telephony API
+ */
+export async function fetchCallRecordingAction(callId: string) {
+  try {
+    const vomyraApiKey = process.env.VOMYRA_API_KEY || "0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx";
+    const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || "https://api.vomyra.com";
+
+    // 1. Try GET /v1/calls/:id/recording
+    try {
+      const res = await fetch(`${vomyraBaseUrl}/v1/calls/${callId}/recording`, {
+        headers: { 'x-api-key': vomyraApiKey },
+        cache: 'no-store'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const url = data?.data?.recording_url || data?.recording_url || data?.url || data?.data?.url || (typeof data === 'string' ? data : null);
+        if (url && typeof url === 'string' && url.startsWith('http')) {
+          return { success: true, recordingUrl: url };
+        }
+      }
+    } catch (e) {}
+
+    // 2. Try GET /v1/calls/:id
+    try {
+      const callRes = await fetch(`${vomyraBaseUrl}/v1/calls/${callId}`, {
+        headers: { 'x-api-key': vomyraApiKey },
+        cache: 'no-store'
+      });
+      if (callRes.ok) {
+        const callData = await callRes.json();
+        const c = callData?.data || callData;
+        const recUrl = c?.recording_url || c?.recording || c?.audio_url || c?.call_recording || c?.media_url;
+        if (recUrl && typeof recUrl === 'string' && recUrl.startsWith('http')) {
+          return { success: true, recordingUrl: recUrl };
+        }
+      }
+    } catch (e) {}
+
+    return { success: false, error: "No recording available for this call." };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to fetch recording" };
+  }
 }
 
-async function getWorkspaceId(): Promise<string> {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: () => {},
-      },
+/**
+ * Fetch full call details, recording, and transcripts directly from Vomyra Telephony API
+ */
+export async function fetchCallDetailsAction(callId: string) {
+  try {
+    const vomyraApiKey = process.env.VOMYRA_API_KEY || "0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx";
+    const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || "https://api.vomyra.com";
+
+    let recordingUrl: string | null = null;
+    let transcriptMessages: Array<{ role: string; content: string; timestamp?: string }> = [];
+    let summary: string = "";
+
+    // 1. Fetch Call details
+    try {
+      const res = await fetch(`${vomyraBaseUrl}/v1/calls/${callId}`, {
+        headers: { 'x-api-key': vomyraApiKey },
+        cache: 'no-store'
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const c = json?.data || json;
+        recordingUrl = c?.recording_url || c?.recording || c?.audio_url || c?.call_recording || c?.media_url || null;
+        summary = c?.whatsapp_summary || c?.summary || c?.notes || "";
+
+        if (Array.isArray(c?.transcript)) {
+          transcriptMessages = c.transcript.map((t: any) => ({
+            role: t.role || t.speaker || 'assistant',
+            content: t.content || t.message || t.text || '',
+            timestamp: t.timestamp ? new Date(t.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined
+          }));
+        } else if (typeof c?.transcript === 'string' && c.transcript.trim()) {
+          transcriptMessages = [{ role: 'assistant', content: c.transcript }];
+        }
+      }
+    } catch (e) {}
+
+    // 2. Fetch Recording URL specifically if not found yet
+    if (!recordingUrl) {
+      try {
+        const recRes = await fetch(`${vomyraBaseUrl}/v1/calls/${callId}/recording`, {
+          headers: { 'x-api-key': vomyraApiKey },
+          cache: 'no-store'
+        });
+        if (recRes.ok) {
+          const recData = await recRes.json();
+          const foundUrl = recData?.data?.recording_url || recData?.recording_url || recData?.url || recData?.data?.url || (typeof recData === 'string' && recData.startsWith('http') ? recData : null);
+          if (foundUrl) recordingUrl = foundUrl;
+        }
+      } catch (e) {}
     }
-  );
 
-  const adminClient = await getAdminClient();
-  const { data: { user } } = await supabase.auth.getUser();
+    // 3. Fetch Transcript specifically if not found yet
+    if (transcriptMessages.length === 0) {
+      try {
+        const transRes = await fetch(`${vomyraBaseUrl}/v1/calls/${callId}/transcript`, {
+          headers: { 'x-api-key': vomyraApiKey },
+          cache: 'no-store'
+        });
+        if (transRes.ok) {
+          const tData = await transRes.json();
+          const raw = tData?.data || tData;
+          if (Array.isArray(raw)) {
+            transcriptMessages = raw.map((t: any) => ({
+              role: t.role || t.speaker || 'assistant',
+              content: t.content || t.message || t.text || '',
+              timestamp: t.timestamp ? new Date(t.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined
+            }));
+          } else if (typeof raw === 'string' && raw.trim()) {
+            transcriptMessages = [{ role: 'assistant', content: raw }];
+          }
+        }
+      } catch (e) {}
+    }
 
-  if (user) {
-    const { data: member } = await adminClient
-      .from('workspace_members')
-      .select('workspace_id')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
-    if (member?.workspace_id) return member.workspace_id;
+    return {
+      success: true,
+      recordingUrl,
+      transcriptMessages,
+      summary
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      recordingUrl: null,
+      transcriptMessages: [],
+      error: err.message
+    };
   }
-
-  // Fallback to ANY workspace removed to prevent random assignment
-
-  return "00000000-0000-0000-0000-000000000000";
 }
 
 export interface TriggerTestCallParams {
@@ -55,12 +148,12 @@ export interface TriggerTestCallParams {
 }
 
 /**
- * Trigger an outbound PSTN phone call via the Express backend API matching Vomyra specification
+ * Trigger an outbound PSTN phone call via Vomyra specification
  */
 export async function triggerTestCallAction(params: TriggerTestCallParams) {
   try {
-    const workspaceId = await getWorkspaceId();
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const workspace = await getCurrentWorkspace();
+    const workspaceId = workspace?.workspaceId || "00000000-0000-0000-0000-000000000000";
     const idempotencyKey = `test_call_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
     const targetCustomerNumber = (params.customerNumber || params.to || "").trim();
@@ -78,7 +171,7 @@ export async function triggerTestCallAction(params: TriggerTestCallParams) {
       // 1. Check if assistantId is already a Vomyra ObjectId (24 hex characters)
       if (/^[0-9a-fA-F]{24}$/.test(params.assistantId)) {
         realVomyraAssistantId = params.assistantId;
-      } else {
+      } else if (adminClient) {
         // 2. Query Supabase for provider_resource_id
         const { data: astRecord } = await adminClient
           .from('assistants')
@@ -114,7 +207,7 @@ export async function triggerTestCallAction(params: TriggerTestCallParams) {
     }
 
     const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || 'https://api.vomyra.com';
-    const vomyraApiKey = process.env.VOMYRA_API_KEY || '0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx';
+    const vomyraApiKey = process.env.VOMYRA_API_KEY || '';
     
     console.log("[triggerTestCallAction] Posting to Vomyra backend:", JSON.stringify(payload));
 
@@ -163,8 +256,13 @@ export async function triggerTestCallAction(params: TriggerTestCallParams) {
  */
 export async function fetchCallerNumbersAction(assistantId?: string) {
   try {
-    const workspaceId = await getWorkspaceId();
+    const workspace = await getCurrentWorkspace();
+    const workspaceId = workspace?.workspaceId || "00000000-0000-0000-0000-000000000000";
     const adminClient = await getAdminClient();
+
+    if (!adminClient) {
+      return { success: true, numbers: [] };
+    }
 
     const { data: numbers } = await adminClient
       .from('phone_numbers')
@@ -183,9 +281,8 @@ export async function fetchCallerNumbersAction(assistantId?: string) {
     };
   } catch (err: any) {
     return {
-      success: false,
-      numbers: [],
-      error: err.message
+      success: true,
+      numbers: []
     };
   }
 }

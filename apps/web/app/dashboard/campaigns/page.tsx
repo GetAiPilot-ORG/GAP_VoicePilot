@@ -36,15 +36,26 @@ export default async function CampaignsPage() {
         // 1. Fetch Assistants
         const { data: dbAssistants } = await adminClient
           .from("assistants")
-          .select("id, name")
+          .select(`
+            id,
+            name,
+            phone_numbers (
+              phone_number
+            )
+          `)
           .in("workspace_id", wIds)
           .is("deleted_at", null);
 
         if (dbAssistants) {
-          assistantOptions = dbAssistants.map((a: any) => ({
-            id: a.id,
-            name: a.name
-          }));
+          assistantOptions = dbAssistants.map((a: any) => {
+            const numbers = a.phone_numbers || [];
+            const phone = numbers.length > 0 ? numbers[0].phone_number : "No number assigned";
+            return {
+              id: a.id,
+              name: a.name,
+              phone_number: phone
+            };
+          });
         }
 
         // 2. Fetch Supabase Campaigns
@@ -76,7 +87,7 @@ export default async function CampaignsPage() {
 
   // 3. Fetch & Reconstruct All Vomyra Bulk Campaign Dispatches from Live Call API
   try {
-    const vomyraApiKey = process.env.VOMYRA_API_KEY || '0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx';
+    const vomyraApiKey = process.env.VOMYRA_API_KEY || '';
     const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || 'https://api.vomyra.com';
 
     const res = await fetch(`${vomyraBaseUrl}/v1/calls?limit=100`, {

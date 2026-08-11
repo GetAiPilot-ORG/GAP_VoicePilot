@@ -51,7 +51,7 @@ export default async function CallLogsPage() {
 
   // Fetch Live Real Call Logs directly from Vomyra API
   try {
-    const vomyraApiKey = process.env.VOMYRA_API_KEY || '0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx';
+    const vomyraApiKey = process.env.VOMYRA_API_KEY || '';
     const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || 'https://api.vomyra.com';
 
     const res = await fetch(`${vomyraBaseUrl}/v1/calls?limit=100`, {
@@ -139,7 +139,7 @@ export default async function CallLogsPage() {
             minute: "2-digit",
             hour12: true
           }),
-          recordingUrl: c.recording_url,
+          recordingUrl: c.recording_url || c.recording || c.audio_url || c.call_recording || c.media_url || null,
           summary,
           outcome,
           notes: c.notes || "",

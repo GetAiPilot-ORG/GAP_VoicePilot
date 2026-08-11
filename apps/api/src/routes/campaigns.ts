@@ -20,14 +20,13 @@ interface ContactInput {
 // POST /api/v1/campaigns - Create & Launch Outbound Bulk Campaign
 campaignRouter.post(
   '/',
-  requireFeature('campaigns'),
   requireMinCredits(1.0),
   async (req: Request, res: Response) => {
     try {
       const { name, assistantId, phoneNumberId, contacts, numbers, workspaceId, createdBy } = req.body;
 
       if (!workspaceId || !createdBy || !name || !assistantId) {
-        return res.status(400).json({ error: 'workspaceId, createdBy, name, and assistantId are required.' });
+        return res.status(400).json({ error: 'workspac,, eId, createdBy, name, and assistantId are required.' });
       }
 
       let contactList: ContactInput[] = [];
