@@ -16,12 +16,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect("/login");
   }
 
-  // Define admin emails here or via environment variables
-  const adminEmails = (process.env.ADMIN_EMAILS || "priyanshgour817@gmail.com").split(",").map(e => e.trim().toLowerCase());
-  const userEmail = user.email?.toLowerCase() || "";
+  const { checkIsAdminAction } = await import('@/app/actions/kyc');
+  const isAdmin = await checkIsAdminAction();
 
-  if (!adminEmails.includes(userEmail)) {
-    // Redirect non-admins back to the main dashboard
+  if (!isAdmin) {
     redirect("/dashboard");
   }
 

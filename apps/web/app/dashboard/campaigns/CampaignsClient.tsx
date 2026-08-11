@@ -623,7 +623,7 @@ function normalizeFollowUpDate(raw: any): string {
                 >
                   {assistants.map((a) => (
                     <option key={a.id} value={a.id}>
-                      {a.phone_number || "7943494977"} - {a.name}
+                      {a.phone_number} - {a.name}
                     </option>
                   ))}
                 </select>
