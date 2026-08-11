@@ -43,9 +43,9 @@ function ShaderBackground() {
       noise={0.25}
       shape="corners"
       frame={2854.5}
-      colors={["#FFFFFF", "#ff4b2f", "#ff7a45", "#FFFFFF"]}
-      colorBack="#00000000"
-      className="absolute inset-0 bg-black"
+      colors={["#ffffff", "#f6f5f4", "#e6e6e6", "#ffffff"]}
+      colorBack="#ffffff"
+      className="absolute inset-0 bg-white"
     />
   );
 }
@@ -206,17 +206,17 @@ export default function AuthSectionOne({ mode = "signup", error }: AuthSectionOn
         </div>
 
         {/* Right Canvas Shader Viewport */}
-        <div className="relative flex min-h-[500px] overflow-hidden rounded-2xl bg-black p-8 text-white sm:p-12 lg:col-span-6 xl:col-span-7 lg:min-h-0">
+        <div className="relative flex min-h-[500px] overflow-hidden rounded-2xl bg-white p-8 text-black sm:p-12 lg:col-span-6 xl:col-span-7 lg:min-h-0 border border-black/10 dark:border-white/10">
           <ShaderBackground />
 
           <div className="relative z-10 flex h-full w-full flex-col justify-between">
-            <h2 className="max-w-[620px] pt-0 text-4xl font-bold tracking-tight text-white sm:text-5xl lg:pt-12 lg:text-[56px] lg:leading-[0.98] xl:text-[64px]">
+            <h2 className="max-w-[620px] pt-0 text-4xl font-bold tracking-tight text-black sm:text-5xl lg:pt-12 lg:text-[56px] lg:leading-[0.98] xl:text-[64px]">
               Think fast,<br />
               Build faster
             </h2>
 
             <div className="space-y-6">
-              <p className="max-w-md text-sm font-medium leading-relaxed text-white/80 sm:text-base">
+              <p className="max-w-md text-sm font-medium leading-relaxed text-black/80 sm:text-base">
                 Deploy ultra-low latency Hindi, English & Hinglish AI voice agents for sales calls, customer support, and automated follow-ups.
               </p>
             </div>
