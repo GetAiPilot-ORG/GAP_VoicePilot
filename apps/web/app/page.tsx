@@ -174,6 +174,7 @@ export default function HomePage() {
   const pageRef = useRef<HTMLDivElement>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
@@ -191,20 +192,38 @@ export default function HomePage() {
   };
 
   useEffect(() => {
+    let isMounted = true;
     const checkUser = async () => {
       try {
         const { createClient } = await import("@/utils/supabase/client");
         const supabase = createClient();
+
+        // 1. Instant check from local session storage
         const {
-          data: { user },
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (isMounted && session?.user) {
+          setUser(session.user);
+        }
+
+        // 2. Validate with Supabase server
+        const {
+          data: { user: serverUser },
         } = await supabase.auth.getUser();
-        setUser(user);
+        if (isMounted) {
+          setUser(serverUser ?? session?.user ?? null);
+        }
       } catch {
-        setUser(null);
+        if (isMounted) setUser(null);
+      } finally {
+        if (isMounted) setIsAuthLoading(false);
       }
     };
 
     void checkUser();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useGSAP(
@@ -296,7 +315,11 @@ export default function HomePage() {
           </nav>
 
           <div className="hidden items-center gap-2 sm:flex shrink-0">
-            {user ? (
+            {isAuthLoading ? (
+              <div className="flex items-center gap-2">
+                <div className="h-10 w-10 rounded-full bg-black/5 animate-pulse" />
+              </div>
+            ) : user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button

@@ -9,7 +9,6 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PrimaryButton } from "@/components/ui/primary-button";
-import { RuixenGradientFooter } from "@/components/ui/ruixen-gradient-footer";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,7 +31,6 @@ import {
   Sparkles,
   X,
   Zap,
-  HelpCircle,
   Check,
   Minus,
 } from "lucide-react";
@@ -183,6 +181,7 @@ export default function PricingPage() {
   const [isAnnual, setIsAnnual] = useState(true);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
   const [user, setUser] = useState<User | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
@@ -190,12 +189,21 @@ export default function PricingPage() {
       try {
         const { createClient } = await import("@/utils/supabase/client");
         const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (isMounted && user) {
-          setUser(user);
+
+        const { data: { session } } = await supabase.auth.getSession();
+        if (isMounted && session?.user) {
+          setUser(session.user);
+        }
+
+        const { data: { user: serverUser } } = await supabase.auth.getUser();
+        if (isMounted) {
+          setUser(serverUser ?? session?.user ?? null);
         }
       } catch (e) {
         console.warn("Could not check auth status on pricing page:", e);
+        if (isMounted) setUser(null);
+      } finally {
+        if (isMounted) setIsAuthLoading(false);
       }
     };
     fetchUser();
@@ -236,7 +244,7 @@ export default function PricingPage() {
     <div ref={containerRef} className="min-h-screen bg-[#f7f6f0] text-black antialiased font-sans">
       {/* Sticky Header Navigation */}
       <header className="sticky top-4 z-50 mx-auto w-full md:w-[82%] lg:w-[76%] max-w-[1080px] px-3 sm:px-4">
-        <div className="flex h-16 items-center justify-between rounded-full border border-white/70 bg-white/75 p-2 pl-4 pr-2 shadow-[0_10px_35px_rgba(0,0,0,0.06),0_1px_0_rgba(255,255,255,0.9)_inset] backdrop-blur-2xl ring-1 ring-black/5 transition-all duration-300">
+        <div className="flex h-16 items-center justify-between rounded-full border border-white/70 bg-white/80 p-2 pl-4 pr-2 shadow-[0_10px_35px_rgba(0,0,0,0.06),0_1px_0_rgba(255,255,255,0.9)_inset] backdrop-blur-2xl ring-1 ring-black/5 transition-all duration-300">
           <Link href="/" className="flex items-center gap-2.5 shrink-0" title="GAP VoicePilot Home">
             <Image src="/logo.png" alt="GAP VoicePilot Logo" width={40} height={40} className="h-10 w-10 object-contain" priority />
             <span className="flex flex-col leading-none">
@@ -264,7 +272,11 @@ export default function PricingPage() {
           </nav>
 
           <div className="hidden items-center gap-2 sm:flex shrink-0">
-            {user ? (
+            {isAuthLoading ? (
+              <div className="flex items-center gap-2">
+                <div className="h-10 w-10 rounded-full bg-black/5 animate-pulse" />
+              </div>
+            ) : user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
@@ -347,17 +359,10 @@ export default function PricingPage() {
       </header>
 
       {/* Main Content Area */}
-      <main className="pt-12 md:pt-16">
+      <main className="pt-16 md:pt-24 lg:pt-28">
         {/* Pricing Hero Section */}
-        <section className="mx-auto max-w-[1340px] px-6 pb-16 lg:px-8 text-center">
-          <div className="section-reveal inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-1.5 shadow-2xs">
-            <Sparkles className="h-3.5 w-3.5 text-[#ff4b2f]" />
-            <span className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-black/70">
-              TRANSPARENT AI VOICE PRICING
-            </span>
-          </div>
-
-          <h1 className="section-reveal mt-6 text-4xl font-[340] leading-[1.04] tracking-[-0.03em] sm:text-6xl lg:text-7xl max-w-4xl mx-auto">
+        <section className="mx-auto max-w-[1340px] px-6 pb-16 lg:px-8 text-center pt-4 md:pt-8">
+          <h1 className="section-reveal font-array text-4xl font-[340] leading-[1.04] tracking-[-0.03em] sm:text-6xl lg:text-7xl max-w-4xl mx-auto">
             Pay for voice minutes.<br />Scale autonomous agents.
           </h1>
 
@@ -365,13 +370,13 @@ export default function PricingPage() {
             Deploy ultra-low latency Hindi, English & Hinglish AI voice agents. Simple predictable pricing with zero per-seat fees or lock-in contracts.
           </p>
 
-          {/* Monthly / Annual Billing Switcher */}
+          {/* Clean Monthly / Annual Billing Switcher */}
           <div className="section-reveal mt-10 inline-flex items-center rounded-full border border-black/10 bg-white p-1.5 shadow-sm">
             <button
               type="button"
               onClick={() => setIsAnnual(false)}
-              className={`rounded-full px-5 py-2 text-xs font-semibold transition-all ${
-                !isAnnual ? "bg-black text-white shadow-xs" : "text-black/60 hover:text-black"
+              className={`rounded-full px-5 py-2.5 text-xs font-semibold transition-all ${
+                !isAnnual ? "bg-black text-white shadow-xs font-bold" : "text-black/60 hover:text-black"
               }`}
             >
               Monthly Billing
@@ -379,8 +384,8 @@ export default function PricingPage() {
             <button
               type="button"
               onClick={() => setIsAnnual(true)}
-              className={`flex items-center gap-1.5 rounded-full px-5 py-2 text-xs font-semibold transition-all ${
-                isAnnual ? "bg-black text-white shadow-xs" : "text-black/60 hover:text-black"
+              className={`flex items-center gap-1.5 rounded-full px-5 py-2.5 text-xs font-semibold transition-all ${
+                isAnnual ? "bg-black text-white shadow-xs font-bold" : "text-black/60 hover:text-black"
               }`}
             >
               Annual Billing
@@ -393,61 +398,74 @@ export default function PricingPage() {
 
         {/* Pricing Cards Grid */}
         <section className="mx-auto max-w-[1340px] px-6 pb-24 lg:px-8">
-          <div className="grid gap-6 lg:grid-cols-3">
+          <div className="grid gap-6 lg:grid-cols-3 items-stretch">
             {pricingPlans.map((plan) => {
               const price = isAnnual ? plan.annualPrice : plan.monthlyPrice;
               return (
                 <article
                   key={plan.name}
-                  className={`section-reveal relative flex min-h-[560px] flex-col rounded-[28px] p-8 transition-all duration-200 ${
+                  className={`section-reveal relative flex h-full flex-col justify-between rounded-[32px] p-8 sm:p-9 transition-all duration-300 ${
                     plan.featured
-                      ? "bg-black text-white shadow-2xl ring-1 ring-white/10"
-                      : "border border-black/10 bg-white text-black shadow-xs hover:shadow-md"
+                      ? "border-2 border-black/15 bg-white text-black shadow-xl scale-[1.02]"
+                      : "border border-black/10 bg-white text-black shadow-xs hover:shadow-xl hover:-translate-y-1"
                   }`}
                 >
                   {plan.badge && (
-                    <div className="absolute -top-3 right-8 rounded-full bg-[#ff4b2f] px-3.5 py-1 text-[10px] font-bold uppercase tracking-widest text-white shadow-sm">
-                      {plan.badge}
+                    <div className={`absolute -top-3.5 right-8 inline-flex items-center gap-1.5 rounded-full px-4 py-1 text-[10px] font-extrabold uppercase tracking-widest text-white shadow-md ${
+                      plan.featured ? "bg-[#ff4b2f]" : "bg-neutral-900"
+                    }`}>
+                      {plan.featured && <Sparkles className="h-3 w-3 fill-current" />}
+                      <span>{plan.badge}</span>
                     </div>
                   )}
 
                   <div>
-                    <p className={plan.featured ? "font-mono text-xs font-semibold uppercase tracking-[0.18em] text-white/55" : "font-mono text-xs font-semibold uppercase tracking-[0.18em] text-black/45"}>
+                    <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-black/45">
                       {plan.name}
                     </p>
-                    <div className="mt-6 flex items-baseline gap-1">
-                      <span className="text-4xl font-semibold tracking-[-0.03em] sm:text-5xl">
+
+                    <div className="mt-5 flex items-baseline gap-1.5">
+                      <span className="text-4xl font-extrabold tracking-tight sm:text-5xl text-black">
                         ₹{price.toLocaleString()}
                       </span>
-                      <span className={plan.featured ? "text-sm font-light text-white/60" : "text-sm font-light text-black/60"}>
+                      <span className="text-sm font-normal text-black/55">
                         / month
                       </span>
                     </div>
-                    <p className={plan.featured ? "mt-3 text-xs font-mono font-semibold text-emerald-400" : "mt-3 text-xs font-mono font-semibold text-emerald-600"}>
-                      {plan.minutes}
-                    </p>
-                    <p className={plan.featured ? "mt-2 text-sm font-light leading-relaxed text-white/70" : "mt-2 text-sm font-light leading-relaxed text-black/70"}>
+
+                    <div className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-50 px-3.5 py-1 text-xs font-semibold text-emerald-700">
+                      <Zap className="h-3.5 w-3.5 fill-current" />
+                      <span>{plan.minutes}</span>
+                    </div>
+
+                    <p className="mt-3 text-sm font-normal leading-relaxed text-black/70 min-h-[40px]">
                       {plan.note}
                     </p>
                   </div>
 
-                  <ul className="mt-8 space-y-3.5 border-t border-black/5 pt-6 dark:border-white/10">
-                    {plan.features.map((feature) => (
-                      <li key={feature} className="flex gap-3 text-sm font-light leading-relaxed">
-                        <CheckCircle2 className={`mt-0.5 h-4 w-4 shrink-0 ${plan.featured ? "text-[#ff4b2f]" : "text-black"}`} />
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  {/* Feature List */}
+                  <div className="my-8 flex-1 border-t border-black/8 pt-6">
+                    <ul className="space-y-3.5">
+                      {plan.features.map((feature) => (
+                        <li key={feature} className="flex items-start gap-3 text-xs sm:text-sm font-medium leading-normal text-black/85">
+                          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-black/80" />
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
 
+                  {/* Balanced Button Components */}
                   <Link
                     href="/dashboard"
-                    className={`mt-auto inline-flex items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-semibold transition-all hover:scale-[1.02] ${
-                      plan.featured ? "bg-white text-black hover:bg-neutral-100" : "bg-black text-white hover:bg-neutral-800"
+                    className={`group flex h-12 w-full items-center justify-center gap-2 rounded-full font-bold text-sm shadow-sm transition-all duration-200 active:scale-[0.98] ${
+                      plan.featured
+                        ? "bg-[#ff4b2f] text-white hover:bg-[#e03a1e] shadow-md hover:shadow-lg"
+                        : "bg-black text-white hover:bg-neutral-800 hover:shadow-md"
                     }`}
                   >
-                    {plan.action}
-                    <ArrowRight className="h-4 w-4" />
+                    <span>{plan.action}</span>
+                    <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
                   </Link>
                 </article>
               );
@@ -566,8 +584,101 @@ export default function PricingPage() {
         </section>
       </main>
 
-      {/* Footer Component */}
-      <RuixenGradientFooter />
+      {/* Clean Footer Component */}
+      <footer className="relative z-10 border-t border-black/10 bg-white/90 backdrop-blur-sm pt-20 pb-10">
+        <div className="mx-auto w-full max-w-[1340px] px-6 lg:px-8">
+          <div className="grid gap-12 pb-16 lg:grid-cols-12">
+            <div className="flex flex-col justify-between lg:col-span-5">
+              <div>
+                <div className="flex items-center gap-3.5">
+                  <span className="relative flex h-11 w-11 shrink-0 overflow-hidden">
+                    <Image src="/logo.png" alt="GAP Logo" width={44} height={44} className="h-full w-full object-contain" />
+                  </span>
+                  <span className="flex flex-col leading-none">
+                    <span className="text-base font-bold tracking-tight text-black">GAP</span>
+                    <span className="mt-1 font-array text-xs font-semibold uppercase tracking-[0.22em] text-[#ff4b2f]">
+                      VoicePilot
+                    </span>
+                  </span>
+                </div>
+
+                <p className="mt-5 max-w-md text-sm font-normal leading-relaxed text-black/70">
+                  Deploy ultra-low latency Hindi, English, and Hinglish AI voice agents for automated calling, lead qualification, and customer support.
+                </p>
+
+                <form onSubmit={(e) => e.preventDefault()} className="mt-7 flex max-w-md items-center gap-2 rounded-full border border-black/15 bg-neutral-100/80 p-1.5 shadow-sm transition-all focus-within:border-black/40 focus-within:ring-2 focus-within:ring-black/5">
+                  <input
+                    type="email"
+                    placeholder="Enter work email for updates"
+                    className="w-full bg-transparent px-4 text-xs text-black placeholder:text-black/40 focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    className="inline-flex shrink-0 items-center justify-center rounded-full bg-black px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-neutral-800 active:scale-[0.98]"
+                  >
+                    Subscribe
+                  </button>
+                </form>
+              </div>
+
+              <div className="mt-8 flex items-center gap-2.5 rounded-full border border-emerald-500/20 bg-emerald-50/80 px-3.5 py-1.5 w-fit text-xs font-medium text-emerald-900">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                </span>
+                <span>All systems operational & active</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:col-span-7">
+              <div>
+                <h3 className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-black">Product</h3>
+                <ul className="mt-5 flex flex-col gap-3.5 text-xs font-medium text-black/65">
+                  <li><Link href="/dashboard" className="transition-all hover:text-black hover:translate-x-1 inline-block">Dashboard Overview</Link></li>
+                  <li><Link href="/dashboard/assistants" className="transition-all hover:text-black hover:translate-x-1 inline-block">AI Voice Assistants</Link></li>
+                  <li><Link href="/dashboard/calls" className="transition-all hover:text-black hover:translate-x-1 inline-block">Realtime Call Logs</Link></li>
+                  <li><Link href="/dashboard/phone-numbers" className="transition-all hover:text-black hover:translate-x-1 inline-block">Phone Numbers</Link></li>
+                  <li><Link href="/dashboard/billing" className="transition-all hover:text-black hover:translate-x-1 inline-block">Credits & Subscriptions</Link></li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-black">Capabilities</h3>
+                <ul className="mt-5 flex flex-col gap-3.5 text-xs font-medium text-black/65">
+                  <li><Link href="/#capabilities" className="transition-all hover:text-black hover:translate-x-1 inline-block">Hinglish Voice Models</Link></li>
+                  <li><Link href="/#capabilities" className="transition-all hover:text-black hover:translate-x-1 inline-block">Sub-second Latency</Link></li>
+                  <li><Link href="/#capabilities" className="transition-all hover:text-black hover:translate-x-1 inline-block">Dynamic Campaign Flow</Link></li>
+                  <li><Link href="/pricing" className="transition-all hover:text-black hover:translate-x-1 inline-block">Flexible Usage Plans</Link></li>
+                  <li><Link href="/pricing#faq" className="transition-all hover:text-black hover:translate-x-1 inline-block">Frequently Asked Questions</Link></li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-black">Company & Legal</h3>
+                <ul className="mt-5 flex flex-col gap-3.5 text-xs font-medium text-black/65">
+                  <li><a href="#" className="transition-all hover:text-black hover:translate-x-1 inline-block">About GAP Platform</a></li>
+                  <li><a href="#" className="transition-all hover:text-black hover:translate-x-1 inline-block">Privacy Policy</a></li>
+                  <li><a href="#" className="transition-all hover:text-black hover:translate-x-1 inline-block">Terms of Service</a></li>
+                  <li><a href="#" className="transition-all hover:text-black hover:translate-x-1 inline-block">Security Architecture</a></li>
+                  <li><a href="#" className="transition-all hover:text-black hover:translate-x-1 inline-block">Contact Support</a></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center justify-between gap-4 border-t border-black/10 pt-8 text-xs font-medium text-black/50 sm:flex-row">
+            <p>© 2026 GAP VoicePilot. All rights reserved.</p>
+            <div className="flex items-center gap-4 font-mono text-[11px] uppercase tracking-wider text-black/60">
+              <span className="transition-colors hover:text-black cursor-pointer">Privacy</span>
+              <span>•</span>
+              <span className="transition-colors hover:text-black cursor-pointer">Terms</span>
+              <span>•</span>
+              <span className="transition-colors hover:text-black cursor-pointer">Cookies</span>
+            </div>
+            <p className="font-mono text-[11px] uppercase tracking-wider text-black/40">Engineered for Next-Gen AI Calling</p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
