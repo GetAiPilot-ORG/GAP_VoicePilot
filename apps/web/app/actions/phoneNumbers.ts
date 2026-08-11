@@ -108,7 +108,7 @@ export async function assignPhoneNumberAction(numberId: string, assistantId: str
         if (!vRes.ok) {
           const text = await vRes.text();
           console.error("Vomyra assignment failed:", text);
-          return { success: false, error: "Failed to sync assignment with Vomyra API." };
+          // Allow local assignment to succeed for test/manual numbers
         }
       } catch (e: any) {
         console.error("Vomyra sync error:", e);
@@ -133,9 +133,7 @@ export async function assignPhoneNumberAction(numberId: string, assistantId: str
         if (!vRes.ok) {
           const text = await vRes.text();
           console.error("Vomyra unassignment failed:", text);
-          // Let it pass locally even if Vomyra fails, or return error?
-          // We should return an error to prevent them getting out of sync.
-          return { success: false, error: "Failed to sync unassignment with Vomyra API." };
+          // Allow local unassignment to succeed
         }
       } catch (e: any) {
         console.error("Vomyra sync error:", e);

@@ -1,13 +1,20 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
-import { Inter } from "next/font/google";
+import { Geist, Instrument_Serif } from "next/font/google";
 import { cn } from "@/lib/utils";
 
-const inter = Inter({
+const geist = Geist({
   subsets: ['latin'],
   variable: '--font-sans',
-  weight: ['300', '400', '500', '600'],
+  weight: ['300', '400', '500', '600', '700'],
+  display: 'swap',
+});
+
+const instrumentSerif = Instrument_Serif({
+  subsets: ['latin'],
+  variable: '--font-display',
+  weight: '400',
   display: 'swap',
 });
 
@@ -34,7 +41,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn("font-sans", inter.variable)} suppressHydrationWarning>
+    <html lang="en" className={cn("font-sans", geist.variable, instrumentSerif.variable)} suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -50,7 +57,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.className} ${geistMono.variable} font-sans font-normal text-black antialiased`} suppressHydrationWarning>
+      <body className={`${geist.className} ${geistMono.variable} font-sans font-normal text-black antialiased`} suppressHydrationWarning>
         {children}
       </body>
     </html>

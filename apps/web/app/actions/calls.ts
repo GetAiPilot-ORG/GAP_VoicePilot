@@ -207,7 +207,7 @@ export async function triggerTestCallAction(params: TriggerTestCallParams) {
     }
 
     const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || 'https://api.vomyra.com';
-    const vomyraApiKey = process.env.VOMYRA_API_KEY || '0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx';
+    const vomyraApiKey = process.env.VOMYRA_API_KEY || '';
     
     console.log("[triggerTestCallAction] Posting to Vomyra backend:", JSON.stringify(payload));
 
