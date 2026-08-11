@@ -53,7 +53,7 @@ gsap.registerPlugin(useGSAP, ScrollTrigger);
 const navItems = [
   { label: "Capabilities", href: "#capabilities" },
   { label: "Workflow", href: "#workflow" },
-  { label: "Pricing", href: "#pricing" },
+  { label: "Pricing", href: "/pricing" },
   { label: "FAQ", href: "#faq" },
 ];
 
