@@ -28,12 +28,14 @@ export interface CampaignJob {
   name: string;
   assistant_id?: string;
   assistant_name?: string;
-  total_contacts: number;
+  total_contacts?: number;
   completed_contacts?: number;
   failed_contacts?: number;
-  status: "completed" | "failed" | "in_progress" | "running" | "queued";
+  status: string;
   created_at: string;
   completed_at?: string | null;
+  target_audience?: string;
+  success_rate?: string;
 }
 
 export interface AssistantOption {
