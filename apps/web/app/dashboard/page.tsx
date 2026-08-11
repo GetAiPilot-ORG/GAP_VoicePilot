@@ -13,53 +13,66 @@ export default async function DashboardPage() {
     { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   );
 
-  const adminClient = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  const { data: { user } } = await supabase.auth.getUser();
 
   let totalAssistantsCount = 0;
   let activeCampaignsCount = 0;
   let totalCallsCount = 0;
-  let creditBalance = "$0.00";
+  let creditBalance = "0 AI Mins";
 
-  try {
-    const { count: astCount } = await adminClient
-      .from("assistants")
-      .select("*", { count: "exact", head: true })
-      .is("deleted_at", null);
-    
-    totalAssistantsCount = astCount || 0;
+  if (user) {
+    try {
+      const adminClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
 
-    const { count: campCount } = await adminClient
-      .from("campaigns")
-      .select("*", { count: "exact", head: true });
-    
-    activeCampaignsCount = campCount || 0;
+      // 1. Get ALL workspace IDs for this user
+      const { data: members } = await adminClient
+        .from("workspace_members")
+        .select("workspace_id")
+        .eq("user_id", user.id);
 
-    const { count: callsCount } = await adminClient
-      .from("call_logs")
-      .select("*", { count: "exact", head: true });
+      const userWorkspaceIds = members?.map((m: any) => m.workspace_id) || [];
 
-    totalCallsCount = callsCount || 0;
+      if (userWorkspaceIds.length > 0) {
+        // 2. Fetch aggregates securely filtered by user's workspaces
+        const { count: astCount } = await adminClient
+          .from("assistants")
+          .select("*", { count: "exact", head: true })
+          .is("deleted_at", null)
+          .in("workspace_id", userWorkspaceIds);
+        
+        totalAssistantsCount = astCount || 0;
 
-    const { data: ws } = await adminClient
-      .from("workspaces")
-      .select("id, balance")
-      .limit(1)
-      .maybeSingle();
+        const { count: campCount } = await adminClient
+          .from("campaigns")
+          .select("*", { count: "exact", head: true })
+          .in("workspace_id", userWorkspaceIds);
+        
+        activeCampaignsCount = campCount || 0;
 
-    if (ws?.id) {
-      const { data: rpcBal } = await adminClient.rpc('get_workspace_credit_balance', {
-        p_workspace_id: ws.id
-      });
-      const numBal = Math.floor(Number(rpcBal ?? 0));
-      creditBalance = `${numBal} AI Mins`;
-    } else {
-      creditBalance = "0 AI Mins";
+        const { count: callsCount } = await adminClient
+          .from("call_logs")
+          .select("*", { count: "exact", head: true })
+          .in("workspace_id", userWorkspaceIds);
+
+        totalCallsCount = callsCount || 0;
+
+        // 3. Sum up credit balances across all workspaces
+        let totalRawBalance = 0;
+        for (const wId of userWorkspaceIds) {
+          const { data: rpcBal } = await adminClient.rpc('get_workspace_credit_balance', {
+            p_workspace_id: wId
+          });
+          totalRawBalance += Number(rpcBal ?? 0);
+        }
+        
+        creditBalance = `${Math.floor(totalRawBalance)} AI Mins`;
+      }
+    } catch (err) {
+      console.error("Dashboard fetch error", err);
     }
-  } catch (err) {
-    creditBalance = "0 AI Mins";
   }
 
   return (

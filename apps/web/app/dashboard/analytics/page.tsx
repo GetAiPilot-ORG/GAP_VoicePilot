@@ -1,12 +1,16 @@
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 import { BarChart3, TrendingUp, Zap, Users, Phone, DollarSign, Activity } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function AnalyticsPage() {
-  const adminClient = createClient(
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   );
 
   let totalCalls = 0;
@@ -15,27 +19,84 @@ export default async function AnalyticsPage() {
   let successRateStr = "100%";
 
   try {
-    const { data: calls, count } = await adminClient
-      .from("call_logs")
-      .select("id, duration_seconds, latency_ms, status", { count: "exact" });
+    const { data: { user } } = await supabase.auth.getUser();
 
-    totalCalls = count || (calls?.length || 0);
+    if (user) {
+      const adminClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
 
-    if (calls && calls.length > 0) {
-      let latencySum = 0;
-      let completedCount = 0;
+      const { data: members } = await adminClient
+        .from("workspace_members")
+        .select("workspace_id")
+        .eq("user_id", user.id);
 
-      calls.forEach((c: any) => {
-        totalDurationSecs += Number(c.duration_seconds || 0);
-        latencySum += Number(c.latency_ms || 340);
-        if (c.status === "completed" || !c.status) completedCount++;
-      });
+      const wIds = members?.map((m: any) => m.workspace_id) || [];
 
-      avgLatencyMs = Math.round(latencySum / calls.length);
-      successRateStr = `${((completedCount / calls.length) * 100).toFixed(1)}%`;
+      if (wIds.length > 0) {
+        // 1. Fetch user's assistants to use for filtering
+        const { data: dbAssistants } = await adminClient
+          .from("assistants")
+          .select("id, name")
+          .in("workspace_id", wIds)
+          .is("deleted_at", null);
+
+        const userAssistantIds = new Set(dbAssistants?.map(a => a.id) || []);
+        const userAssistantNames = new Set(dbAssistants?.map(a => a.name) || []);
+
+        // 2. Fetch calls from Vomyra API
+        const vomyraApiKey = process.env.VOMYRA_API_KEY || '0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx';
+        const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || 'https://api.vomyra.com';
+
+        const res = await fetch(`${vomyraBaseUrl}/v1/calls?limit=100`, {
+          headers: { 'x-api-key': vomyraApiKey },
+          cache: 'no-store'
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const rawCalls = data.data || data.calls || (Array.isArray(data) ? data : []);
+
+          // Filter by user assistants
+          const filteredCalls = rawCalls.filter((c: any) => {
+            const astId = c.assistant?.id || "";
+            const astName = c.assistant?.name || (c.additional_data?.campaign_name || "");
+            return userAssistantIds.has(astId) || userAssistantNames.has(astName);
+          });
+
+          totalCalls = filteredCalls.length;
+
+          if (filteredCalls.length > 0) {
+            let latencySum = 0;
+            let completedCount = 0;
+
+            filteredCalls.forEach((c: any) => {
+              // Parse duration "MM:SS" or "HH:MM:SS"
+              let durationSecs = 0;
+              if (c.call_duration) {
+                const parts = String(c.call_duration).split(":");
+                if (parts.length === 3) {
+                  durationSecs = parseInt(parts[0]||"0") * 3600 + parseInt(parts[1]||"0") * 60 + parseInt(parts[2]||"0");
+                } else if (parts.length === 2) {
+                  durationSecs = parseInt(parts[0]||"0") * 60 + parseInt(parts[1]||"0");
+                }
+              }
+
+              totalDurationSecs += durationSecs;
+              latencySum += Number(c.latency_ms || 340);
+              
+              if (c.status === "completed" || c.status === "completed-answered" || durationSecs > 5) completedCount++;
+            });
+
+            avgLatencyMs = Math.round(latencySum / filteredCalls.length);
+            successRateStr = `${((completedCount / filteredCalls.length) * 100).toFixed(1)}%`;
+          }
+        }
+      }
     }
   } catch (e) {
-    console.warn("Failed to load analytics metrics from DB:", e);
+    console.warn("Failed to load analytics metrics from Vomyra API:", e);
   }
 
   const totalMinutes = Math.round(totalDurationSecs / 60);
