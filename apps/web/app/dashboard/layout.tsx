@@ -22,9 +22,9 @@ export default function DashboardLayout({
       <SessionNavBar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} isPinned={isPinned} setIsPinned={setIsPinned} />
 
       {/* Main Content Area (responsive offset: pl-0 on mobile, pl-16 on desktop) */}
-      <div className={cn("flex-1 flex flex-col min-w-0 pl-0 transition-all duration-200", isPinned ? "md:pl-60" : "md:pl-16")}>
+      <div className={cn("flex-1 flex flex-col min-w-0 pl-0 transition-all duration-200", isPinned ? "md:pl-[15.5rem]" : "md:pl-16")}>
         {/* Top Header Bar */}
-        <header className="h-[60px] border-b border-hairline/80 px-4 sm:px-6 flex items-center justify-between bg-white/85 backdrop-blur-md sticky top-0 z-30 gap-3 transition-all">
+        <header className="h-[64px] border-b border-neutral-200/80 px-4 sm:px-6 flex items-center justify-between bg-white/85 backdrop-blur-md sticky top-0 z-30 gap-3 transition-all">
           <div className="flex items-center gap-3 flex-1 max-w-md">
             {/* Mobile Hamburger Toggle */}
             <button 

@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import React from "react";
 import { usePathname } from "next/navigation";
 import { 
   LayoutDashboard, 
@@ -9,11 +9,12 @@ import {
   Phone, 
   FileText, 
   BarChart3, 
-  Settings,
-  Sparkles,
-  Layers,
-  CreditCard
+  CreditCard,
+  Settings
 } from "lucide-react";
+import SidebarNavItem from "@/components/sidebar/SidebarNavItem";
+import SidebarEngineCard from "@/components/sidebar/SidebarEngineCard";
+import { Separator } from "@/components/ui/separator";
 
 export default function DashboardSidebarNav() {
   const pathname = usePathname();
@@ -29,42 +30,40 @@ export default function DashboardSidebarNav() {
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Main Section */}
+    <div className="space-y-4">
       <div className="space-y-1">
-        <p className="px-3 eyebrow text-[10px] text-neutral-400 font-mono tracking-wider mb-2">
+        <p className="px-3 text-[10px] font-mono font-semibold uppercase tracking-wider text-neutral-400 mb-2">
           NAVIGATION
         </p>
         {mainNav.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+          const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname?.startsWith(item.href));
           return (
-            <Link
+            <SidebarNavItem
               key={item.name}
+              name={item.name}
               href={item.href}
-              className={`flex items-center gap-3 px-3 py-2 rounded-[10px] text-xs font-medium transition-all ${
-                isActive
-                  ? "bg-black text-white shadow-sm font-semibold"
-                  : "text-neutral-600 hover:text-black hover:bg-surface-soft"
-              }`}
-            >
-              <Icon className={`w-4 h-4 ${isActive ? "text-block-lime" : "text-neutral-500"}`} />
-              <span>{item.name}</span>
-            </Link>
+              icon={item.icon}
+              isActive={isActive}
+            />
           );
         })}
+
+        <Separator className="my-3 bg-black/5 dark:bg-white/5" />
+
+        <p className="px-3 text-[10px] font-mono font-semibold uppercase tracking-wider text-neutral-400 mb-2">
+          SYSTEM
+        </p>
+        <SidebarNavItem
+          name="API & Webhooks"
+          href="/dashboard/settings"
+          icon={Settings}
+          isActive={pathname === "/dashboard/settings"}
+          badge="LIVE"
+          badgeVariant="live"
+        />
       </div>
 
-      {/* Quick Info Box */}
-      <div className="mx-1 p-3 bg-block-cream rounded-[10px] border border-black/5 text-black space-y-1.5">
-        <div className="flex items-center gap-1.5">
-          <Sparkles className="w-3.5 h-3.5 text-black" />
-          <span className="text-[11px] font-bold">GAP Engine v2.4</span>
-        </div>
-        <p className="text-[10px] text-black/70 leading-normal">
-          Cartesia & ElevenLabs low latency neural voice pipeline connected.
-        </p>
-      </div>
+      <SidebarEngineCard isCollapsed={false} />
     </div>
   );
 }
