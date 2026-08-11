@@ -349,10 +349,12 @@ export default function BillingClient({ initialData }: BillingClientProps) {
 
         {/* Pricing Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-          {pricingTiers.map((plan) => {
+          {pricingTiers.map((plan, idx) => {
             const isCurrent = activePlanId !== null && plan.id === activePlanId;
             const isDark = plan.isPopular;
             const isLoading = loadingPlanId === plan.id;
+            const currentPlanIndex = pricingTiers.findIndex(p => p.id === activePlanId);
+            const isDowngrade = currentPlanIndex !== -1 && idx < currentPlanIndex;
 
             return (
               <div 
@@ -383,8 +385,8 @@ export default function BillingClient({ initialData }: BillingClientProps) {
 
                   {/* Feature Checklist */}
                   <div className="space-y-3 mb-8">
-                    {plan.features.map((feat, idx) => (
-                      <div key={idx} className="flex items-start gap-2.5 text-xs font-medium">
+                    {plan.features.map((feat, fidx) => (
+                      <div key={fidx} className="flex items-start gap-2.5 text-xs font-medium">
                         <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
                           isDark ? "border-white/40 text-white" : "border-black/30 text-black"
                         }`}>
@@ -400,11 +402,13 @@ export default function BillingClient({ initialData }: BillingClientProps) {
 
                 {/* CTA Button with Razorpay Integration */}
                 <button
-                  disabled={isCurrent || (isPending && isLoading)}
+                  disabled={isCurrent || isDowngrade || (isPending && isLoading)}
                   onClick={() => handleRazorpaySubscribe(plan.id, plan.priceNum, plan.name)}
                   className={`w-full py-3 px-4 rounded-full font-bold text-xs transition-all shadow-md flex items-center justify-center gap-2 ${
                     isCurrent
                       ? "bg-emerald-600 text-white cursor-default"
+                      : isDowngrade
+                      ? "bg-neutral-200 text-neutral-500 cursor-not-allowed shadow-none border border-neutral-300"
                       : isDark
                       ? "bg-white text-black hover:bg-neutral-100"
                       : "bg-[#1e1e2d] text-white hover:bg-black"
@@ -417,6 +421,8 @@ export default function BillingClient({ initialData }: BillingClientProps) {
                     </>
                   ) : isCurrent ? (
                     "Active Plan"
+                  ) : isDowngrade ? (
+                    "Included in Plan"
                   ) : (
                     plan.btnText
                   )}
