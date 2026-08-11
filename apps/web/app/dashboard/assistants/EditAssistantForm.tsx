@@ -186,7 +186,8 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
     window.speechSynthesis.speak(msg);
   };
 
-  const handleUpdate = async () => {
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsUpdating(true);
 
     const payload = {

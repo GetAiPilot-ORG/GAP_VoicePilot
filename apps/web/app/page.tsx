@@ -756,7 +756,7 @@ export default function HomePage() {
         </section>
       </main>
 
-      <RuixenGradientFooter gradientHeight="50vh" minReveal={0} className="relative z-10 border-t border-black/10 bg-white/90 backdrop-blur-sm pt-20 pb-10">
+      <footer className="relative z-10 border-t border-black/10 bg-white/90 backdrop-blur-sm pt-20 pb-10">
         <div className="mx-auto w-full max-w-[1340px] px-6 lg:px-8">
           <div className="grid gap-12 pb-16 lg:grid-cols-12">
             <div className="flex flex-col justify-between lg:col-span-5">
@@ -849,7 +849,7 @@ export default function HomePage() {
             <p className="font-mono text-[11px] uppercase tracking-wider text-black/40">Engineered for Next-Gen AI Calling</p>
           </div>
         </div>
-      </RuixenGradientFooter>
+      </footer>
 
       {/* Floating Scroll to Top Button */}
       <button
