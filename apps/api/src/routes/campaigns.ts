@@ -20,14 +20,13 @@ interface ContactInput {
 // POST /api/v1/campaigns - Create & Launch Outbound Bulk Campaign
 campaignRouter.post(
   '/',
-  requireFeature('campaigns'),
   requireMinCredits(1.0),
   async (req: Request, res: Response) => {
     try {
       const { name, assistantId, phoneNumberId, contacts, numbers, workspaceId, createdBy } = req.body;
 
       if (!workspaceId || !createdBy || !name || !assistantId) {
-        return res.status(400).json({ error: 'workspaceId, createdBy, name, and assistantId are required.' });
+        return res.status(400).json({ error: 'workspac,, eId, createdBy, name, and assistantId are required.' });
       }
 
       let contactList: ContactInput[] = [];
@@ -55,18 +54,32 @@ campaignRouter.post(
         return res.status(400).json({ error: 'No valid phone numbers found in contact list.' });
       }
 
+      // Resolve real Vomyra Assistant ID and phone_number_id
       let realVomyraAssistantId = assistantId;
+      let actualPhoneNumberId = phoneNumberId || null;
+
       try {
         const { data: assistant } = await supabase
           .from('assistants')
-          .select('provider_resource_id')
+          .select(`
+            provider_resource_id,
+            phone_numbers ( id )
+          `)
           .eq('id', assistantId)
           .maybeSingle();
 
         if (assistant?.provider_resource_id && /^[0-9a-fA-F]{24}$/.test(assistant.provider_resource_id)) {
           realVomyraAssistantId = assistant.provider_resource_id;
         }
+        
+        if (!actualPhoneNumberId && assistant?.phone_numbers && assistant.phone_numbers.length > 0) {
+          actualPhoneNumberId = assistant.phone_numbers[0].id;
+        }
       } catch {}
+
+      if (!actualPhoneNumberId) {
+        return res.status(400).json({ error: 'The selected assistant must have a phone number assigned before launching a campaign.' });
+      }
 
       let campaignId = `camp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       try {
@@ -76,7 +89,7 @@ campaignRouter.post(
             workspace_id: workspaceId,
             created_by: createdBy,
             assistant_id: assistantId,
-            phone_number_id: phoneNumberId || null,
+            phone_number_id: actualPhoneNumberId,
             name,
             total_contacts: contactList.length,
             status: 'running',
@@ -141,8 +154,7 @@ campaignRouter.post(
           await supabase
             .from('campaigns')
             .update({
-              status: 'completed',
-              completed_at: new Date().toISOString(),
+              status: 'completed'
             })
             .eq('id', campaignId);
         } catch {}

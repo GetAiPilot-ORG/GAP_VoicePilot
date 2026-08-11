@@ -4,9 +4,30 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+function formatAuthError(message: string): string {
+  const msg = (message || "").toLowerCase();
+  if (msg.includes("invalid login credentials") || msg.includes("invalid credentials")) {
+    return "The email address or password you entered is incorrect. Please check your details and try again.";
+  }
+  if (msg.includes("user already registered") || msg.includes("already exists") || msg.includes("user_already_exists")) {
+    return "An account with this email address already exists. Please sign in instead.";
+  }
+  if (msg.includes("email not confirmed")) {
+    return "Please verify your email address before signing in to your account.";
+  }
+  if (msg.includes("password should be at least")) {
+    return "Password must be at least 6 characters long.";
+  }
+  return message || "Authentication failed. Please check your credentials and try again.";
+}
+
 export async function login(formData: FormData) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
+
+  if (!email || !password) {
+    return redirect(`/login?error=${encodeURIComponent("Please fill in both email and password fields.")}`);
+  }
 
   const cookieStore = await cookies();
   const supabase = createServerClient(
@@ -36,7 +57,7 @@ export async function login(formData: FormData) {
   });
 
   if (error) {
-    return redirect("/login?error=Invalid credentials");
+    return redirect(`/login?error=${encodeURIComponent(formatAuthError(error.message))}`);
   }
 
   return redirect("/dashboard");
@@ -45,7 +66,17 @@ export async function login(formData: FormData) {
 export async function signup(formData: FormData) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
-  const name = formData.get("name") as string;
+  const firstName = (formData.get("firstName") as string) || "";
+  const lastName = (formData.get("lastName") as string) || "";
+  const name = `${firstName} ${lastName}`.trim() || (formData.get("name") as string) || "";
+
+  if (!email || !password) {
+    return redirect(`/signup?error=${encodeURIComponent("Please provide a valid email and password to register.")}`);
+  }
+
+  if (password.length < 6) {
+    return redirect(`/signup?error=${encodeURIComponent("Password must be at least 6 characters long.")}`);
+  }
 
   const cookieStore = await cookies();
   const supabase = createServerClient(
@@ -75,12 +106,14 @@ export async function signup(formData: FormData) {
     options: {
       data: {
         name,
+        firstName,
+        lastName,
       },
     },
   });
 
   if (error) {
-    return redirect(`/signup?error=${error.message}`);
+    return redirect(`/signup?error=${encodeURIComponent(formatAuthError(error.message))}`);
   }
 
   return redirect("/dashboard");
