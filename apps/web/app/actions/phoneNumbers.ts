@@ -39,22 +39,111 @@ async function getWorkspaceId(): Promise<string> {
       .from('workspace_members')
       .select('workspace_id')
       .eq('user_id', user.id)
+      .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle();
 
     if (member?.workspace_id) return member.workspace_id;
   }
 
-  const { data: anyWs } = await adminClient.from('workspaces').select('id').limit(1).maybeSingle();
-  if (anyWs?.id) return anyWs.id;
+  // Fallback to ANY workspace removed to prevent random assignment
 
-  const { data: newWs } = await adminClient.from('workspaces').insert({ name: 'Default Workspace', owner_id: user?.id || '00000000-0000-0000-0000-000000000000' }).select().single();
+  const { data: newWs } = await adminClient.from('workspaces').insert({ name: `${user?.email?.split('@')[0] || 'Default'}'s Workspace`, owner_id: user?.id || '00000000-0000-0000-0000-000000000000' }).select().single();
+  
+  if (newWs?.id && user?.id) {
+    try {
+      await adminClient.from('workspace_members').insert({
+        workspace_id: newWs.id,
+        user_id: user.id,
+        role: 'owner'
+      });
+    } catch(e) {}
+  }
   return newWs.id;
 }
 
 export async function assignPhoneNumberAction(numberId: string, assistantId: string | null) {
   const adminClient = await getAdminClient();
   
+  // Fetch phone number details
+  const { data: phoneData, error: phoneError } = await adminClient
+    .from("phone_numbers")
+    .select("phone_number")
+    .eq("id", numberId)
+    .single();
+
+  if (phoneError || !phoneData) {
+    return { success: false, error: "Phone number not found." };
+  }
+
+  const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || "https://api.vomyra.com";
+  const vomyraApiKey = process.env.VOMYRA_API_KEY || "";
+
+  // If assigning to an assistant, sync with Vomyra using PUT
+  if (assistantId) {
+    const { data: assistantData, error: assistantError } = await adminClient
+      .from("assistants")
+      .select("provider_resource_id")
+      .eq("id", assistantId)
+      .single();
+
+    if (assistantError || !assistantData?.provider_resource_id) {
+      return { success: false, error: "Assistant not found or missing provider ID." };
+    }
+
+    if (vomyraApiKey) {
+      try {
+        const vRes = await fetch(`${vomyraBaseUrl}/v1/numbers/assignment`, {
+          method: "PUT",
+          headers: {
+            "x-api-key": vomyraApiKey,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            phone_number: phoneData.phone_number,
+            assistant_id: assistantData.provider_resource_id
+          })
+        });
+
+        if (!vRes.ok) {
+          const text = await vRes.text();
+          console.error("Vomyra assignment failed:", text);
+          return { success: false, error: "Failed to sync assignment with Vomyra API." };
+        }
+      } catch (e: any) {
+        console.error("Vomyra sync error:", e);
+        return { success: false, error: "Error communicating with Vomyra API." };
+      }
+    }
+  } else {
+    // If unassigning, sync with Vomyra using DELETE
+    if (vomyraApiKey) {
+      try {
+        const vRes = await fetch(`${vomyraBaseUrl}/v1/numbers/assignment`, {
+          method: "DELETE",
+          headers: {
+            "x-api-key": vomyraApiKey,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            phone_number: phoneData.phone_number
+          })
+        });
+
+        if (!vRes.ok) {
+          const text = await vRes.text();
+          console.error("Vomyra unassignment failed:", text);
+          // Let it pass locally even if Vomyra fails, or return error?
+          // We should return an error to prevent them getting out of sync.
+          return { success: false, error: "Failed to sync unassignment with Vomyra API." };
+        }
+      } catch (e: any) {
+        console.error("Vomyra sync error:", e);
+        return { success: false, error: "Error communicating with Vomyra API." };
+      }
+    }
+  }
+
   const { error } = await adminClient
     .from("phone_numbers")
     .update({ assigned_assistant_id: assistantId })
@@ -82,51 +171,74 @@ export async function fetchAndSyncVomyraNumbersAction() {
     const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || "https://api.vomyra.com";
     const vomyraApiKey = process.env.VOMYRA_API_KEY || "";
 
-    // 1. Fetch workspace assistants from Supabase
-    const { data: workspaceAssistants } = await adminClient
-      .from("assistants")
-      .select("id, name, provider_resource_id, config_snapshot")
-      .eq("workspace_id", workspaceId)
-      .is("deleted_at", null);
+    // Fetch all numbers from Vomyra API directly to ensure perfect sync
+    if (vomyraApiKey) {
+      const vRes = await fetch(`${vomyraBaseUrl}/v1/numbers`, {
+        headers: { "x-api-key": vomyraApiKey }
+      });
+      
+      if (vRes.ok) {
+        const vData = await vRes.json();
+        const vomyraNumbers = Array.isArray(vData) ? vData : (vData.phone_numbers || vData.data || []);
+        
+        // 1. Fetch workspace assistants from Supabase to map them
+        const { data: workspaceAssistants } = await adminClient
+          .from("assistants")
+          .select("id, name, provider_resource_id")
+          .eq("workspace_id", workspaceId)
+          .is("deleted_at", null);
 
-    if (workspaceAssistants && workspaceAssistants.length > 0) {
-      for (const ast of workspaceAssistants) {
-        let phoneNumFound: string | null = null;
-
-        // Check snapshot config first
-        if (ast.config_snapshot && (ast.config_snapshot.phone_number || ast.config_snapshot.assigned_number)) {
-          phoneNumFound = ast.config_snapshot.phone_number || ast.config_snapshot.assigned_number;
-        }
-
-        // Query Vomyra API live if key is present
-        if (!phoneNumFound && vomyraApiKey && ast.provider_resource_id) {
-          try {
-            const vRes = await fetch(`${vomyraBaseUrl}/v1/assistants/${ast.provider_resource_id}`, {
-              headers: { "x-api-key": vomyraApiKey }
-            });
-            if (vRes.ok) {
-              const vData = await vRes.json();
-              if (vData?.phone_number || vData?.assigned_number || vData?.phone_number_id) {
-                phoneNumFound = vData.phone_number || vData.assigned_number || vData.phone_number_id;
-              }
+        const localAssistantMap = new Map();
+        if (workspaceAssistants) {
+          workspaceAssistants.forEach(ast => {
+            if (ast.provider_resource_id) {
+              localAssistantMap.set(ast.provider_resource_id, ast.id);
             }
-          } catch (e) {
-            console.warn("Vomyra fetch assistant error:", e);
-          }
+          });
         }
 
-        if (phoneNumFound) {
-          const clean = String(phoneNumFound).trim();
-          await adminClient.from("phone_numbers").upsert({
-            workspace_id: workspaceId,
-            phone_number: clean,
-            provider: "vomyra",
-            provider_resource_id: `vomyra_${clean.replace(/[^\d+]/g, "")}`,
-            assigned_assistant_id: ast.id,
-            status: "active"
-          }, { onConflict: "phone_number" });
+        // 2. Fetch current workspace numbers to only update numbers that belong to this workspace
+        // (If the number is assigned to a workspace assistant in Vomyra, we import it to this workspace)
+        const { data: workspaceNumbers } = await adminClient
+          .from("phone_numbers")
+          .select("phone_number")
+          .eq("workspace_id", workspaceId)
+          .is("deleted_at", null);
+          
+        const workspaceNumberSet = new Set(workspaceNumbers?.map(n => n.phone_number) || []);
 
-          fetchedNumbersCount++;
+        for (const vNum of vomyraNumbers) {
+          if (!vNum || !vNum.phone_number) continue;
+          
+          const cleanPhone = String(vNum.phone_number).trim();
+          let localAssignedAssistantId = null;
+          let shouldImportToWorkspace = false;
+
+          // Check if Vomyra says it's assigned to an assistant
+          if (vNum.assigned_to && vNum.assigned_to.assistant_id) {
+            const vAssistantId = vNum.assigned_to.assistant_id;
+            
+            // If the Vomyra assistant ID matches one of our local workspace assistants, 
+            // then this number belongs to our workspace and is assigned to that assistant.
+            if (localAssistantMap.has(vAssistantId)) {
+              localAssignedAssistantId = localAssistantMap.get(vAssistantId);
+              shouldImportToWorkspace = true;
+            }
+          }
+
+          // We also update the number if it already belongs to our workspace
+          if (workspaceNumberSet.has(cleanPhone) || shouldImportToWorkspace) {
+            await adminClient.from("phone_numbers").upsert({
+              workspace_id: workspaceId,
+              phone_number: cleanPhone,
+              provider: "vomyra",
+              provider_resource_id: `vomyra_${cleanPhone.replace(/[^\d+]/g, "")}`,
+              assigned_assistant_id: localAssignedAssistantId,
+              status: localAssignedAssistantId ? "active" : "unassigned"
+            }, { onConflict: "phone_number" });
+            
+            fetchedNumbersCount++;
+          }
         }
       }
     }

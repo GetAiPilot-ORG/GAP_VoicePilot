@@ -35,13 +35,14 @@ export interface PhoneNumberRecord {
   created_at: string;
 }
 
-export interface AvailableNumberItem {
+export interface KycRecord {
   id: string;
-  phone_number: string;
-  country: string;
-  country_code: string;
-  provider: string;
-  monthly_price: number;
+  workspace_id: string;
+  business_name: string;
+  use_case: string;
+  status: "pending" | "approved" | "rejected";
+  assigned_number?: string | null;
+  created_at: string;
 }
 
 export interface AssistantOption {
@@ -51,28 +52,25 @@ export interface AssistantOption {
 
 interface PhoneNumbersClientProps {
   initialMyNumbers: PhoneNumberRecord[];
-  initialAvailableNumbers: AvailableNumberItem[];
+  initialKyc: KycRecord | null;
   assistants: AssistantOption[];
   workspaceBalance: number;
 }
 
 export function PhoneNumbersClient({
   initialMyNumbers,
-  initialAvailableNumbers,
+  initialKyc,
   assistants,
   workspaceBalance: initialBalance
 }: PhoneNumbersClientProps) {
   const [activeTab, setActiveTab] = React.useState<"my-numbers" | "buy-numbers">("my-numbers");
 
   const [myNumbers, setMyNumbers] = React.useState<PhoneNumberRecord[]>(initialMyNumbers);
-  const [availableNumbers, setAvailableNumbers] = React.useState<AvailableNumberItem[]>(initialAvailableNumbers);
+  const [kycStatus, setKycStatus] = React.useState<KycRecord | null>(initialKyc);
   const [balance, setBalance] = React.useState<number>(initialBalance);
   const [isFetching, setIsFetching] = React.useState(false);
+  const [isSubmittingKyc, setIsSubmittingKyc] = React.useState(false);
 
-  // Filters state for Marketplace
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const [selectedCountry, setSelectedCountry] = React.useState<string>("all");
-  const [purchasingNumberId, setPurchasingNumberId] = React.useState<string | null>(null);
   const [toastMessage, setToastMessage] = React.useState<{ type: 'success' | 'info' | 'error'; text: string } | null>(null);
 
   const handleAssignAssistant = async (numberId: string, assistantId: string) => {
@@ -114,7 +112,6 @@ export function PhoneNumbersClient({
       const res = await fetchAndSyncVomyraNumbersAction();
       
       if (res.myNumbers) setMyNumbers(res.myNumbers);
-      if (res.availableNumbers) setAvailableNumbers(res.availableNumbers);
 
       if (res.fetchedNumbersCount && res.fetchedNumbersCount > 0) {
         setToastMessage({
@@ -137,46 +134,35 @@ export function PhoneNumbersClient({
     }
   };
 
-  const handlePurchaseNumber = async (item: AvailableNumberItem) => {
-    setPurchasingNumberId(item.id);
-    try {
-      const { buyPhoneNumberAction } = await import("@/app/actions/phoneNumbers");
-      const res = await buyPhoneNumberAction(item.id, item.phone_number, item.provider);
 
-      if (res.success && res.newNumber) {
-        setAvailableNumbers((prev) => prev.filter((n) => n.id !== item.id));
-        setMyNumbers((prev) => [
-          {
-            id: res.newNumber.id,
-            phone_number: res.newNumber.phone_number,
-            provider: res.newNumber.provider,
-            provider_resource_id: res.newNumber.provider_resource_id,
-            assigned_assistant_id: null,
-            assistants: null,
-            status: "unassigned",
-            created_at: new Date().toISOString()
-          },
-          ...prev
-        ]);
-        setToastMessage({
-          type: 'success',
-          text: `Phone number ${item.phone_number} acquired successfully!`
+  const handleKycSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsSubmittingKyc(true);
+    const formData = new FormData(e.currentTarget);
+    
+    try {
+      const { submitKycRequest } = await import("@/app/actions/kyc");
+      const res = await submitKycRequest(formData);
+
+      if (res.success) {
+        setToastMessage({ type: 'success', text: 'KYC submitted successfully. Awaiting admin review.' });
+        setKycStatus({
+          id: 'temp',
+          workspace_id: 'temp',
+          business_name: formData.get('businessName') as string,
+          use_case: formData.get('useCase') as string,
+          status: 'pending',
+          created_at: new Date().toISOString()
         });
-        setActiveTab("my-numbers");
+      } else {
+        setToastMessage({ type: 'error', text: res.error || 'Failed to submit KYC' });
       }
-    } catch (e: any) {
-      alert("Purchase failed: " + e.message);
+    } catch (err: any) {
+      setToastMessage({ type: 'error', text: err.message });
     } finally {
-      setPurchasingNumberId(null);
+      setIsSubmittingKyc(false);
     }
   };
-
-  const filteredAvailable = availableNumbers.filter((num) => {
-    const matchesSearch = num.phone_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      num.country.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCountry = selectedCountry === "all" || num.country_code.toLowerCase() === selectedCountry.toLowerCase();
-    return matchesSearch && matchesCountry;
-  });
 
   const totalMyNumbers = myNumbers.length;
   const activeMyNumbers = myNumbers.filter((n) => n.assigned_assistant_id).length;
@@ -254,8 +240,8 @@ export function PhoneNumbersClient({
               : "text-neutral-600 hover:text-black hover:bg-surface-soft"
           }`}
         >
-          <ShoppingBag className="h-3.5 w-3.5" />
-          <span>Available Marketplace ({availableNumbers.length})</span>
+          <ShieldCheck className="h-3.5 w-3.5" />
+          <span>Request Number (KYC)</span>
         </button>
       </div>
 
@@ -282,26 +268,40 @@ export function PhoneNumbersClient({
           <div className="bg-white border border-hairline rounded-[10px] overflow-hidden shadow-sm">
             {myNumbers.length === 0 ? (
               <div className="p-8 sm:p-12 text-center space-y-3">
-                <Phone className="w-8 h-8 text-neutral-300 mx-auto" />
-                <p className="text-xs font-semibold text-neutral-700">No phone numbers assigned to your workspace yet.</p>
-                <p className="text-[11px] text-neutral-500">Click "Sync Telephony Numbers" to query your gateway, or browse available marketplace numbers below.</p>
-                <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-                  <button
-                    disabled={isFetching}
-                    onClick={handleFetchVomyraNumbers}
-                    className="btn-pill-primary text-xs px-4 py-2 inline-flex items-center gap-2"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    {isFetching ? "Syncing API..." : "Sync Telephony Numbers"}
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("buy-numbers")}
-                    className="btn-pill-secondary text-xs px-4 py-2 inline-flex items-center gap-1.5"
-                  >
-                    Browse Available Numbers
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                {(!kycStatus || kycStatus.status !== 'approved') ? (
+                  <>
+                    <ShieldCheck className="w-8 h-8 text-neutral-300 mx-auto" />
+                    <p className="text-xs font-semibold text-neutral-700">Identity verification required</p>
+                    <p className="text-[11px] text-neutral-500 max-w-md mx-auto">
+                      You must verify your business identity (KYC) before you can purchase or assign phone numbers to your workspace.
+                    </p>
+                    <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                      <button
+                        onClick={() => setActiveTab("buy-numbers")}
+                        className="btn-pill-primary bg-black hover:bg-neutral-800 text-white text-xs px-5 py-2.5 inline-flex items-center gap-2 rounded-[10px] shadow-sm"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        Verify KYC Now
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <Phone className="w-8 h-8 text-neutral-300 mx-auto" />
+                    <p className="text-xs font-semibold text-neutral-700">No phone numbers assigned to your workspace yet.</p>
+                    <p className="text-[11px] text-neutral-500">Click "Sync Telephony Numbers" to query your gateway, or request numbers via the KYC tab.</p>
+                    <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                      <button
+                        disabled={isFetching}
+                        onClick={handleFetchVomyraNumbers}
+                        className="btn-pill-primary text-xs px-4 py-2 inline-flex items-center gap-2"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        {isFetching ? "Syncing API..." : "Sync Telephony Numbers"}
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -372,85 +372,106 @@ export function PhoneNumbersClient({
         </div>
       )}
 
-      {/* TAB 2: BUY AVAILABLE NUMBERS */}
+      {/* TAB 2: REQUEST NUMBER KYC */}
       {activeTab === "buy-numbers" && (
-        <div className="space-y-6">
-          {/* Marketplace Search & Filter Header */}
-          <div className="p-4 rounded-[10px] bg-surface-soft border border-hairline flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="relative w-full md:w-72">
-              <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search number or area code..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 text-xs bg-white border border-hairline rounded-[10px] focus:outline-none focus:border-black/30"
-              />
+        <div className="max-w-2xl">
+          {kycStatus ? (
+            <div className="p-8 bg-white border border-hairline rounded-[10px] text-center space-y-4 shadow-sm">
+              {kycStatus.status === 'pending' && (
+                <>
+                  <ShieldCheck className="w-12 h-12 text-amber-500 mx-auto" />
+                  <h3 className="text-lg font-bold text-black">KYC Verification in Progress</h3>
+                  <p className="text-sm text-neutral-600 max-w-sm mx-auto">
+                    Your KYC request is currently under review by our admin team. You will be assigned a phone number as soon as it is approved.
+                  </p>
+                </>
+              )}
+              {kycStatus.status === 'approved' && (
+                <>
+                  <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
+                  <h3 className="text-lg font-bold text-black">KYC Approved</h3>
+                  <p className="text-sm text-neutral-600 max-w-sm mx-auto">
+                    Your KYC has been approved and a phone number has been assigned to your workspace. Please check the "My Numbers" tab.
+                  </p>
+                </>
+              )}
+              {kycStatus.status === 'rejected' && (
+                <>
+                  <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
+                  <h3 className="text-lg font-bold text-black">KYC Rejected</h3>
+                  <p className="text-sm text-neutral-600 max-w-sm mx-auto">
+                    Unfortunately, your KYC request was rejected. Please contact support for more information.
+                  </p>
+                </>
+              )}
             </div>
-
-            <div className="flex items-center gap-2 w-full md:w-auto">
-              <span className="text-xs font-semibold text-neutral-600 flex items-center gap-1">
-                <Globe className="w-3.5 h-3.5" /> Country:
-              </span>
-              <select
-                value={selectedCountry}
-                onChange={(e) => setSelectedCountry(e.target.value)}
-                className="px-3 py-2 bg-white border border-hairline rounded-[10px] text-xs font-medium text-black focus:outline-none"
-              >
-                <option value="all">All Countries</option>
-                <option value="US">United States (+1)</option>
-                <option value="IN">India (+91)</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Numbers Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredAvailable.length === 0 ? (
-              <div className="col-span-full p-12 text-center bg-white border border-hairline rounded-[10px] text-neutral-500 text-xs">
-                No available virtual numbers match your search filter.
+          ) : (
+            <form onSubmit={handleKycSubmit} className="space-y-6 bg-white border border-hairline rounded-[10px] p-6 shadow-sm">
+              <div className="space-y-2">
+                <h3 className="text-lg font-bold text-black flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                  Identity Verification (KYC)
+                </h3>
+                <p className="text-sm text-neutral-600">
+                  To get a dedicated phone number, you need to complete KYC. Please provide your details and upload a valid ID.
+                </p>
               </div>
-            ) : (
-              filteredAvailable.map((num) => {
-                const isBuying = purchasingNumberId === num.id;
-                return (
-                  <div
-                    key={num.id}
-                    className="p-4 rounded-[10px] bg-white border border-hairline hover:border-black/30 shadow-sm transition-all flex flex-col justify-between space-y-4"
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400 font-bold">
-                          {num.country} ({num.country_code})
-                        </span>
-                        <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-surface-soft border border-hairline text-neutral-600">
-                          {num.provider}
-                        </span>
-                      </div>
-                      <div className="text-lg font-extrabold font-mono text-black">
-                        {num.phone_number}
-                      </div>
-                    </div>
 
-                    <div className="pt-3 border-t border-hairline flex items-center justify-between">
-                      <div>
-                        <span className="text-xs font-bold text-black">${num.monthly_price.toFixed(2)}</span>
-                        <span className="text-[10px] text-neutral-500"> /month</span>
-                      </div>
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label htmlFor="businessName" className="text-xs font-bold text-neutral-700">Business / Individual Name</label>
+                  <input
+                    type="text"
+                    id="businessName"
+                    name="businessName"
+                    required
+                    className="w-full px-3 py-2 bg-surface-soft border border-hairline rounded-[8px] text-sm focus:outline-none focus:border-black/30"
+                    placeholder="Acme Corp or John Doe"
+                  />
+                </div>
 
-                      <button
-                        disabled={isBuying}
-                        onClick={() => handlePurchaseNumber(num)}
-                        className="btn-pill-primary rounded-[10px] text-xs px-3.5 py-1.5 shadow-sm"
-                      >
-                        {isBuying ? "Claiming..." : "Claim Number"}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="useCase" className="text-xs font-bold text-neutral-700">Purpose of Use</label>
+                  <textarea
+                    id="useCase"
+                    name="useCase"
+                    required
+                    rows={3}
+                    className="w-full px-3 py-2 bg-surface-soft border border-hairline rounded-[8px] text-sm focus:outline-none focus:border-black/30 resize-none"
+                    placeholder="E.g., Inbound customer support, outbound sales campaigns"
+                  ></textarea>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="document" className="text-xs font-bold text-neutral-700">Upload ID Document (PDF, JPG, PNG)</label>
+                  <input
+                    type="file"
+                    id="document"
+                    name="document"
+                    required
+                    accept=".pdf,image/*"
+                    className="w-full px-3 py-2 bg-surface-soft border border-hairline rounded-[8px] text-sm focus:outline-none focus:border-black/30"
+                  />
+                  <p className="text-[10px] text-neutral-500 mt-1">Provide a government-issued ID or company registration document.</p>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isSubmittingKyc}
+                  className="btn-pill-primary w-full justify-center flex items-center gap-2 px-4 py-2.5 text-sm font-bold shadow-sm"
+                >
+                  {isSubmittingKyc ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="w-4 h-4" />
+                  )}
+                  {isSubmittingKyc ? "Submitting..." : "Submit KYC & Request Number"}
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       )}
     </div>
