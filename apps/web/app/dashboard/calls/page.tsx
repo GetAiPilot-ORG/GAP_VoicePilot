@@ -139,7 +139,7 @@ export default async function CallLogsPage() {
             minute: "2-digit",
             hour12: true
           }),
-          recordingUrl: c.recording_url,
+          recordingUrl: c.recording_url || c.recording || c.audio_url || c.call_recording || c.media_url || null,
           summary,
           outcome,
           notes: c.notes || "",

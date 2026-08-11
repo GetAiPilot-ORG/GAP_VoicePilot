@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   PhoneCall,
   Play,
@@ -9,20 +9,26 @@ import {
   Download,
   Filter,
   Clock,
+  Calendar,
   Mic,
   CheckCircle2,
   AlertCircle,
   XCircle,
   Eye,
   Volume2,
+  VolumeX,
   Sparkles,
   PhoneForwarded,
   X,
   Bot,
   User,
-  Activity
+  Activity,
+  Loader2,
+  ArrowUpRight,
+  ExternalLink
 } from "lucide-react";
 import AssistantTestModal from "@/components/AssistantTestModal";
+import { fetchCallDetailsAction, fetchCallRecordingAction } from "@/app/actions/calls";
 
 export interface TranscriptMessage {
   role: string;
@@ -33,9 +39,9 @@ export interface TranscriptMessage {
 export interface CallItem {
   id: string;
   assistant: string;
-  assistantId?: string;
+  assistantId: string;
   customerNumber: string;
-  callerName?: string;
+  callerName: string;
   assignedNumber: string;
   duration: string;
   durationSeconds: number;
@@ -63,26 +69,263 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
   const [selectedCall, setSelectedCall] = useState<CallItem | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
+
+  // Audio Playback State
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-  const [audioProgress, setAudioProgress] = useState(0);
+  const [isLoadingAudio, setIsLoadingAudio] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [activeRecordingUrl, setActiveRecordingUrl] = useState<string | null>(null);
+  const [audioError, setAudioError] = useState<string | null>(null);
+  const [activePlayingIndex, setActivePlayingIndex] = useState<number | null>(null);
+  const [playbackMode, setPlaybackMode] = useState<"carrier_stream" | "neural_dialogue">("neural_dialogue");
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const synthRef = useRef<SpeechSynthesis | null>(null);
+  const isPlayingRef = useRef<boolean>(false);
 
   const [selectedAssistant] = useState<{ id: string; name: string }>(
     assistants[0] || { id: "ast_default", name: "Voice Assistant" }
   );
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      synthRef.current = window.speechSynthesis;
+      // Preload available voices
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.getVoices();
+      };
+    }
+  }, []);
+
   const totalCalls = calls.length;
   const completedCalls = calls.filter((c) => c.status === "completed" || c.durationSeconds > 0).length;
   const noAnswerCalls = calls.filter((c) => c.status === "no-answer" || c.durationSeconds === 0).length;
 
-  const handleOpenCallDetail = (call: CallItem) => {
+  const handleOpenCallDetail = async (call: CallItem) => {
     setSelectedCall(call);
     setIsDetailModalOpen(true);
     setIsPlayingAudio(false);
-    setAudioProgress(0);
+    isPlayingRef.current = false;
+    setActivePlayingIndex(null);
+    setCurrentTime(0);
+    setAudioError(null);
+    setActiveRecordingUrl(call.recordingUrl || null);
+
+    // Fetch full details, recording URL, and complete transcripts live from Vomyra API
+    if (call.id) {
+      setIsLoadingAudio(true);
+      try {
+        const res = await fetchCallDetailsAction(call.id);
+        if (res.success) {
+          if (res.recordingUrl) {
+            setActiveRecordingUrl(res.recordingUrl);
+          }
+          setSelectedCall((prev) => {
+            if (!prev || prev.id !== call.id) return prev;
+            return {
+              ...prev,
+              recordingUrl: res.recordingUrl || prev.recordingUrl,
+              transcriptMessages: res.transcriptMessages && res.transcriptMessages.length > 0 ? res.transcriptMessages : prev.transcriptMessages,
+              summary: res.summary || prev.summary
+            };
+          });
+        }
+      } catch (e) {} finally {
+        setIsLoadingAudio(false);
+      }
+    }
   };
 
-  const togglePlayAudio = () => {
-    setIsPlayingAudio(!isPlayingAudio);
+  const handleCloseDetail = () => {
+    setIsDetailModalOpen(false);
+    isPlayingRef.current = false;
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    if (synthRef.current) {
+      synthRef.current.cancel();
+    }
+    setIsPlayingAudio(false);
+    setActivePlayingIndex(null);
+  };
+
+  // Natural Neural Voice Matcher
+  const getNaturalVoice = (isAssistant: boolean, text: string): SpeechSynthesisVoice | null => {
+    if (!synthRef.current) return null;
+    const voices = synthRef.current.getVoices();
+    if (!voices || voices.length === 0) return null;
+
+    const isHindi = /[\u0900-\u097F]/.test(text);
+
+    if (isHindi) {
+      // 1. Hindi Natural Voices
+      const hindiVoices = voices.filter(v => 
+        v.lang.toLowerCase().startsWith("hi") || 
+        v.name.toLowerCase().includes("hindi") ||
+        v.name.toLowerCase().includes("swara") ||
+        v.name.toLowerCase().includes("madhur")
+      );
+
+      if (hindiVoices.length > 0) {
+        if (isAssistant) {
+          // Prefer Female / Natural Assistant Voice
+          const female = hindiVoices.find(v => v.name.toLowerCase().includes("swara") || v.name.toLowerCase().includes("female") || v.name.toLowerCase().includes("google"));
+          return female || hindiVoices[0] || null;
+        } else {
+          // Prefer Male / Alternate Caller Voice
+          const male = hindiVoices.find(v => v.name.toLowerCase().includes("madhur") || v.name.toLowerCase().includes("male") || v.name.toLowerCase().includes("hemant"));
+          return male || hindiVoices[hindiVoices.length - 1] || null;
+        }
+      }
+    }
+
+    // 2. Indian English / Global Natural Voices
+    const indianEnglish = voices.filter(v => v.lang.toLowerCase().includes("en-in") || v.name.toLowerCase().includes("india"));
+    if (indianEnglish.length > 0) {
+      if (isAssistant) {
+        const female = indianEnglish.find(v => v.name.toLowerCase().includes("neerja") || v.name.toLowerCase().includes("female"));
+        return female || indianEnglish[0] || null;
+      } else {
+        const male = indianEnglish.find(v => v.name.toLowerCase().includes("prabhat") || v.name.toLowerCase().includes("male"));
+        return male || indianEnglish[indianEnglish.length - 1] || null;
+      }
+    }
+
+    // 3. Fallback: Any Natural/Online voice
+    const naturalVoices = voices.filter(v => v.name.toLowerCase().includes("natural") || v.name.toLowerCase().includes("online"));
+    if (naturalVoices.length > 0) {
+      return isAssistant ? (naturalVoices[0] || null) : (naturalVoices[naturalVoices.length - 1] || null);
+    }
+
+    return voices[0] || null;
+  };
+
+  // Play Turn-by-Turn Dialogue Sequentially
+  const playDialogueTurns = async (messages: TranscriptMessage[], startIndex: number = 0) => {
+    if (!synthRef.current || messages.length === 0) return;
+
+    isPlayingRef.current = true;
+    setIsPlayingAudio(true);
+    setPlaybackMode("neural_dialogue");
+
+    for (let i = startIndex; i < messages.length; i++) {
+      if (!isPlayingRef.current) break;
+
+      const msg = messages[i];
+      if (!msg || !msg.content || !msg.content.trim()) continue;
+
+      // Filter out raw tool call logs from spoken audio
+      if (msg.role === "tool" || msg.role === "system" || msg.content.startsWith("Tool:")) {
+        continue;
+      }
+
+      setActivePlayingIndex(i);
+      setCurrentTime(i + 1);
+
+      await new Promise<void>((resolve) => {
+        if (!isPlayingRef.current) {
+          resolve();
+          return;
+        }
+
+        synthRef.current!.cancel();
+        const utterance = new SpeechSynthesisUtterance(msg.content);
+        const voice = getNaturalVoice(msg.role === "assistant", msg.content);
+        if (voice) {
+          utterance.voice = voice;
+          utterance.lang = voice.lang;
+        }
+
+        utterance.rate = msg.role === "assistant" ? 0.98 : 1.02; // Natural conversational cadence
+        utterance.pitch = msg.role === "assistant" ? 1.05 : 0.95; // Distinct pitch separation
+
+        utterance.onend = () => {
+          // Add natural conversational pause between turns (350ms)
+          setTimeout(() => resolve(), 350);
+        };
+
+        utterance.onerror = () => {
+          resolve();
+        };
+
+        synthRef.current!.speak(utterance);
+      });
+    }
+
+    if (isPlayingRef.current) {
+      setIsPlayingAudio(false);
+      isPlayingRef.current = false;
+      setActivePlayingIndex(null);
+    }
+  };
+
+  const togglePlayAudio = async () => {
+    if (isPlayingAudio) {
+      isPlayingRef.current = false;
+      if (audioRef.current) audioRef.current.pause();
+      if (synthRef.current) synthRef.current.cancel();
+      setIsPlayingAudio(false);
+      setActivePlayingIndex(null);
+      return;
+    }
+
+    setAudioError(null);
+
+    // Option 1 Path A: Direct Carrier HTTP Audio Stream
+    if (activeRecordingUrl && activeRecordingUrl.startsWith("http") && audioRef.current) {
+      try {
+        setPlaybackMode("carrier_stream");
+        audioRef.current.src = activeRecordingUrl;
+        await audioRef.current.play();
+        setIsPlayingAudio(true);
+        isPlayingRef.current = true;
+        return;
+      } catch (e: any) {
+        console.warn("Carrier stream error, smoothly transitioning to Neural Dialogue:", e.message);
+      }
+    }
+
+    // Option 1 Path B: High-Fidelity Neural Dialogue Playback
+    if (selectedCall?.transcriptMessages && selectedCall.transcriptMessages.length > 0) {
+      setDuration(selectedCall.transcriptMessages.length);
+      await playDialogueTurns(selectedCall.transcriptMessages, 0);
+      return;
+    }
+
+    // Fallback if summary exists
+    if (selectedCall?.summary && synthRef.current && !selectedCall.summary.toLowerCase().includes("not answered") && !selectedCall.summary.toLowerCase().includes("missed")) {
+      isPlayingRef.current = true;
+      setIsPlayingAudio(true);
+      const utterance = new SpeechSynthesisUtterance(`Call Summary: ${selectedCall.summary}`);
+      const voice = getNaturalVoice(true, selectedCall.summary);
+      if (voice) utterance.voice = voice;
+      utterance.rate = 1.0;
+      utterance.onend = () => setIsPlayingAudio(false);
+      utterance.onerror = () => setIsPlayingAudio(false);
+      synthRef.current.speak(utterance);
+      return;
+    }
+
+    if (selectedCall && (selectedCall.durationSeconds === 0 || selectedCall.status === "no-answer" || selectedCall.status === "failed")) {
+      setAudioError("This call was not connected/answered (0s duration), so no voice recording was generated.");
+    } else {
+      setAudioError("Call audio stream is processing or unavailable.");
+    }
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const targetTime = Number(e.target.value);
+    setCurrentTime(targetTime);
+    if (audioRef.current) {
+      audioRef.current.currentTime = targetTime;
+    }
+  };
+
+  const formatTime = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
   return (
@@ -228,13 +471,37 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
                 </div>
                 <p className="text-xs text-neutral-500 mt-1">{selectedCall.time} • Assistant: {selectedCall.assistant}</p>
               </div>
+
               <button
-                onClick={() => setIsDetailModalOpen(false)}
+                onClick={handleCloseDetail}
                 className="p-1.5 rounded-full text-neutral-400 hover:text-black hover:bg-surface-soft transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
+            {/* Hidden HTML5 Audio Element */}
+            <audio
+              ref={audioRef}
+              onTimeUpdate={() => {
+                if (audioRef.current) {
+                  setCurrentTime(audioRef.current.currentTime);
+                  setDuration(audioRef.current.duration || 0);
+                }
+              }}
+              onLoadedMetadata={() => {
+                if (audioRef.current) {
+                  setDuration(audioRef.current.duration || 0);
+                }
+              }}
+              onEnded={() => {
+                setIsPlayingAudio(false);
+                setCurrentTime(0);
+              }}
+              onError={() => {
+                setIsPlayingAudio(false);
+              }}
+              className="hidden"
+            />
 
             {/* Audio Recording Player Bar */}
             <div className="bg-surface-soft/80 border border-hairline rounded-[14px] p-4 space-y-3">
@@ -246,36 +513,62 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
                   <div>
                     <p className="text-xs font-bold text-black">Call Audio Recording</p>
                     <p className="text-[11px] text-neutral-500 font-mono">
-                      {selectedCall.recordingUrl ? selectedCall.recordingUrl.slice(0, 45) + "..." : "telephony_audio_stream.wav"}
+                      {isLoadingAudio ? "Connecting to telephony media stream..." : activeRecordingUrl ? activeRecordingUrl.slice(0, 45) + "..." : "telephony_audio_stream.wav"}
                     </p>
                   </div>
                 </div>
-                <span className="text-xs font-mono font-bold text-neutral-700 bg-white border border-hairline px-2.5 py-1 rounded-[6px]">
-                  {selectedCall.duration}
-                </span>
+                
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono font-bold text-neutral-700 bg-white border border-hairline px-2.5 py-1 rounded-[6px]">
+                    {formatTime(currentTime)} / {duration > 0 ? formatTime(duration) : selectedCall.duration}
+                  </span>
+                  {activeRecordingUrl && (
+                    <a
+                      href={activeRecordingUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      download
+                      className="p-1.5 bg-white hover:bg-neutral-100 border border-hairline rounded-[6px] text-neutral-600 hover:text-black transition-colors"
+                      title="Download Audio Recording"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </a>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center gap-3 pt-1">
                 <button
                   onClick={togglePlayAudio}
-                  className="w-10 h-10 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm transition-transform active:scale-95"
+                  disabled={isLoadingAudio}
+                  className="w-10 h-10 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm transition-transform active:scale-95 disabled:opacity-50"
                 >
-                  {isPlayingAudio ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+                  {isLoadingAudio ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : isPlayingAudio ? (
+                    <Pause className="w-4 h-4" />
+                  ) : (
+                    <Play className="w-4 h-4 ml-0.5" />
+                  )}
                 </button>
 
-                {/* Simulated Audio Waveform Bar */}
-                <div className="flex-1 bg-white border border-hairline rounded-[8px] h-9 px-3 flex items-center gap-1 overflow-hidden">
-                  {[40, 65, 30, 85, 95, 50, 70, 45, 90, 60, 35, 75, 80, 55, 90, 40, 70, 85, 30, 60, 95, 45, 75, 50, 80, 65, 35, 90, 55, 70].map((h, i) => (
-                    <div
-                      key={i}
-                      style={{ height: `${h}%` }}
-                      className={`flex-1 rounded-full transition-all duration-300 ${
-                        isPlayingAudio ? "bg-emerald-500 animate-pulse" : "bg-neutral-300"
-                      }`}
-                    />
-                  ))}
+                {/* Interactive Audio Progress Scrubber */}
+                <div className="flex-1 flex items-center gap-2">
+                  <input
+                    type="range"
+                    min="0"
+                    max={duration || selectedCall.durationSeconds || 100}
+                    step="0.1"
+                    value={currentTime}
+                    onChange={handleSeek}
+                    className="w-full accent-emerald-600 cursor-pointer h-1.5 bg-neutral-200 rounded-lg appearance-none"
+                  />
                 </div>
               </div>
+
+              {audioError && (
+                <p className="text-[11px] text-amber-600 font-medium">{audioError}</p>
+              )}
             </div>
 
             {/* AI Summary Card */}
@@ -312,15 +605,22 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
                       )}
 
                       <div
-                        className={`rounded-[12px] p-3 max-w-[80%] space-y-1 ${
+                        className={`rounded-[12px] p-3 max-w-[80%] space-y-1 transition-all duration-300 ${
+                          activePlayingIndex === idx
+                            ? "ring-2 ring-emerald-500 shadow-md scale-[1.01]"
+                            : ""
+                        } ${
                           msg.role === "assistant"
                             ? "bg-white border border-hairline text-neutral-800"
                             : "bg-emerald-600 text-white"
                         }`}
                       >
                         <div className="flex items-center justify-between gap-4 text-[10px] opacity-70">
-                          <span className="font-bold uppercase tracking-wider">
+                          <span className="font-bold uppercase tracking-wider flex items-center gap-1">
                             {msg.role === "assistant" ? selectedCall.assistant : "Customer"}
+                            {activePlayingIndex === idx && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block" />
+                            )}
                           </span>
                           {msg.timestamp && <span>{msg.timestamp}</span>}
                         </div>
