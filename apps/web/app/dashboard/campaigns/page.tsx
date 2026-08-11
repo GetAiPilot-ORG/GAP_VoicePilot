@@ -61,6 +61,9 @@ export default async function CampaignsPage() {
             status: c.status || "paused",
             target_audience: c.target_audience || "Unknown",
             assistant_name: c.assistants?.name || "Unknown Agent",
+            total_contacts: c.total_contacts || c.total_phone_numbers || 0,
+            completed_contacts: c.completed_contacts || 0,
+            failed_contacts: c.failed_contacts || 0,
             success_rate: c.success_rate_percent ? `${c.success_rate_percent}%` : "0%",
             created_at: c.created_at
           }));
