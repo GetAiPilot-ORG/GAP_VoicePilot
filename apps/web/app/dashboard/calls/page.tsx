@@ -35,7 +35,7 @@ export default async function CallLogsPage() {
       if (wIds.length > 0) {
         const { data: dbAssistants } = await adminClient
           .from("assistants")
-          .select("id, name")
+          .select("id, name, provider_resource_id")
           .in("workspace_id", wIds)
           .is("deleted_at", null)
           .order("created_at", { ascending: false });
@@ -65,12 +65,13 @@ export default async function CallLogsPage() {
 
       // Filter to only show calls from this user's assistants
       const userAssistantIds = new Set(assistants.map(a => a.id));
-      const userAssistantNames = new Set(assistants.map(a => a.name));
+      const userProviderIds = new Set(assistants.map((a: any) => a.provider_resource_id).filter(Boolean));
+      const userAssistantNames = new Set(assistants.map(a => a.name.trim()));
       
       const filteredCalls = rawCalls.filter((c: any) => {
         const astId = c.assistant?.id || "";
-        const astName = c.assistant?.name || (c.additional_data?.campaign_name || "");
-        return userAssistantIds.has(astId) || userAssistantNames.has(astName);
+        const astName = c.assistant?.name?.trim() || (c.additional_data?.campaign_name?.trim() || "");
+        return userAssistantIds.has(astId) || userProviderIds.has(astId) || userAssistantNames.has(astName);
       });
 
       callsList = filteredCalls.map((c: any) => {
@@ -91,7 +92,7 @@ export default async function CallLogsPage() {
 
         const callerName = c.additional_data?.name || c.additional_data?.customerName || "";
         const customerNumber = c.phone_number || c.customer_number || (c.call_type === "web" ? "In-Browser Web" : "Unknown");
-        const assignedNumber = c.assigned_number || (c.call_type === "phone" ? "01204413375" : "Web Voice Engine");
+        const assignedNumber = c.assigned_number || (c.call_type === "phone" ? "Unknown Number" : "Web Voice Engine");
 
         // Format Transcript
         let transcriptArray: Array<{ role: string; content: string; timestamp?: string }> = [];
