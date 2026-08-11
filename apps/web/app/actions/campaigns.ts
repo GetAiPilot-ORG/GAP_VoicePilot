@@ -1,20 +1,13 @@
 "use server";
 
-import { createServerClient } from "@supabase/ssr";
-import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
+import { getCurrentWorkspace, getAdminClient } from "@/lib/workspace";
 import { revalidatePath } from "next/cache";
-
-async function getAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-  );
-}
 
 export interface LaunchBatchCampaignParams {
   name: string;
   assistantId: string;
+  phoneNumberId?: string;
+  assignedNumber?: string;
   contacts: Array<{
     name: string;
     phone: string;
@@ -23,71 +16,159 @@ export interface LaunchBatchCampaignParams {
   }>;
 }
 
-export async function launchBatchCampaignAction({ name, assistantId, contacts }: LaunchBatchCampaignParams) {
+export async function launchBatchCampaignAction({ name, assistantId, phoneNumberId, assignedNumber, contacts }: LaunchBatchCampaignParams) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: () => {},
-        },
-      }
-    );
-
-    const { data: { user } } = await supabase.auth.getUser();
+    const workspace = await getCurrentWorkspace();
+    const workspaceId = workspace?.workspaceId || "00000000-0000-0000-0000-000000000000";
+    const userId = workspace?.userId || workspaceId;
     const adminClient = await getAdminClient();
 
-    let workspaceId = "00000000-0000-0000-0000-000000000000";
-    if (user) {
-      const { data: member } = await adminClient
-        .from('workspace_members')
-        .select('workspace_id')
-        .eq('user_id', user.id)
-        .limit(1)
-        .maybeSingle();
-
-      if (member?.workspace_id) workspaceId = member.workspace_id;
+    if (!contacts || contacts.length === 0) {
+      return { success: false, error: "No contacts provided for the campaign." };
     }
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const cleanContacts = contacts
+      .map((c) => ({
+        name: String(c.name || "Customer").trim(),
+        phone: String(c.phone || "").trim().replace(/[\s\-()]/g, ""),
+        followUpDate: c.followUpDate,
+        details: c.details
+      }))
+      .filter((c) => c.phone.length >= 7);
 
-    const res = await fetch(`${apiUrl}/api/v1/campaigns`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        name,
-        assistantId,
-        contacts,
-        workspaceId,
-        createdBy: user?.id || workspaceId
-      })
+    if (cleanContacts.length === 0) {
+      return { success: false, error: "Please provide valid phone numbers." };
+    }
+
+    // Resolve real Vomyra Assistant ID (24-char ObjectId)
+    let realVomyraAssistantId: string = assistantId;
+    if (adminClient) {
+      try {
+        const { data: ast } = await adminClient
+          .from("assistants")
+          .select("provider_resource_id")
+          .eq("id", assistantId)
+          .maybeSingle();
+
+        if (ast?.provider_resource_id && /^[0-9a-fA-F]{24}$/.test(ast.provider_resource_id)) {
+          realVomyraAssistantId = ast.provider_resource_id;
+        }
+      } catch (e) {}
+    }
+
+    let campaignId = `camp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+    // 1. Insert campaign into Supabase
+    if (adminClient) {
+      try {
+        const { data: dbCampaign } = await adminClient
+          .from("campaigns")
+          .insert({
+            workspace_id: workspaceId,
+            created_by: userId,
+            assistant_id: assistantId,
+            phone_number_id: phoneNumberId || null,
+            name,
+            total_contacts: cleanContacts.length,
+            status: "running"
+          })
+          .select()
+          .single();
+
+        if (dbCampaign?.id) campaignId = dbCampaign.id;
+      } catch (e) {
+        console.warn("Could not insert campaign row in DB:", e);
+      }
+    }
+
+    // 2. Dispatch calls directly to Vomyra Voice API
+    const vomyraApiKey = process.env.VOMYRA_API_KEY || "0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx";
+    const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || "https://api.vomyra.com";
+
+    const dispatchPromises = cleanContacts.map(async (contact, index) => {
+      // Stagger calls by 800ms
+      await new Promise((resolve) => setTimeout(resolve, index * 800));
+
+      const cleanNumber = contact.phone.startsWith("+")
+        ? contact.phone
+        : `+91${contact.phone.replace(/^0+/, "")}`;
+
+      const payload: any = {
+        customer_number: cleanNumber,
+        customer_name: contact.name || "Customer",
+        customer_country_code: cleanNumber.startsWith("+91") ? "+91" : "+1",
+        additional_data: {
+          campaign_id: campaignId,
+          campaign_name: name,
+          workspaceId,
+          followUpDate: contact.followUpDate,
+          details: contact.details,
+          dispatched_at: new Date().toISOString()
+        }
+      };
+
+      if (assignedNumber && assignedNumber.trim()) {
+        payload.assigned_number = assignedNumber.trim();
+      } else if (realVomyraAssistantId) {
+        payload.assistant_id = realVomyraAssistantId;
+      }
+
+      try {
+        const res = await fetch(`${vomyraBaseUrl}/v1/calls`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": vomyraApiKey
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+          const callData = await res.json();
+          return { success: true, callId: callData?.data?.id || callData?.id, contact };
+        } else {
+          const errText = await res.text();
+          console.warn(`[Campaign] Call failed for ${cleanNumber}:`, errText);
+          return { success: false, error: errText, contact };
+        }
+      } catch (err: any) {
+        console.warn(`[Campaign] Call network error for ${cleanNumber}:`, err.message);
+        return { success: false, error: err.message, contact };
+      }
     });
 
-    const data = await res.json();
+    // Run dispatches in background
+    Promise.allSettled(dispatchPromises).then(async (results) => {
+      if (adminClient) {
+        try {
+          await adminClient
+            .from("campaigns")
+            .update({
+              status: "completed",
+              completed_at: new Date().toISOString()
+            })
+            .eq("id", campaignId);
+        } catch (e) {}
+      }
+    });
 
-    if (!res.ok) {
-      return {
-        success: false,
-        error: data.error || 'Failed to dispatch outbound campaign'
-      };
-    }
+    revalidatePath("/dashboard/campaigns");
 
-    revalidatePath('/dashboard/campaigns');
     return {
       success: true,
-      campaign: data.campaign,
-      message: data.message
+      campaign: {
+        id: campaignId,
+        name,
+        total_contacts: cleanContacts.length,
+        status: "running"
+      },
+      message: `Campaign initiated! Dispatching ${cleanContacts.length} automated calls in real-time.`
     };
   } catch (err: any) {
     console.error("Failed to launch batch campaign action:", err);
     return {
       success: false,
-      error: err.message || "Failed to connect to telephony backend"
+      error: err.message || "Failed to launch campaign"
     };
   }
 }
