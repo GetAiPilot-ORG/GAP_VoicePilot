@@ -142,7 +142,7 @@ export function PhoneNumbersClient({
       } else {
         setToastMessage({
           type: 'info',
-          text: "No assigned phone numbers found in your Telephony account."
+          text: "No assigned phone numbers found in your account."
         });
       }
     } catch (e: any) {
@@ -215,7 +215,7 @@ export function PhoneNumbersClient({
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 border-b border-hairline pb-6">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="eyebrow text-neutral-500">// TELEPHONY MARKETPLACE</span>
+            <span className="eyebrow text-neutral-500">// PHONE NUMBERS</span>
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
               Live Gateway
@@ -229,15 +229,6 @@ export function PhoneNumbersClient({
 
         {/* Balance & API Fetch Button */}
         <div className="flex flex-wrap items-center gap-3">
-          <button
-            disabled={isFetching}
-            onClick={handleFetchVomyraNumbers}
-            className="btn-pill-primary rounded-xl text-xs px-4 py-2.5 shadow-sm hover:shadow-md flex items-center gap-2 bg-neutral-900 hover:bg-black text-white transition-all disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin" : ""}`} />
-            <span>{isFetching ? "Syncing Gateway..." : "Sync Telephony Numbers"}</span>
-          </button>
-
           <div className="flex items-center gap-2.5 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 px-4 py-2.5 rounded-xl text-xs shadow-xs">
             <div className="w-6 h-6 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-700 font-bold">
               <Wallet className="h-3.5 w-3.5" />
@@ -380,18 +371,10 @@ export function PhoneNumbersClient({
                     <div className="space-y-1">
                       <h3 className="text-base font-bold text-neutral-900">No Phone Numbers Found</h3>
                       <p className="text-xs text-neutral-500 leading-relaxed">
-                        Your KYC is approved! Click below to sync numbers from your telephony provider gateway or request a new line.
+                        Your KYC is approved! Please request a new line or contact support.
                       </p>
                     </div>
                     <div className="pt-2 flex items-center justify-center gap-3">
-                      <button
-                        disabled={isFetching}
-                        onClick={handleFetchVomyraNumbers}
-                        className="btn-pill-primary text-xs px-5 py-2.5 inline-flex items-center gap-2 rounded-xl shadow-sm"
-                      >
-                        <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin" : ""}`} />
-                        <span>{isFetching ? "Syncing..." : "Sync Telephony Numbers"}</span>
-                      </button>
                     </div>
                   </div>
                 )}
@@ -402,7 +385,7 @@ export function PhoneNumbersClient({
                   <thead className="bg-surface-soft/80 text-neutral-500 uppercase tracking-wider font-mono font-semibold border-b border-hairline">
                     <tr>
                       <th className="px-6 py-4">Phone Line</th>
-                      <th className="px-6 py-4">Telephony Provider</th>
+                      <th className="px-6 py-4">Provider</th>
                       <th className="px-6 py-4">Assigned AI Assistant</th>
                       <th className="px-6 py-4">Status</th>
                       <th className="px-6 py-4 text-right">Quick Actions</th>
