@@ -285,7 +285,7 @@ export default async function AnalyticsPage() {
       </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_420px]">
-        <section className="overflow-hidden rounded-[14px] bg-white shadow-[0_18px_60px_rgba(0,0,0,0.08)] ring-1 ring-black/8">
+        <section className="flex h-full flex-col overflow-hidden rounded-[14px] bg-white shadow-[0_18px_60px_rgba(0,0,0,0.08)] ring-1 ring-black/8">
           <div className="flex flex-col gap-4 border-b border-hairline bg-[#fbfbfa] p-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="flex items-center gap-2 text-xl font-bold text-black [letter-spacing:0]">
@@ -301,33 +301,35 @@ export default async function AnalyticsPage() {
             </div>
           </div>
 
-          <div className="grid gap-0 lg:grid-cols-[160px_minmax(0,1fr)]">
+          <div className="flex-1 grid gap-0 lg:grid-cols-[160px_minmax(0,1fr)]">
             <div className="grid grid-cols-3 gap-2 border-b border-hairline p-4 lg:block lg:border-b-0 lg:border-r lg:p-5">
               <ChartStat label="Active hours" value={`${activeHours}/24`} />
               <ChartStat label="Peak load" value={`${maxVolume}`} />
               <ChartStat label="Window" value="24h" />
             </div>
 
-            <div className="p-4 sm:p-5">
-              <div className="relative h-[236px] overflow-hidden rounded-[12px] bg-[#f6f5f4] p-4">
+            <div className="flex h-full flex-col p-4 sm:p-5">
+              <div className="isolate relative flex-1 min-h-[236px] overflow-hidden rounded-[12px] bg-[#f6f5f4] p-4">
                 <div className="absolute inset-x-4 top-1/4 border-t border-black/[0.06]" />
                 <div className="absolute inset-x-4 top-1/2 border-t border-black/[0.06]" />
                 <div className="absolute inset-x-4 top-3/4 border-t border-black/[0.06]" />
-                <div className="relative flex h-full items-end gap-1.5 sm:gap-2">
+                <div className="relative flex h-full w-full items-end justify-between gap-1">
               {hourlyHistogram.map((count, index) => {
-                const heightPercent = count === 0 ? 4 : Math.max(12, Math.round((count / maxVolume) * 100));
+                const heightPercent = count === 0 ? 4 : Math.max(12, Math.round((count / maxVolume) * 85));
                 const isPeak = index === peakHourIndex && count > 0;
                 const isCurrentHour = index === 23;
 
                 return (
-                  <div key={index} className="group flex h-full min-w-0 flex-1 flex-col justify-end">
-                    <div className="relative flex h-full items-end justify-center">
-                      <div className="absolute -top-7 z-10 rounded-[8px] bg-black px-2 py-1 text-[11px] font-bold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+                  <div key={index} className="group flex h-full min-w-0 flex-1 items-end justify-center">
+                    <div
+                      style={{ height: `${heightPercent}%` }}
+                      className="relative flex w-full max-w-[24px] justify-center"
+                    >
+                      <div className="pointer-events-none absolute -top-8 z-10 whitespace-nowrap rounded-[8px] bg-black px-2 py-1 text-[11px] font-bold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
                         {count} calls
                       </div>
                       <div
-                        style={{ height: `${heightPercent}%` }}
-                        className={`w-full max-w-[24px] rounded-t-[8px] rounded-b-[3px] transition-all duration-200 group-hover:scale-x-110 ${
+                        className={`h-full w-full rounded-t-[8px] rounded-b-[3px] transition-all duration-200 group-hover:scale-x-110 ${
                           isPeak
                             ? "bg-black shadow-[0_0_0_4px_rgba(0,0,0,0.06)]"
                             : isCurrentHour
