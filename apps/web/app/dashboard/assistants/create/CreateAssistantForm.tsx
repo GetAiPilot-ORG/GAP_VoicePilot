@@ -9,8 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { GAP_CATALOG, VoiceOption } from "@/lib/catalog";
 import { createAssistantAction, generatePromptAction } from "@/app/actions/assistants";
 import { Play, Volume2, Check, Sparkles, Bot, Mic, Cpu, Settings2, Wand2, X, Plus, Trash2, Phone, MessageSquare, PhoneCall, Copy, ExternalLink, CheckCircle2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export function CreateAssistantForm() {
+  const router = useRouter();
   const [topNav, setTopNav] = React.useState<"configuration" | "integration">("configuration");
   const [activeTab, setActiveTab] = React.useState<"model" | "speech" | "voice" | "advance">("model");
   const [isPending, setIsPending] = React.useState(false);
@@ -511,6 +513,7 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
       const fd = new FormData();
       fd.append("payload", JSON.stringify(payload));
       await createAssistantAction(fd);
+      router.push("/dashboard/assistants");
     } catch (err: any) {
       alert("Failed to create assistant: " + err.message);
       setIsPending(false);

@@ -113,12 +113,16 @@ export async function triggerTestCallAction(params: TriggerTestCallParams) {
       payload.assistant_id = params.assistantId;
     }
 
-    console.log("[triggerTestCallAction] Posting to backend:", JSON.stringify(payload));
+    const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || 'https://api.vomyra.com';
+    const vomyraApiKey = process.env.VOMYRA_API_KEY || '0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx';
+    
+    console.log("[triggerTestCallAction] Posting to Vomyra backend:", JSON.stringify(payload));
 
-    const res = await fetch(`${apiUrl}/api/v1/calls`, {
+    const res = await fetch(`${vomyraBaseUrl}/v1/calls`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'x-api-key': vomyraApiKey
       },
       body: JSON.stringify(payload)
     });

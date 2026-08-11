@@ -14,11 +14,9 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "bullmq": "^6.0.9",
     "cors": "^2.8.6",
     "dotenv": "^16.0.3",
     "express": "^5.2.1",
-    "ioredis": "^6.0.0",
     "razorpay": "^2.9.8"
   },
   "devDependencies": {
