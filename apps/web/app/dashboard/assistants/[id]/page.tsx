@@ -72,7 +72,7 @@ export default async function AssistantDetailPage({ params }: AssistantPageProps
   // 4. Fallback: Check if this is a Vomyra assistant ID
   if (!assistant) {
     try {
-      const vomyraApiKey = process.env.VOMYRA_API_KEY || "0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx";
+      const vomyraApiKey = process.env.VOMYRA_API_KEY || "";
       const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || "https://api.vomyra.com";
       const res = await fetch(`${vomyraBaseUrl}/v1/assistants/${assistantId}`, {
         headers: { "x-api-key": vomyraApiKey },
@@ -113,7 +113,7 @@ export default async function AssistantDetailPage({ params }: AssistantPageProps
 
   // Also fetch Vomyra Live Tools
   try {
-    const vomyraApiKey = process.env.VOMYRA_API_KEY || "0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx";
+    const vomyraApiKey = process.env.VOMYRA_API_KEY || "";
     const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || "https://api.vomyra.com";
     const toolRes = await fetch(`${vomyraBaseUrl}/v1/tools`, {
       headers: { "x-api-key": vomyraApiKey },

@@ -97,6 +97,8 @@ export function PhoneNumbersClient({
           type: 'success',
           text: assistantId === "none" ? "Phone number unassigned successfully." : "Assistant bound to phone number successfully."
         });
+      } else {
+        alert("Failed to update assignment: " + res.error);
       }
     } catch (e: any) {
       alert("Failed to update assignment: " + e.message);

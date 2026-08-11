@@ -46,7 +46,7 @@ export default async function AnalyticsPage() {
         const userAssistantNames = new Set(dbAssistants?.map(a => a.name) || []);
 
         // 2. Fetch calls from Vomyra API
-        const vomyraApiKey = process.env.VOMYRA_API_KEY || '0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx';
+        const vomyraApiKey = process.env.VOMYRA_API_KEY || '';
         const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || 'https://api.vomyra.com';
 
         const res = await fetch(`${vomyraBaseUrl}/v1/calls?limit=100`, {
