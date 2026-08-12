@@ -309,13 +309,13 @@ export default async function AnalyticsPage() {
             </div>
 
             <div className="flex h-full flex-col p-4 sm:p-5">
-              <div className="isolate relative flex-1 min-h-[236px] overflow-hidden rounded-[12px] bg-[#f6f5f4] p-4">
+              <div className="isolate relative flex-1 min-h-[236px] overflow-hidden rounded-[12px] bg-[#f6f5f4] px-4 pb-4 pt-12">
                 <div className="absolute inset-x-4 top-1/4 border-t border-black/[0.06]" />
                 <div className="absolute inset-x-4 top-1/2 border-t border-black/[0.06]" />
                 <div className="absolute inset-x-4 top-3/4 border-t border-black/[0.06]" />
                 <div className="relative flex h-full w-full items-end justify-between gap-1">
               {hourlyHistogram.map((count, index) => {
-                const heightPercent = count === 0 ? 4 : Math.max(12, Math.round((count / maxVolume) * 85));
+                const heightPercent = count === 0 ? 4 : Math.max(12, Math.round((count / maxVolume) * 78));
                 const isPeak = index === peakHourIndex && count > 0;
                 const isCurrentHour = index === 23;
 
