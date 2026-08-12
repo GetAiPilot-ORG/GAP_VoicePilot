@@ -28,7 +28,8 @@ import {
   Menu,
   X,
   Check,
-  ArrowUp
+  ArrowUp,
+  PhoneCall
 } from "lucide-react";
 import { submitDemoInquiry } from "@/app/actions/demo";
 import { PrimaryButton } from "@/components/ui/primary-button";
@@ -55,6 +56,7 @@ const SERVICE_OPTIONS = [
   "Customer Support & Handoff Automation",
   "Inbound Call Routing & AI Answering",
   "Outbound Bulk Phone Campaigns",
+  "Dedicated Phone Number & Calling Channel (₹2,000/mo)",
   "Custom AI Voice Workflows & Integrations"
 ];
 
@@ -855,6 +857,42 @@ export default function DemoPage() {
                 </div>
               </article>
             ))}
+          </div>
+
+          {/* Dedicated Telephony & Calling Channel Plan */}
+          <div className="mt-8 rounded-[24px] border border-black/10 bg-white p-6 md:p-8 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 text-left">
+            <div className="space-y-2 max-w-2xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#f0f4ff] border border-blue-200 text-xs font-bold text-blue-700">
+                <PhoneCall className="h-3.5 w-3.5" />
+                <span>TELEPHONY ADD-ON PLAN</span>
+              </div>
+              <h3 className="text-2xl font-bold text-black tracking-tight">
+                Dedicated Phone Number & Concurrent Calling Channel Plan
+              </h3>
+              <p className="text-sm text-black/70 font-light leading-relaxed">
+                Add dedicated virtual business numbers (080, 022, 011, or 1800 Toll-Free) and dedicated multi-channel call concurrency for inbound call answering & outbound AI campaigns.
+              </p>
+              <div className="pt-2 flex flex-wrap gap-x-6 gap-y-2 text-xs font-semibold text-black/80">
+                <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-[#ff4b2f]" /> 1 Dedicated Business Virtual Number</span>
+                <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-[#ff4b2f]" /> Dedicated Calling Concurrency Channel</span>
+                <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-[#ff4b2f]" /> TRAI & DLT Compliant SIP Trunking</span>
+                <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-[#ff4b2f]" /> Instant Setup & Number Activation</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row md:flex-col items-start md:items-end gap-3 shrink-0 w-full sm:w-auto">
+              <div className="text-left md:text-right">
+                <span className="text-3xl font-extrabold text-black">₹2,000</span>
+                <span className="text-xs font-semibold text-black/60"> /month</span>
+                <p className="text-[11px] text-black/50 font-medium mt-0.5">Per dedicated channel & number</p>
+              </div>
+              <Link
+                href="/dashboard/phone-numbers"
+                className="w-full sm:w-auto inline-flex h-11 items-center justify-center rounded-full bg-[#ff4b2f] hover:bg-[#e63e24] text-white px-6 text-xs font-bold shadow-sm transition-all hover:scale-[1.02]"
+              >
+                Get Dedicated Number
+              </Link>
+            </div>
           </div>
         </section>
       </main>
