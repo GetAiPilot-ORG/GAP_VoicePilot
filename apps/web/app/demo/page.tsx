@@ -56,7 +56,7 @@ const SERVICE_OPTIONS = [
   "Customer Support & Handoff Automation",
   "Inbound Call Routing & AI Answering",
   "Outbound Bulk Phone Campaigns",
-  "Dedicated Phone Number & Calling Channel (₹2,000/mo)",
+  "Dedicated Phone Number & Calling Channel (₹1,499/mo)",
   "Custom AI Voice Workflows & Integrations"
 ];
 
@@ -882,7 +882,7 @@ export default function DemoPage() {
 
             <div className="flex flex-col sm:flex-row md:flex-col items-start md:items-end gap-3 shrink-0 w-full sm:w-auto">
               <div className="text-left md:text-right">
-                <span className="text-3xl font-extrabold text-black">₹2,000</span>
+                <span className="text-3xl font-extrabold text-black">₹1,499</span>
                 <span className="text-xs font-semibold text-black/60"> /month</span>
                 <p className="text-[11px] text-black/50 font-medium mt-0.5">Per dedicated channel & number</p>
               </div>
