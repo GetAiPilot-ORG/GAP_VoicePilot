@@ -10,6 +10,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PrimaryButton } from "@/components/ui/primary-button";
 import { RuixenGradientFooter } from "@/components/ui/ruixen-gradient-footer";
+import { LiveAgentDemoSection } from "@/components/LiveAgentDemoSection";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -720,6 +721,9 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+
+        {/* Interactive Voice AI Agent Live Phone Call Demo */}
+        <LiveAgentDemoSection user={user} />
 
         <section
           id="capabilities"
