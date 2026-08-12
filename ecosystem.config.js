@@ -22,26 +22,6 @@ module.exports = {
         NODE_ENV: "production",
         PORT: 8000
       }
-    },
-    {
-      name: "voicepilot-worker-dispatch",
-      cwd: "./apps/api",
-      script: "dist/workers/call-dispatch.js",
-      instances: 1,
-      exec_mode: "fork",
-      env: {
-        NODE_ENV: "production"
-      }
-    },
-    {
-      name: "voicepilot-worker-sync",
-      cwd: "./apps/api",
-      script: "dist/workers/call-sync.js",
-      instances: 1,
-      exec_mode: "fork",
-      env: {
-        NODE_ENV: "production"
-      }
     }
   ]
 };
