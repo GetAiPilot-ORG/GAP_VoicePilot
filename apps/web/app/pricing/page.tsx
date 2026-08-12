@@ -38,6 +38,7 @@ import {
 gsap.registerPlugin(useGSAP, ScrollTrigger);
 
 const navItems = [
+  { label: "Product", href: "/product" },
   { label: "Capabilities", href: "/#capabilities" },
   { label: "Workflow", href: "/#workflow" },
   { label: "Pricing", href: "/pricing" },
@@ -177,11 +178,46 @@ const faqs = [
 
 export default function PricingPage() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLElement>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isAnnual, setIsAnnual] = useState(true);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
   const [user, setUser] = useState<User | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
+  const [isFooterVisible, setIsFooterVisible] = useState(false);
+
+  useEffect(() => {
+    setCurrentTime(new Date());
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatTime = (timeZone: string) => {
+    if (!currentTime) return "00:00:00";
+    return currentTime.toLocaleTimeString("en-US", {
+      timeZone,
+      hour12: false,
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  };
+
+  useEffect(() => {
+    const footerEl = footerRef.current;
+    if (!footerEl) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsFooterVisible(entry.isIntersecting);
+      },
+      { rootMargin: "0px", threshold: 0.05 }
+    );
+
+    observer.observe(footerEl);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -243,15 +279,19 @@ export default function PricingPage() {
   return (
     <div ref={containerRef} className="min-h-screen bg-[#f7f6f0] text-black antialiased font-sans">
       {/* Sticky Header Navigation */}
-      <header className="sticky top-4 z-50 mx-auto w-full md:w-[82%] lg:w-[76%] max-w-[1080px] px-3 sm:px-4">
+      <header
+        className={`sticky top-2 z-50 mx-auto w-full md:w-[82%] lg:w-[76%] max-w-[1080px] px-3 sm:px-4 transition-all duration-300 ${
+          isFooterVisible
+            ? "opacity-0 -translate-y-8 pointer-events-none"
+            : "opacity-100 translate-y-0 pointer-events-auto"
+        }`}
+      >
         <div className="flex h-16 items-center justify-between rounded-full border border-white/70 bg-white/80 p-2 pl-4 pr-2 shadow-[0_10px_35px_rgba(0,0,0,0.06),0_1px_0_rgba(255,255,255,0.9)_inset] backdrop-blur-2xl ring-1 ring-black/5 transition-all duration-300">
-          <Link href="/" className="flex items-center gap-2.5 shrink-0" title="GAP VoicePilot Home">
-            <Image src="/logo.png" alt="GAP VoicePilot Logo" width={40} height={40} className="h-10 w-10 object-contain" priority />
-            <span className="flex flex-col leading-none">
-              <span className="text-base font-extrabold tracking-tight text-black">GAP</span>
-              <span className="font-array text-[11.5px] font-bold uppercase tracking-[0.08em] text-[#ff4b2f] -mt-0.5">
-                VOICEPILOT
-              </span>
+          <Link href="/" className="flex items-center gap-2 shrink-0" title="GAP VoicePilot Home">
+            <Image src="/logo.png" alt="GAP VoicePilot Logo" width={40} height={40} className="h-9.5 w-9.5 object-contain" priority />
+            <span className="text-xl font-extrabold tracking-tight text-black flex items-center gap-1">
+              <span>GAP</span>
+              <span className="font-array font-bold text-[#ff4b2f]">VoicePilot</span>
             </span>
           </Link>
 
@@ -389,7 +429,7 @@ export default function PricingPage() {
               }`}
             >
               Annual Billing
-              <span className="rounded-full bg-emerald-500/15 text-emerald-700 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+              <span className="rounded-full bg-emerald-500/15 text-emerald-700 px-2 py-0.5 text-xs font-bold uppercase tracking-wider">
                 Save 20%
               </span>
             </button>
@@ -404,14 +444,14 @@ export default function PricingPage() {
               return (
                 <article
                   key={plan.name}
-                  className={`section-reveal relative flex h-full flex-col justify-between rounded-[32px] p-8 sm:p-9 transition-all duration-300 ${
+                  className={`section-reveal relative flex h-full flex-col justify-between rounded-[16px] p-8 sm:p-9 transition-all duration-300 ${
                     plan.featured
                       ? "border-2 border-black/15 bg-white text-black shadow-xl scale-[1.02]"
                       : "border border-black/10 bg-white text-black shadow-xs hover:shadow-xl hover:-translate-y-1"
                   }`}
                 >
                   {plan.badge && (
-                    <div className={`absolute -top-3.5 right-8 inline-flex items-center gap-1.5 rounded-full px-4 py-1 text-[10px] font-extrabold uppercase tracking-widest text-white shadow-md ${
+                    <div className={`absolute -top-3.5 right-8 inline-flex items-center gap-1.5 rounded-full px-4 py-1 text-xs font-extrabold uppercase tracking-widest text-white shadow-md ${
                       plan.featured ? "bg-[#ff4b2f]" : "bg-neutral-900"
                     }`}>
                       {plan.featured && <Sparkles className="h-3 w-3 fill-current" />}
@@ -473,6 +513,40 @@ export default function PricingPage() {
           </div>
         </section>
 
+        {/* Included in Your Per-Minute Rate Section */}
+        <section className="mx-auto max-w-[1340px] px-6 pb-16 lg:px-8">
+          <div className="section-reveal rounded-[16px] border border-black/10 bg-white p-8 md:p-10 shadow-xs">
+            <p className="font-mono text-xs font-extrabold uppercase tracking-[0.18em] text-black/45 mb-6">
+              INCLUDED IN YOUR PER-MINUTE RATE
+            </p>
+            <div className="grid gap-8 sm:grid-cols-3">
+              <div className="flex items-start gap-3">
+                <Check className="mt-1 h-5 w-5 shrink-0 text-emerald-600 font-bold" />
+                <div>
+                  <h3 className="text-xl font-bold tracking-tight text-black">LLM</h3>
+                  <p className="mt-1 text-xs font-medium text-black/60">No token charges</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <Check className="mt-1 h-5 w-5 shrink-0 text-emerald-600 font-bold" />
+                <div>
+                  <h3 className="text-xl font-bold tracking-tight text-black">STT</h3>
+                  <p className="mt-1 text-xs font-medium text-black/60">Real-time transcription</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <Check className="mt-1 h-5 w-5 shrink-0 text-emerald-600 font-bold" />
+                <div>
+                  <h3 className="text-xl font-bold tracking-tight text-black">TTS</h3>
+                  <p className="mt-1 text-xs font-medium text-black/60">Premium voices</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Feature Comparison Table Section */}
         <section className="mx-auto max-w-[1340px] px-6 pb-24 lg:px-8">
           <div className="section-reveal mb-12 text-center">
@@ -482,7 +556,7 @@ export default function PricingPage() {
             </h2>
           </div>
 
-          <div className="section-reveal overflow-x-auto rounded-[28px] border border-black/10 bg-white shadow-xs">
+          <div className="section-reveal overflow-x-auto rounded-[16px] border border-black/10 bg-white shadow-xs">
             <table className="w-full min-w-[700px] text-left border-collapse">
               <thead>
                 <tr className="border-b border-black/10 bg-neutral-50/80">
@@ -556,7 +630,7 @@ export default function PricingPage() {
                   return (
                     <article
                       key={faq.question}
-                      className="rounded-[20px] border border-black/10 bg-white transition-colors"
+                      className="rounded-lg border border-black/10 bg-white transition-colors"
                     >
                       <button
                         type="button"
@@ -584,98 +658,155 @@ export default function PricingPage() {
         </section>
       </main>
 
-      {/* Clean Footer Component */}
-      <footer className="relative z-10 border-t border-black/10 bg-white/90 backdrop-blur-sm pt-20 pb-10">
-        <div className="mx-auto w-full max-w-[1340px] px-6 lg:px-8">
-          <div className="grid gap-12 pb-16 lg:grid-cols-12">
-            <div className="flex flex-col justify-between lg:col-span-5">
-              <div>
-                <div className="flex items-center gap-3.5">
-                  <span className="relative flex h-11 w-11 shrink-0 overflow-hidden">
-                    <Image src="/logo.png" alt="GAP Logo" width={44} height={44} className="h-full w-full object-contain" />
-                  </span>
-                  <span className="flex flex-col leading-none">
-                    <span className="text-base font-bold tracking-tight text-black">GAP</span>
-                    <span className="mt-1 font-array text-xs font-semibold uppercase tracking-[0.22em] text-[#ff4b2f]">
-                      VoicePilot
-                    </span>
-                  </span>
-                </div>
-
-                <p className="mt-5 max-w-md text-sm font-normal leading-relaxed text-black/70">
-                  Deploy ultra-low latency Hindi, English, and Hinglish AI voice agents for automated calling, lead qualification, and customer support.
-                </p>
-
-                <form onSubmit={(e) => e.preventDefault()} className="mt-7 flex max-w-md items-center gap-2 rounded-full border border-black/15 bg-neutral-100/80 p-1.5 shadow-sm transition-all focus-within:border-black/40 focus-within:ring-2 focus-within:ring-black/5">
-                  <input
-                    type="email"
-                    placeholder="Enter work email for updates"
-                    className="w-full bg-transparent px-4 text-xs text-black placeholder:text-black/40 focus:outline-none"
-                  />
-                  <button
-                    type="submit"
-                    className="inline-flex shrink-0 items-center justify-center rounded-full bg-black px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-neutral-800 active:scale-[0.98]"
-                  >
-                    Subscribe
-                  </button>
-                </form>
+      {/* Reference-Matched 100vh Landscape Footer */}
+      <footer
+        ref={footerRef}
+        className="relative z-10 flex min-h-screen w-full flex-col justify-between overflow-hidden bg-[#f7f6f0] bg-cover bg-bottom bg-no-repeat text-black px-6 pt-12 pb-8 sm:px-12 sm:pt-16 sm:pb-12"
+        style={{ backgroundImage: "url('/assets/footer-bg.png')" }}
+      >
+        <div className="mx-auto flex w-full max-w-[1340px] flex-1 flex-col justify-between">
+          {/* Top Section: Brand + Clocks (Left) & Nav Links (Right) */}
+          <div className="flex flex-col justify-between gap-12 md:flex-row md:items-start">
+            {/* Left Column: Brand & World Clocks */}
+            <div className="max-w-xl">
+              <div className="flex items-center gap-3">
+                <Image
+                  src="/logo.png"
+                  alt="GAP VoicePilot Logo"
+                  width={36}
+                  height={36}
+                  className="h-9 w-9 object-contain"
+                />
+                <span className="text-xl font-extrabold tracking-tight text-black">
+                  GAP <span className="font-array font-bold text-[#ff4b2f]">VoicePilot</span>
+                </span>
               </div>
 
-              <div className="mt-8 flex items-center gap-2.5 rounded-full border border-emerald-500/20 bg-emerald-50/80 px-3.5 py-1.5 w-fit text-xs font-medium text-emerald-900">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-                </span>
-                <span>All systems operational & active</span>
+              <p className="mt-4 text-xs sm:text-sm font-normal leading-relaxed text-black/70 max-w-md">
+                Sub-240ms AI voice engine for live Indian calls. Built in India at GAP Studio.
+                <br />
+                An independent voice intelligence & AI calling platform.
+              </p>
+
+              {/* World Clocks Row */}
+              <div className="mt-8 grid grid-cols-4 gap-4 max-w-md">
+                <div>
+                  <div className="font-mono text-xs font-bold text-black tracking-wider">
+                    {currentTime ? formatTime("Asia/Kolkata") : "18:35:58"}
+                  </div>
+                  <div className="mt-1 text-xs font-medium text-black/80">Bengaluru</div>
+                  <div className="text-xs font-mono font-medium tracking-wider text-black/40 uppercase scale-90 origin-left">INDIA</div>
+                </div>
+
+                <div>
+                  <div className="font-mono text-xs font-bold text-black tracking-wider">
+                    {currentTime ? formatTime("America/New_York") : "08:05:58"}
+                  </div>
+                  <div className="mt-1 text-xs font-medium text-black/80">New York</div>
+                  <div className="text-xs font-mono font-medium tracking-wider text-black/40 uppercase scale-90 origin-left">N. AMERICA</div>
+                </div>
+
+                <div>
+                  <div className="font-mono text-xs font-bold text-black tracking-wider">
+                    {currentTime ? formatTime("Europe/London") : "13:05:58"}
+                  </div>
+                  <div className="mt-1 text-xs font-medium text-black/80">London</div>
+                  <div className="text-xs font-mono font-medium tracking-wider text-black/40 uppercase scale-90 origin-left">EUROPE</div>
+                </div>
+
+                <div>
+                  <div className="font-mono text-xs font-bold text-black tracking-wider">
+                    {currentTime ? formatTime("Asia/Tokyo") : "21:05:58"}
+                  </div>
+                  <div className="mt-1 text-xs font-medium text-black/80">Tokyo</div>
+                  <div className="text-xs font-mono font-medium tracking-wider text-black/40 uppercase scale-90 origin-left">ASIA</div>
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:col-span-7">
+            {/* Right Column: Links Grid */}
+            <div className="flex gap-16 sm:gap-24">
               <div>
-                <h3 className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-black">Product</h3>
-                <ul className="mt-5 flex flex-col gap-3.5 text-xs font-medium text-black/65">
-                  <li><Link href="/dashboard" className="transition-all hover:text-black hover:translate-x-1 inline-block">Dashboard Overview</Link></li>
-                  <li><Link href="/dashboard/assistants" className="transition-all hover:text-black hover:translate-x-1 inline-block">AI Voice Assistants</Link></li>
-                  <li><Link href="/dashboard/calls" className="transition-all hover:text-black hover:translate-x-1 inline-block">Realtime Call Logs</Link></li>
-                  <li><Link href="/dashboard/phone-numbers" className="transition-all hover:text-black hover:translate-x-1 inline-block">Phone Numbers</Link></li>
-                  <li><Link href="/dashboard/billing" className="transition-all hover:text-black hover:translate-x-1 inline-block">Credits & Subscriptions</Link></li>
+                <h4 className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-black/40">
+                  PRODUCT
+                </h4>
+                <ul className="mt-5 flex flex-col gap-3 text-xs font-medium text-black/75">
+                  <li>
+                    <Link href="/product" className="transition-colors hover:text-black">
+                      Overview
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/dashboard" className="transition-colors hover:text-black">
+                      Console Dashboard
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/pricing" className="transition-colors hover:text-black">
+                      Pricing Plans
+                    </Link>
+                  </li>
+                  <li>
+                    <a href="#" className="inline-flex items-center gap-1 transition-colors hover:text-black">
+                      <span>Developer Docs</span>
+                      <span className="text-xs">↗</span>
+                    </a>
+                  </li>
                 </ul>
               </div>
 
               <div>
-                <h3 className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-black">Capabilities</h3>
-                <ul className="mt-5 flex flex-col gap-3.5 text-xs font-medium text-black/65">
-                  <li><Link href="/#capabilities" className="transition-all hover:text-black hover:translate-x-1 inline-block">Hinglish Voice Models</Link></li>
-                  <li><Link href="/#capabilities" className="transition-all hover:text-black hover:translate-x-1 inline-block">Sub-second Latency</Link></li>
-                  <li><Link href="/#capabilities" className="transition-all hover:text-black hover:translate-x-1 inline-block">Dynamic Campaign Flow</Link></li>
-                  <li><Link href="/pricing" className="transition-all hover:text-black hover:translate-x-1 inline-block">Flexible Usage Plans</Link></li>
-                  <li><Link href="/pricing#faq" className="transition-all hover:text-black hover:translate-x-1 inline-block">Frequently Asked Questions</Link></li>
-                </ul>
-              </div>
-
-              <div>
-                <h3 className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-black">Company & Legal</h3>
-                <ul className="mt-5 flex flex-col gap-3.5 text-xs font-medium text-black/65">
-                  <li><a href="#" className="transition-all hover:text-black hover:translate-x-1 inline-block">About GAP Platform</a></li>
-                  <li><a href="#" className="transition-all hover:text-black hover:translate-x-1 inline-block">Privacy Policy</a></li>
-                  <li><a href="#" className="transition-all hover:text-black hover:translate-x-1 inline-block">Terms of Service</a></li>
-                  <li><a href="#" className="transition-all hover:text-black hover:translate-x-1 inline-block">Security Architecture</a></li>
-                  <li><a href="#" className="transition-all hover:text-black hover:translate-x-1 inline-block">Contact Support</a></li>
+                <h4 className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-black/40">
+                  LEGAL
+                </h4>
+                <ul className="mt-5 flex flex-col gap-3 text-xs font-medium text-black/75">
+                  <li>
+                    <a href="#" className="transition-colors hover:text-black">
+                      Privacy Policy
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="transition-colors hover:text-black">
+                      Terms of Service
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="transition-colors hover:text-black">
+                      TRAI & DLT Compliance
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="transition-colors hover:text-black">
+                      Security & DPA
+                    </a>
+                  </li>
                 </ul>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-col items-center justify-between gap-4 border-t border-black/10 pt-8 text-xs font-medium text-black/50 sm:flex-row">
-            <p>© 2026 GAP VoicePilot. All rights reserved.</p>
-            <div className="flex items-center gap-4 font-mono text-[11px] uppercase tracking-wider text-black/60">
-              <span className="transition-colors hover:text-black cursor-pointer">Privacy</span>
-              <span>•</span>
-              <span className="transition-colors hover:text-black cursor-pointer">Terms</span>
-              <span>•</span>
-              <span className="transition-colors hover:text-black cursor-pointer">Cookies</span>
+          {/* Middle Centered Info Line (Positioned just above mountain peak) */}
+          <div className="mt-auto mb-12 flex flex-col items-center justify-center text-center">
+            <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 font-mono text-xs font-semibold uppercase tracking-wider text-black/70 sm:text-xs">
+              <span>© {new Date().getFullYear()} GAP VOICEPILOT</span>
+              <span className="text-black/30">•</span>
+              <span className="hover:text-black cursor-pointer underline decoration-black/30 underline-offset-4">GAPVOICE.DEV</span>
+              <span className="text-black/30">•</span>
+              <span className="hover:text-black cursor-pointer underline decoration-black/30 underline-offset-4">HELLO@GAPVOICE.DEV</span>
+              <span className="text-black/30">•</span>
+              <span>BUILT IN INDIA</span>
+              <span className="text-black/30">•</span>
+              <span className="inline-flex items-center gap-1.5 text-emerald-700 font-semibold">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                </span>
+                ALL SYSTEMS OPERATIONAL
+              </span>
             </div>
-            <p className="font-mono text-[11px] uppercase tracking-wider text-black/40">Engineered for Next-Gen AI Calling</p>
+            <p className="mt-2 text-xs font-medium text-black/40 max-w-xl leading-normal">
+              GAP VoicePilot is an enterprise AI voice engine. All trademarks belong to their respective owners.
+            </p>
           </div>
         </div>
       </footer>
