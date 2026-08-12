@@ -465,7 +465,13 @@ export default function HomePage() {
               </DropdownMenu>
             ) : (
               <>
-                <GetDemoButton variant="navbar" source="navbar_header" />
+                <Link
+                  href="/demo"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[#ff4b2f]/40 bg-[#fff5f3] px-4 py-2 text-xs font-bold text-[#d93620] shadow-xs transition-all hover:bg-[#ffece8] hover:border-[#ff4b2f] hover:scale-105 active:scale-95"
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-[#ff4b2f]" />
+                  <span>Get a Demo</span>
+                </Link>
                 <Link
                   href="/login"
                   className="rounded-full px-3.5 py-2 text-xs font-semibold text-black/70 transition-colors hover:bg-black/5 hover:text-black"
@@ -545,11 +551,14 @@ export default function HomePage() {
                 </>
               ) : (
                 <>
-                  <GetDemoButton
-                    variant="navbar"
-                    source="mobile_nav"
-                    className="w-full justify-center py-2.5 text-xs"
-                  />
+                  <Link
+                    href="/demo"
+                    onClick={closeMobileMenu}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-full border border-[#ff4b2f]/40 bg-[#fff5f3] px-4 py-2.5 text-xs font-bold text-[#d93620] shadow-xs transition-all hover:bg-[#ffece8]"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-[#ff4b2f]" />
+                    <span>Get a Demo</span>
+                  </Link>
                   <Link
                     href="/login"
                     onClick={closeMobileMenu}
@@ -601,9 +610,12 @@ export default function HomePage() {
                 <PrimaryButton href="/dashboard">
                   {user ? "Open Dashboard" : "Start for free"}
                 </PrimaryButton>
-                <GetDemoButton variant="outline" source="website_hero">
+                <Link
+                  href="/demo"
+                  className="inline-flex h-12 items-center justify-center rounded-full border border-[#ff4b2f]/55 bg-white px-7 text-base font-semibold text-[#d93620] transition-colors hover:bg-[#fff3ef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4b2f] focus-visible:ring-offset-2"
+                >
                   Get a Demo
-                </GetDemoButton>
+                </Link>
                 <Link
                   href="/dashboard/assistants"
                   className="inline-flex h-12 items-center justify-center rounded-full border border-black/10 bg-white px-6 text-sm font-semibold text-black hover:bg-surface-soft transition-colors"
@@ -995,13 +1007,12 @@ export default function HomePage() {
                   </p>
 
                   {plan.buttonVariant === "outline" ? (
-                    <GetDemoButton
-                      variant="outline"
-                      source={`pricing_${plan.name.toLowerCase()}`}
-                      className="w-full justify-center text-xs font-bold py-3 h-11"
+                    <Link
+                      href="/demo"
+                      className="inline-flex w-full items-center justify-center rounded-full border border-black/20 bg-white text-black hover:bg-black/5 py-3 text-xs font-bold transition-all active:scale-[0.98] h-11"
                     >
                       {plan.action}
-                    </GetDemoButton>
+                    </Link>
                   ) : (
                     <Link
                       href="/dashboard"

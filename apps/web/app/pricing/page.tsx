@@ -354,7 +354,13 @@ export default function PricingPage() {
               </DropdownMenu>
             ) : (
               <>
-                <GetDemoButton variant="navbar" source="pricing_header" />
+                <Link
+                  href="/demo"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[#ff4b2f]/40 bg-[#fff5f3] px-4 py-2 text-xs font-bold text-[#d93620] shadow-xs transition-all hover:bg-[#ffece8] hover:border-[#ff4b2f] hover:scale-105 active:scale-95"
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-[#ff4b2f]" />
+                  <span>Get a Demo</span>
+                </Link>
                 <Link href="/login" className="rounded-full px-3.5 py-2 text-xs font-semibold text-black/70 hover:bg-black/5">
                   Sign In
                 </Link>

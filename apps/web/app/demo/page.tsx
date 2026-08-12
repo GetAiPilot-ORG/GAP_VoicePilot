@@ -673,9 +673,7 @@ export default function DemoPage() {
       </main>
 
       {/* Footer */}
-      <footer ref={footerRef}>
-        <RuixenGradientFooter />
-      </footer>
+      <RuixenGradientFooter />
     </div>
   );
 }
