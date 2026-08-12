@@ -10,6 +10,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PrimaryButton } from "@/components/ui/primary-button";
 import { LiveAgentDemoSection } from "@/components/LiveAgentDemoSection";
+import { GetDemoButton } from "@/components/demo/GetDemoButton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -533,6 +534,13 @@ export default function ProductPage() {
               </DropdownMenu>
             ) : (
               <>
+                <Link
+                  href="/demo"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[#ff4b2f]/40 bg-[#fff5f3] px-4 py-2 text-xs font-bold text-[#d93620] shadow-xs transition-all hover:bg-[#ffece8] hover:border-[#ff4b2f] hover:scale-105 active:scale-95"
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-[#ff4b2f]" />
+                  <span>Get a Demo</span>
+                </Link>
                 <Link
                   href="/login"
                   className="rounded-full px-3.5 py-2 text-xs font-semibold text-black/70 transition-colors hover:bg-black/5 hover:text-black"

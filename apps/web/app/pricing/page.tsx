@@ -9,6 +9,7 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PrimaryButton } from "@/components/ui/primary-button";
+import { GetDemoButton } from "@/components/demo/GetDemoButton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,14 +51,14 @@ const pricingPlans = [
     name: "Call Lite",
     monthlyPrice: 1499,
     annualPrice: 1199,
-    note: "For validating your first voice agent workflow",
+    note: "250 AI calling minutes • ₹6.00/min rate",
     action: "Start Lite Plan",
     featured: false,
     badge: undefined,
-    minutes: "100 AI Minutes",
+    minutes: "250 AI Minutes",
     features: [
-      "1 Dedicated Phone Number",
-      "100 AI Calling Minutes included",
+      "250 AI Calling Minutes included",
+      "₹6.00 / min per-minute rate",
       "Hindi, English & Hinglish Support",
       "Custom System Prompts",
       "Basic Lead & Contact Capture",
@@ -67,16 +68,16 @@ const pricingPlans = [
   },
   {
     name: "Call Pro",
-    monthlyPrice: 2999,
-    annualPrice: 2399,
-    note: "For daily sales calls and customer support teams",
+    monthlyPrice: 4999,
+    annualPrice: 3999,
+    note: "1,000 AI calling minutes • ₹5.00/min rate",
     action: "Start Pro Plan",
     featured: true,
     badge: "MOST POPULAR",
-    minutes: "500 AI Minutes",
+    minutes: "1,000 AI Minutes",
     features: [
-      "3 Dedicated Phone Numbers",
-      "500 AI Calling Minutes included",
+      "1,000 AI Calling Minutes included",
+      "₹5.00 / min per-minute rate",
       "Hindi, English & Hinglish Support",
       "Real-time Live Call Transfer",
       "Automatic CRM Syncing & Notes",
@@ -88,16 +89,16 @@ const pricingPlans = [
   },
   {
     name: "Call Elite",
-    monthlyPrice: 7999,
-    annualPrice: 6399,
-    note: "For high-volume enterprises and automated call desks",
+    monthlyPrice: 9999,
+    annualPrice: 7999,
+    note: "2,000 AI calling minutes • ₹5.00/min rate",
     action: "Contact Enterprise Sales",
     featured: false,
     badge: "ENTERPRISE",
     minutes: "2,000 AI Minutes",
     features: [
-      "10 Dedicated Phone Numbers",
       "2,000 AI Calling Minutes included",
+      "₹5.00 / min per-minute rate",
       "Unlimited Multi-Agent Workflows",
       "Custom Neural Voice Clone",
       "Custom SIP & PBX Trunk Integration",
@@ -112,17 +113,16 @@ const featureComparison = [
   {
     category: "AI Calling & Voice Engine",
     items: [
-      { feature: "AI Calling Minutes Included", lite: "100 Mins", pro: "500 Mins", elite: "2,000 Mins" },
+      { feature: "AI Calling Minutes Included", lite: "250 Mins", pro: "1,000 Mins", elite: "2,000 Mins" },
+      { feature: "Effective Per Minute Rate", lite: "₹6.00/min", pro: "₹5.00/min", elite: "₹5.00/min" },
       { feature: "Cartesia & ElevenLabs Neural Pipeline", lite: true, pro: true, elite: true },
       { feature: "Regional Languages (Hindi, English, Hinglish)", lite: true, pro: true, elite: true },
       { feature: "Custom Voice Cloning", lite: false, pro: false, elite: true },
-      { feature: "Extra Minute Rate", lite: "₹3.50/min", pro: "₹2.50/min", elite: "₹1.80/min" },
     ],
   },
   {
     category: "Telephony & Operations",
     items: [
-      { feature: "Dedicated Business Numbers", lite: "1 Number", pro: "3 Numbers", elite: "10 Numbers" },
       { feature: "Live Call Handoff / Human Transfer", lite: false, pro: true, elite: true },
       { feature: "Outbound Automated Campaigns", lite: false, pro: true, elite: true },
       { feature: "Inbound IVR & Call Routing", lite: true, pro: true, elite: true },
@@ -353,6 +353,13 @@ export default function PricingPage() {
               </DropdownMenu>
             ) : (
               <>
+                <Link
+                  href="/demo"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[#ff4b2f]/40 bg-[#fff5f3] px-4 py-2 text-xs font-bold text-[#d93620] shadow-xs transition-all hover:bg-[#ffece8] hover:border-[#ff4b2f] hover:scale-105 active:scale-95"
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-[#ff4b2f]" />
+                  <span>Get a Demo</span>
+                </Link>
                 <Link href="/login" className="rounded-full px-3.5 py-2 text-xs font-semibold text-black/70 hover:bg-black/5">
                   Sign In
                 </Link>
@@ -510,6 +517,42 @@ export default function PricingPage() {
                 </article>
               );
             })}
+          </div>
+
+          {/* Dedicated Telephony & Calling Channel Plan */}
+          <div className="mt-10 rounded-[28px] border border-black/10 bg-white p-6 md:p-8 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 text-left">
+            <div className="space-y-2 max-w-2xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#f0f4ff] border border-blue-200 text-xs font-bold text-blue-700">
+                <PhoneCall className="h-3.5 w-3.5" />
+                <span>TELEPHONY ADD-ON PLAN</span>
+              </div>
+              <h3 className="text-2xl font-bold text-black tracking-tight">
+                Dedicated Phone Number & Concurrent Calling Channel Plan
+              </h3>
+              <p className="text-sm text-black/70 font-light leading-relaxed">
+                Add dedicated virtual business numbers (080, 022, 011, or 1800 Toll-Free) and dedicated multi-channel call concurrency for inbound call answering & outbound AI campaigns.
+              </p>
+              <div className="pt-2 flex flex-wrap gap-x-6 gap-y-2 text-xs font-semibold text-black/80">
+                <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-[#ff4b2f]" /> 1 Dedicated Business Virtual Number</span>
+                <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-[#ff4b2f]" /> Dedicated Calling Concurrency Channel</span>
+                <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-[#ff4b2f]" /> TRAI & DLT Compliant SIP Trunking</span>
+                <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-[#ff4b2f]" /> Instant Setup & Number Activation</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row md:flex-col items-start md:items-end gap-3 shrink-0 w-full sm:w-auto">
+              <div className="text-left md:text-right">
+                <span className="text-3xl font-extrabold text-black">₹2,000</span>
+                <span className="text-xs font-semibold text-black/60"> /month</span>
+                <p className="text-[11px] text-black/50 font-medium mt-0.5">Per dedicated channel & number</p>
+              </div>
+              <Link
+                href="/dashboard/phone-numbers"
+                className="w-full sm:w-auto inline-flex h-11 items-center justify-center rounded-full bg-[#ff4b2f] hover:bg-[#e63e24] text-white px-6 text-xs font-bold shadow-sm transition-all hover:scale-[1.02]"
+              >
+                Get Dedicated Number
+              </Link>
+            </div>
           </div>
         </section>
 

@@ -89,13 +89,18 @@ export function AdminKycClient({ initialRequests, initialAvailableNumbers = [] }
                       <p className="text-xs text-neutral-500">Workspace: {r.workspaces?.name || r.workspace_id}</p>
                       <p className="text-xs text-neutral-500">Requested: {new Date(r.created_at).toLocaleDateString()}</p>
                     </div>
-                    <a href={r.document_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-blue-600 hover:underline bg-blue-50 px-2 py-1 rounded">
-                      <Download className="w-3 h-3" /> View ID
-                    </a>
-                  </div>
-                  <div className="bg-surface-soft p-3 rounded text-sm text-neutral-700">
-                    <span className="font-bold text-xs block mb-1">Use Case:</span>
-                    {r.use_case}
+                    {r.verification_method === "setu_pan_and_digilocker" && (
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> Auto-Verified by Setu
+                        </span>
+                        {r.verified_pan_name && (
+                          <span className="text-xs text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded">
+                            PAN: <strong className="text-black">{r.verified_pan_name}</strong>
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   
                   {assigningId === r.id ? (
