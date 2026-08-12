@@ -20,7 +20,8 @@ import {
   Activity,
   ExternalLink,
   Lock,
-  Fingerprint
+  Fingerprint,
+  Download
 } from "lucide-react";
 
 export interface PhoneNumberRecord {
