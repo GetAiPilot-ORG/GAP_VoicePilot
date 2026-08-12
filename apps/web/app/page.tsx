@@ -609,21 +609,31 @@ export default function HomePage() {
               </p>
 
               <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <PrimaryButton href="/dashboard">
-                  {user ? "Open Dashboard" : "Start for free"}
-                </PrimaryButton>
-                <Link
-                  href="/demo"
-                  className="inline-flex h-12 items-center justify-center rounded-full border border-[#ff4b2f]/55 bg-white px-7 text-base font-semibold text-[#d93620] transition-colors hover:bg-[#fff3ef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4b2f] focus-visible:ring-offset-2"
-                >
-                  Get a Demo
-                </Link>
-                <Link
-                  href="/dashboard/assistants"
-                  className="inline-flex h-12 items-center justify-center rounded-full border border-black/10 bg-white px-6 text-sm font-semibold text-black hover:bg-surface-soft transition-colors"
-                >
-                  Explore agents
-                </Link>
+                {user ? (
+                  <>
+                    <PrimaryButton href="/dashboard">
+                      Open Dashboard
+                    </PrimaryButton>
+                    <Link
+                      href="/dashboard/assistants"
+                      className="inline-flex h-12 items-center justify-center rounded-full border border-black/10 bg-white px-6 text-sm font-semibold text-black hover:bg-surface-soft transition-colors"
+                    >
+                      Explore agents
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <PrimaryButton href="/dashboard">
+                      Start for free
+                    </PrimaryButton>
+                    <Link
+                      href="/demo"
+                      className="inline-flex h-12 items-center justify-center rounded-full border border-[#ff4b2f]/55 bg-white px-7 text-base font-semibold text-[#d93620] transition-colors hover:bg-[#fff3ef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4b2f] focus-visible:ring-offset-2"
+                    >
+                      Get a Demo
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
 
