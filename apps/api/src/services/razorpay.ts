@@ -1,9 +1,9 @@
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
-import { requireEnv } from '../config/env';
+import { optionalEnv } from '../config/env';
 
-const key_id = requireEnv('RAZORPAY_KEY_ID');
-const key_secret = requireEnv('RAZORPAY_KEY_SECRET');
+const key_id = optionalEnv('RAZORPAY_KEY_ID', 'rzp_test_placeholder')!;
+const key_secret = optionalEnv('RAZORPAY_KEY_SECRET', 'placeholder_secret')!;
 
 export const razorpayInstance = new Razorpay({
   key_id,
