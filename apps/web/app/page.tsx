@@ -9,6 +9,7 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PrimaryButton } from "@/components/ui/primary-button";
+import { GetDemoButton } from "@/components/demo/GetDemoButton";
 import { RuixenGradientFooter } from "@/components/ui/ruixen-gradient-footer";
 import {
   DropdownMenu,
@@ -464,6 +465,7 @@ export default function HomePage() {
               </DropdownMenu>
             ) : (
               <>
+                <GetDemoButton variant="navbar" source="navbar_header" />
                 <Link
                   href="/login"
                   className="rounded-full px-3.5 py-2 text-xs font-semibold text-black/70 transition-colors hover:bg-black/5 hover:text-black"
@@ -543,6 +545,11 @@ export default function HomePage() {
                 </>
               ) : (
                 <>
+                  <GetDemoButton
+                    variant="navbar"
+                    source="mobile_nav"
+                    className="w-full justify-center py-2.5 text-xs"
+                  />
                   <Link
                     href="/login"
                     onClick={closeMobileMenu}
@@ -594,9 +601,12 @@ export default function HomePage() {
                 <PrimaryButton href="/dashboard">
                   {user ? "Open Dashboard" : "Start for free"}
                 </PrimaryButton>
+                <GetDemoButton variant="outline" source="website_hero">
+                  Get a Demo
+                </GetDemoButton>
                 <Link
                   href="/dashboard/assistants"
-                  className="inline-flex h-12 items-center justify-center rounded-full border border-[#ff4b2f]/55 bg-white px-7 text-base font-semibold text-[#d93620] transition-colors hover:bg-[#fff3ef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4b2f] focus-visible:ring-offset-2"
+                  className="inline-flex h-12 items-center justify-center rounded-full border border-black/10 bg-white px-6 text-sm font-semibold text-black hover:bg-surface-soft transition-colors"
                 >
                   Explore agents
                 </Link>
@@ -984,16 +994,22 @@ export default function HomePage() {
                     {plan.feeNote}
                   </p>
 
-                  <Link
-                    href="/dashboard"
-                    className={`inline-flex w-full items-center justify-center rounded-full py-3 text-xs font-bold transition-all active:scale-[0.98] ${
-                      plan.buttonVariant === "outline"
-                        ? "border border-black/20 bg-white text-black hover:bg-black/5"
-                        : "bg-black text-white hover:bg-neutral-800 shadow-sm"
-                    }`}
-                  >
-                    {plan.action}
-                  </Link>
+                  {plan.buttonVariant === "outline" ? (
+                    <GetDemoButton
+                      variant="outline"
+                      source={`pricing_${plan.name.toLowerCase()}`}
+                      className="w-full justify-center text-xs font-bold py-3 h-11"
+                    >
+                      {plan.action}
+                    </GetDemoButton>
+                  ) : (
+                    <Link
+                      href="/dashboard"
+                      className="inline-flex w-full items-center justify-center rounded-full py-3 text-xs font-bold transition-all active:scale-[0.98] bg-black text-white hover:bg-neutral-800 shadow-sm"
+                    >
+                      {plan.action}
+                    </Link>
+                  )}
 
                   <ul className="mt-7 space-y-3 font-sans">
                     {plan.features.map((feature) => (

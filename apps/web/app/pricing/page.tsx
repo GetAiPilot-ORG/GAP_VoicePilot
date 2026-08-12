@@ -9,6 +9,7 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PrimaryButton } from "@/components/ui/primary-button";
+import { GetDemoButton } from "@/components/demo/GetDemoButton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -353,6 +354,7 @@ export default function PricingPage() {
               </DropdownMenu>
             ) : (
               <>
+                <GetDemoButton variant="navbar" source="pricing_header" />
                 <Link href="/login" className="rounded-full px-3.5 py-2 text-xs font-semibold text-black/70 hover:bg-black/5">
                   Sign In
                 </Link>
