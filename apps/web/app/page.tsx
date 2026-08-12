@@ -1049,10 +1049,6 @@ export default function HomePage() {
           {/* Dedicated Telephony & Calling Channel Plan */}
           <div className="mt-8 rounded-[24px] border border-black/10 bg-white p-6 md:p-8 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 text-left">
             <div className="space-y-2 max-w-2xl">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#f0f4ff] border border-blue-200 text-xs font-bold text-blue-700">
-                <PhoneCall className="h-3.5 w-3.5" />
-                <span>TELEPHONY ADD-ON PLAN</span>
-              </div>
               <h3 className="text-2xl font-bold text-black tracking-tight">
                 Dedicated Phone Number & Concurrent Calling Channel Plan
               </h3>
