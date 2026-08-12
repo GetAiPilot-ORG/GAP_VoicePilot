@@ -27,24 +27,24 @@ function ShaderBackground() {
 
   if (!mounted || !ShaderComp) {
     return (
-      <div className="absolute inset-0 bg-gradient-to-br from-[#0c192c] via-[#1a0805] to-[#ff4b2f]/30" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#ff4b2f] via-[#111111] to-black" />
     );
   }
 
   return (
     <ShaderComp
-      speed={1}
-      scale={1}
-      rotation={0}
+      speed={1.2}
+      scale={1.1}
+      rotation={45}
       offsetX={0}
       offsetY={0}
-      softness={0.5}
-      intensity={0.5}
-      noise={0.25}
+      softness={0.4}
+      intensity={0.7}
+      noise={0.3}
       shape="corners"
       frame={2854.5}
-      colors={["#FFFFFF", "#ff4b2f", "#ff7a45", "#FFFFFF"]}
-      colorBack="#00000000"
+      colors={["#ff4b2f", "#ff3b1e", "#0a0a0a", "#000000"]}
+      colorBack="#000000"
       className="absolute inset-0 bg-black"
     />
   );
@@ -148,25 +148,23 @@ export default function AuthSectionOne({ mode = "signup", error }: AuthSectionOn
 
             <form action={isLogin ? login : signup} onSubmit={handleSubmit} className="space-y-4">
               {!isLogin && (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <FieldBox label="First Name" name="firstName" defaultValue="" placeholder="John" type="text" />
-                  <FieldBox label="Last Name" name="lastName" defaultValue="" placeholder="Doe" type="text" />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <FieldBox label="First Name" name="firstName" placeholder="Harshit" required />
+                  <FieldBox label="Last Name" name="lastName" placeholder="Sharma" required />
                 </div>
               )}
 
               <FieldBox
-                label="Email Address"
+                label="Email address"
                 name="email"
-                defaultValue=""
-                placeholder="name@example.com"
                 type="email"
+                placeholder="name@example.com"
                 required
               />
 
               <FieldBox
                 label="Password"
                 name="password"
-                defaultValue=""
                 placeholder="••••••••••••"
                 type="password"
                 required
@@ -219,6 +217,8 @@ export default function AuthSectionOne({ mode = "signup", error }: AuthSectionOn
               <p className="max-w-md text-sm font-medium leading-relaxed text-white/80 sm:text-base">
                 Deploy ultra-low latency Hindi, English & Hinglish AI voice agents for sales calls, customer support, and automated follow-ups.
               </p>
+
+              
             </div>
           </div>
         </div>

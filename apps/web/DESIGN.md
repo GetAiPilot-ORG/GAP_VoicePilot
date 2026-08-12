@@ -47,7 +47,7 @@ components:
 
 **Creative North Star: "The Editorial Voice Console"**
 
-GAP VoicePilot uses a high-contrast operating-room layout that turns complex real-time voice streaming, regional phone call routing, and telemetry into clean visual artifacts. Built on a stark white canvas (`#ffffff`), strong dark typography, rounded pill controls, and vibrant pastel poster block accents (`#d8f5a2`, `#eebefa`, `#b2f2bb`, `#ffc9c9`, `#0c1c2c`), the interface conveys speed, transparency, and operational authority.
+GAP VoicePilot uses a high-contrast operating-room layout that turns complex real-time voice streaming, regional phone call routing, and telemetry into clean visual artifacts. Built on a stark white canvas (`#ffffff`), strong dark typography, rounded pill controls, and vibrant pastel poster block accents (`#d8f5a2`, `#eebefa`, `#b2f2bb`, `#ffc9c9`, `#0c192c`), the interface conveys speed, transparency, and operational authority.
 
 **Key Characteristics:**
 - Stark white canvas with deep black ink typography and pill controls.

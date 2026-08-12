@@ -24,6 +24,7 @@ import {
   ArrowUp,
   BarChart3,
   Bot,
+  Check,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -51,9 +52,10 @@ import {
 gsap.registerPlugin(useGSAP, ScrollTrigger);
 
 const navItems = [
+  { label: "Product", href: "/product" },
   { label: "Capabilities", href: "#capabilities" },
   { label: "Workflow", href: "#workflow" },
-  { label: "Pricing", href: "#pricing" },
+  { label: "Pricing", href: "/pricing" },
   { label: "FAQ", href: "#faq" },
 ];
 
@@ -104,45 +106,75 @@ const workflowSteps = [
 
 const pricingPlans = [
   {
-    name: "Call Lite",
-    price: "Rs. 1,499",
-    note: "For validating one voice workflow",
-    action: "Start Lite",
-    featured: false,
+    audience: "FOR STARTERS",
+    name: "Start",
+    description: "1 dedicated number + 100 AI calling minutes included.",
+    price: "₹1,499",
+    unit: "/mo",
+    feeNote: "₹0 platform fee. No credit card required.",
+    action: "Start building",
+    headerBg: "bg-[#e4ebd9] border-b border-black/10",
+    buttonVariant: "dark",
     features: [
-      "1 dedicated business number",
-      "100 AI calling minutes",
-      "Hindi and English voice agent",
-      "Custom AI voice prompt",
-      "Basic lead capture",
+      "1 Dedicated Business Number",
+      "100 AI Calling Minutes",
+      "Hindi, English & Hinglish Support",
+      "Custom AI System Prompts",
+      "Basic Lead & Contact Capture",
     ],
   },
   {
-    name: "Call Pro",
-    price: "Rs. 2,999",
-    note: "For daily sales and support calls",
-    action: "Start Pro",
-    featured: true,
+    audience: "FOR TEAMS",
+    name: "Build",
+    description: "Daily sales calls, live transfers & auto-CRM sync.",
+    price: "₹2,999",
+    unit: "/mo",
+    feeNote: "Includes 500 AI calling minutes.",
+    action: "Start building",
+    headerBg: "bg-[#f9f3e5] border-b border-black/10",
+    buttonVariant: "dark",
     features: [
-      "500 AI calling minutes",
-      "CRM auto-updating",
-      "Live call transfer",
-      "Call recording",
-      "Realtime dashboard",
+      "3 Dedicated Business Numbers",
+      "500 AI Calling Minutes",
+      "Realtime Live Call Transfer",
+      "Automatic CRM Auto-Syncing",
+      "Live Call Transcripts & Recording",
     ],
   },
   {
-    name: "Call Elite",
-    price: "Rs. 7,999",
-    note: "For high-volume teams",
-    action: "Contact Sales",
-    featured: false,
+    audience: "FOR HIGH VOLUME",
+    name: "Scale",
+    description: "Lowest per-minute rates for high-volume dialers.",
+    price: "₹7,999",
+    unit: "/mo",
+    feeNote: "Includes 2,000 AI calling minutes.",
+    action: "Start building",
+    headerBg: "bg-[#faeae1] border-b border-black/10",
+    buttonVariant: "dark",
     features: [
-      "2000 AI calling minutes",
-      "Multiple agent workflows",
-      "Advanced CRM integration",
-      "Priority support",
-      "Account manager",
+      "10 Dedicated Business Numbers",
+      "2,000 AI Calling Minutes",
+      "Unlimited Multi-Agent Workflows",
+      "Priority SIP Latency Routing",
+      "Dedicated Account Manager",
+    ],
+  },
+  {
+    audience: "FOR ORGANIZATIONS",
+    name: "Enterprise",
+    description: "Dedicated infrastructure with controls regulated teams require.",
+    price: "Custom",
+    unit: "",
+    feeNote: "Contracted to your volume.",
+    action: "Talk to our team",
+    headerBg: "bg-[#e7e9e8] border-b border-black/10",
+    buttonVariant: "outline",
+    features: [
+      "Concurrency sized to your volume",
+      "Custom SIP trunking & on-prem",
+      "Forward-deployed engineer",
+      "TRAI, SOC2 & DLT compliance",
+      "Zero data retention & SSO",
     ],
   },
 ];
@@ -172,10 +204,46 @@ const faqs = [
 
 export default function HomePage() {
   const pageRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLElement>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
+  const [isFooterVisible, setIsFooterVisible] = useState(false);
+
+  useEffect(() => {
+    setCurrentTime(new Date());
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatTime = (timeZone: string) => {
+    if (!currentTime) return "00:00:00";
+    return currentTime.toLocaleTimeString("en-US", {
+      timeZone,
+      hour12: false,
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  };
+
+  useEffect(() => {
+    const footerEl = footerRef.current;
+    if (!footerEl) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsFooterVisible(entry.isIntersecting);
+      },
+      { rootMargin: "0px", threshold: 0.05 }
+    );
+
+    observer.observe(footerEl);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -191,20 +259,38 @@ export default function HomePage() {
   };
 
   useEffect(() => {
+    let isMounted = true;
     const checkUser = async () => {
       try {
         const { createClient } = await import("@/utils/supabase/client");
         const supabase = createClient();
+
+        // 1. Instant check from local session storage
         const {
-          data: { user },
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (isMounted && session?.user) {
+          setUser(session.user);
+        }
+
+        // 2. Validate with Supabase server
+        const {
+          data: { user: serverUser },
         } = await supabase.auth.getUser();
-        setUser(user);
+        if (isMounted) {
+          setUser(serverUser ?? session?.user ?? null);
+        }
       } catch {
-        setUser(null);
+        if (isMounted) setUser(null);
+      } finally {
+        if (isMounted) setIsAuthLoading(false);
       }
     };
 
     void checkUser();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useGSAP(
@@ -212,12 +298,21 @@ export default function HomePage() {
       const root = pageRef.current;
       if (!root) return;
 
-      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const reduceMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
       const heroItems = gsap.utils.toArray<HTMLElement>(".hero-reveal", root);
-      const revealItems = gsap.utils.toArray<HTMLElement>(".section-reveal", root);
+      const revealItems = gsap.utils.toArray<HTMLElement>(
+        ".section-reveal",
+        root,
+      );
 
       if (reduceMotion) {
-        gsap.set([...heroItems, ...revealItems], { autoAlpha: 1, y: 0, clearProps: "transform" });
+        gsap.set([...heroItems, ...revealItems], {
+          autoAlpha: 1,
+          y: 0,
+          clearProps: "transform",
+        });
         return;
       }
 
@@ -259,7 +354,10 @@ export default function HomePage() {
     (user?.email ? user.email.split("@")[0] : "User");
 
   return (
-    <div ref={pageRef} className="min-h-screen bg-white text-black font-sans selection:bg-block-lime selection:text-black">
+    <div
+      ref={pageRef}
+      className="min-h-screen bg-[#f7f6f0] text-black font-sans selection:bg-block-lime selection:text-black"
+    >
       {/*
         THESIS: VoicePilot becomes an editorial operating-room homepage, not another blue SaaS pitch.
         OWN-WORLD: White canvas, black ink, pill controls, pastel poster blocks, and flat product-system compositions from DESIGN.md.
@@ -268,15 +366,30 @@ export default function HomePage() {
         FORM: Established DESIGN.md world extended into a full persuasive homepage; GSAP animates one staged reveal system.
       */}
 
-      <header className="sticky top-4 z-50 mx-auto w-full md:w-[82%] lg:w-[76%] max-w-[1080px] px-3 sm:px-4">
+      <header
+        className={`sticky top-2 z-50 mx-auto w-full md:w-[82%] lg:w-[76%] max-w-[1080px] px-3 sm:px-4 transition-all duration-300 ${
+          isFooterVisible
+            ? "opacity-0 -translate-y-8 pointer-events-none"
+            : "opacity-100 translate-y-0 pointer-events-auto"
+        }`}
+      >
         <div className="flex h-16 items-center justify-between rounded-full border border-white/70 bg-white/75 p-2 pl-4 pr-2 shadow-[0_10px_35px_rgba(0,0,0,0.06),0_1px_0_rgba(255,255,255,0.9)_inset] backdrop-blur-2xl ring-1 ring-black/5 transition-all duration-300">
-          <Link href="/" className="flex items-center gap-2.5 shrink-0" title="GAP VoicePilot Home">
-            <Image src="/logo.png" alt="GAP VoicePilot Logo" width={40} height={40} className="h-10 w-10 object-contain" priority />
-            <span className="flex flex-col leading-none">
-              <span className="text-base font-extrabold tracking-tight text-black">GAP</span>
-              <span className="font-array text-[11.5px] font-bold uppercase tracking-[0.08em] text-black/75 -mt-0.5">
-                VOICEPILOT
-              </span>
+          <Link
+            href="/"
+            className="flex items-center gap-2 shrink-0"
+            title="GAP VoicePilot Home"
+          >
+            <Image
+              src="/logo.png"
+              alt="GAP VoicePilot Logo"
+              width={40}
+              height={40}
+              className="h-9.5 w-9.5 object-contain"
+              priority
+            />
+            <span className="text-xl font-extrabold tracking-tight text-black flex items-center gap-1">
+              <span>GAP</span>
+              <span className="font-array font-bold text-[#ff4b2f]">VoicePilot</span>
             </span>
           </Link>
 
@@ -296,7 +409,11 @@ export default function HomePage() {
           </nav>
 
           <div className="hidden items-center gap-2 sm:flex shrink-0">
-            {user ? (
+            {isAuthLoading ? (
+              <div className="flex items-center gap-2">
+                <div className="h-10 w-10 rounded-full bg-black/5 animate-pulse" />
+              </div>
+            ) : user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
@@ -311,13 +428,26 @@ export default function HomePage() {
                     </Avatar>
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" sideOffset={12} className="w-64 rounded-[20px] border border-black/10 bg-white/95 p-2 shadow-2xl backdrop-blur-xl">
+                <DropdownMenuContent
+                  align="end"
+                  sideOffset={12}
+                  className="w-64 rounded-[20px] border border-black/10 bg-white/95 p-2 shadow-2xl backdrop-blur-xl"
+                >
                   <DropdownMenuLabel className="px-3.5 py-2.5">
-                    <span className="block truncate text-sm font-semibold text-black">{displayName}</span>
-                    {user.email ? <span className="mt-0.5 block truncate text-xs font-medium text-black/45">{user.email}</span> : null}
+                    <span className="block truncate text-sm font-semibold text-black">
+                      {displayName}
+                    </span>
+                    {user.email ? (
+                      <span className="mt-0.5 block truncate text-xs font-medium text-black/45">
+                        {user.email}
+                      </span>
+                    ) : null}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator className="bg-black/5" />
-                  <DropdownMenuItem asChild className="rounded-xl px-3.5 py-2.5 font-medium transition-colors cursor-pointer">
+                  <DropdownMenuItem
+                    asChild
+                    className="rounded-xl px-3.5 py-2.5 font-medium transition-colors cursor-pointer"
+                  >
                     <Link href="/dashboard">Open Dashboard</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem
@@ -334,7 +464,10 @@ export default function HomePage() {
               </DropdownMenu>
             ) : (
               <>
-                <Link href="/login" className="rounded-full px-3.5 py-2 text-xs font-semibold text-black/70 transition-colors hover:bg-black/5 hover:text-black">
+                <Link
+                  href="/login"
+                  className="rounded-full px-3.5 py-2 text-xs font-semibold text-black/70 transition-colors hover:bg-black/5 hover:text-black"
+                >
                   Sign In
                 </Link>
                 <PrimaryButton href="/dashboard" className="h-10 min-w-[145px]">
@@ -351,12 +484,21 @@ export default function HomePage() {
             aria-label="Toggle navigation menu"
             aria-expanded={mobileMenuOpen}
           >
-            {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            {mobileMenuOpen ? (
+              <X className="h-4 w-4" />
+            ) : (
+              <Menu className="h-4 w-4" />
+            )}
           </button>
         </div>
 
-        <div className={`mt-2 md:hidden ${mobileMenuOpen ? "block" : "hidden"}`}>
-          <nav className="flex flex-col gap-1 rounded-3xl border border-black/10 bg-white/95 p-4 shadow-2xl backdrop-blur-xl" aria-label="Mobile navigation">
+        <div
+          className={`mt-2 md:hidden ${mobileMenuOpen ? "block" : "hidden"}`}
+        >
+          <nav
+            className="flex flex-col gap-1 rounded-3xl border border-black/10 bg-white/95 p-4 shadow-2xl backdrop-blur-xl"
+            aria-label="Mobile navigation"
+          >
             {navItems.map((item) => (
               <a
                 key={item.href}
@@ -371,10 +513,20 @@ export default function HomePage() {
               {user ? (
                 <>
                   <div className="rounded-xl bg-surface-soft px-4 py-2.5">
-                    <p className="truncate text-sm font-semibold text-black">{displayName}</p>
-                    {user.email ? <p className="mt-0.5 truncate text-xs font-medium text-black/45">{user.email}</p> : null}
+                    <p className="truncate text-sm font-semibold text-black">
+                      {displayName}
+                    </p>
+                    {user.email ? (
+                      <p className="mt-0.5 truncate text-xs font-medium text-black/45">
+                        {user.email}
+                      </p>
+                    ) : null}
                   </div>
-                  <Link href="/dashboard" onClick={closeMobileMenu} className="btn-pill-primary rounded-full py-2.5 text-center text-xs">
+                  <Link
+                    href="/dashboard"
+                    onClick={closeMobileMenu}
+                    className="btn-pill-primary rounded-full py-2.5 text-center text-xs"
+                  >
                     Dashboard
                   </Link>
                   <button
@@ -391,10 +543,18 @@ export default function HomePage() {
                 </>
               ) : (
                 <>
-                  <Link href="/login" onClick={closeMobileMenu} className="btn-pill-secondary rounded-full py-2.5 text-center text-xs">
+                  <Link
+                    href="/login"
+                    onClick={closeMobileMenu}
+                    className="btn-pill-secondary rounded-full py-2.5 text-center text-xs"
+                  >
                     Sign In
                   </Link>
-                  <PrimaryButton href="/dashboard" onClick={closeMobileMenu} className="h-10 w-full justify-between">
+                  <PrimaryButton
+                    href="/dashboard"
+                    onClick={closeMobileMenu}
+                    className="h-10 w-full justify-between"
+                  >
                     Get Started
                   </PrimaryButton>
                 </>
@@ -405,11 +565,14 @@ export default function HomePage() {
       </header>
 
       <main>
-        <section className="min-h-[calc(100svh-80px)] w-full bg-white">
-          <div className="hero-reveal relative flex min-h-[calc(100svh-80px)] w-full flex-col overflow-hidden bg-white px-5 pb-0 pt-16 sm:px-8 sm:pt-16 lg:px-14">
+        <section className="min-h-[calc(100svh-80px)] w-full bg-[#f7f6f0]">
+          <div className="hero-reveal relative flex min-h-[calc(100svh-80px)] w-full flex-col overflow-hidden bg-[#f7f6f0] px-5 pb-0 pt-16 sm:px-8 sm:pt-16 lg:px-14">
             <div className="mx-auto flex max-w-5xl flex-1 flex-col items-center text-center">
               <div className="inline-flex items-center gap-2 rounded-full bg-surface-soft px-4 py-2 text-xs font-semibold text-black shadow-[0_10px_30px_rgba(0,0,0,0.04)]">
-                <span className="flex items-center gap-0.5 text-[#ff4b2f]" aria-label="Five star rating">
+                <span
+                  className="flex items-center gap-0.5 text-[#ff4b2f]"
+                  aria-label="Five star rating"
+                >
                   {[1, 2, 3, 4, 5].map((star) => (
                     <Star key={star} className="h-3.5 w-3.5 fill-current" />
                   ))}
@@ -422,7 +585,9 @@ export default function HomePage() {
                 Launch every AI phone agent with no setup & no hidden fees
               </h1>
               <p className="mt-7 max-w-2xl text-base font-light leading-7 tracking-[-0.01em] text-black md:text-xl md:leading-8">
-                Build Hindi, English, and Hinglish voice workflows in one fast workspace for sales calls, support follow-ups, and campaign routing.
+                Build Hindi, English, and Hinglish voice workflows in one fast
+                workspace for sales calls, support follow-ups, and campaign
+                routing.
               </p>
 
               <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -473,17 +638,68 @@ export default function HomePage() {
 
               <div className="absolute left-1/2 top-[57%] z-30 flex flex-col items-center -translate-x-1/2 -translate-y-1/2">
                 <div className="relative flex h-12 w-12 items-center justify-center rounded-[16px] border border-black/10 bg-white p-1 shadow-[0_14px_35px_rgba(0,0,0,0.1)] transition-all duration-300 hover:scale-105 sm:h-14 sm:w-14 sm:p-1.5">
-                  <Image src="/logo.png" alt="GAP VoicePilot" width={56} height={56} className="h-full w-full object-contain rounded-[10px]" />
+                  <Image
+                    src="/logo.png"
+                    alt="GAP VoicePilot"
+                    width={56}
+                    height={56}
+                    className="h-full w-full object-contain rounded-[10px]"
+                  />
                 </div>
               </div>
 
               {[
-                { name: "Agent", label: "AI Voice Agent", className: "left-[5%] sm:left-[10%] top-[14%] sm:top-[16%]", icon: Bot, surface: "bg-[#f4fce3] border-[#d8f5a2] text-[#2b5200]", float: "animate-float-slow" },
-                { name: "Calls", label: "Live Call Routing", className: "left-[18%] sm:left-[24%] top-[54%] sm:top-[56%]", icon: PhoneCall, surface: "bg-white border-black/10 text-black shadow-md", float: "animate-float-reverse" },
-                { name: "Reports", label: "Realtime Analytics", className: "left-[4%] sm:left-[9%] bottom-[12%] sm:bottom-[8%]", icon: BarChart3, surface: "bg-black border-black text-white shadow-xl", float: "animate-float-slow" },
-                { name: "CRM", label: "CRM Auto-Sync", className: "right-[20%] sm:right-[26%] top-[53%] sm:top-[55%]", icon: DatabaseZap, surface: "bg-[#fff0f6] border-[#ffdeeb] text-[#a61e4d]", float: "animate-float-reverse" },
-                { name: "Support", label: "Support Handoff", className: "right-[5%] sm:right-[10%] top-[15%] sm:top-[17%]", icon: Headphones, surface: "bg-white border-black/10 text-black shadow-md", float: "animate-float-slow" },
-                { name: "Campaigns", label: "Outbound Dialing", className: "right-[4%] sm:right-[9%] bottom-[12%] sm:bottom-[8%]", icon: Activity, surface: "bg-[#0c192c] border-black/20 text-white shadow-xl", float: "animate-float-reverse" },
+                {
+                  name: "Agent",
+                  label: "AI Voice Agent",
+                  className: "left-[5%] sm:left-[10%] top-[14%] sm:top-[16%]",
+                  icon: Bot,
+                  surface: "bg-[#f4fce3] border-[#d8f5a2] text-[#2b5200]",
+                  float: "animate-float-slow",
+                },
+                {
+                  name: "Calls",
+                  label: "Live Call Routing",
+                  className: "left-[18%] sm:left-[24%] top-[54%] sm:top-[56%]",
+                  icon: PhoneCall,
+                  surface: "bg-white border-black/10 text-black shadow-md",
+                  float: "animate-float-reverse",
+                },
+                {
+                  name: "Reports",
+                  label: "Realtime Analytics",
+                  className:
+                    "left-[4%] sm:left-[9%] bottom-[12%] sm:bottom-[8%]",
+                  icon: BarChart3,
+                  surface: "bg-black border-black text-white shadow-xl",
+                  float: "animate-float-slow",
+                },
+                {
+                  name: "CRM",
+                  label: "CRM Auto-Sync",
+                  className:
+                    "right-[20%] sm:right-[26%] top-[53%] sm:top-[55%]",
+                  icon: DatabaseZap,
+                  surface: "bg-[#fff0f6] border-[#ffdeeb] text-[#a61e4d]",
+                  float: "animate-float-reverse",
+                },
+                {
+                  name: "Support",
+                  label: "Support Handoff",
+                  className: "right-[5%] sm:right-[10%] top-[15%] sm:top-[17%]",
+                  icon: Headphones,
+                  surface: "bg-white border-black/10 text-black shadow-md",
+                  float: "animate-float-slow",
+                },
+                {
+                  name: "Campaigns",
+                  label: "Outbound Dialing",
+                  className:
+                    "right-[4%] sm:right-[9%] bottom-[12%] sm:bottom-[8%]",
+                  icon: Activity,
+                  surface: "bg-[#0c192c] border-black/20 text-white shadow-xl",
+                  float: "animate-float-reverse",
+                },
               ].map((tile) => {
                 const TileIcon = tile.icon;
                 return (
@@ -505,9 +721,14 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="capabilities" className="mx-auto max-w-[1340px] px-6 py-24 lg:px-8">
+        <section
+          id="capabilities"
+          className="mx-auto max-w-[1340px] px-6 py-24 lg:px-8"
+        >
           <div className="section-reveal max-w-4xl">
-            <p className="mb-5 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-black/50">Capabilities</p>
+            <p className="mb-5 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-black/50">
+              Capabilities
+            </p>
             <h2 className="text-4xl font-[340] leading-[1.04] tracking-[-0.03em] md:text-6xl">
               The call stack is visible, editable, and ready for operators.
             </h2>
@@ -517,16 +738,25 @@ export default function HomePage() {
             {capabilityBlocks.map((block) => {
               const Icon = block.icon;
               return (
-                <article key={block.title} className={`${block.surface} section-reveal flex min-h-[360px] flex-col justify-between rounded-[24px] p-7 md:p-8`}>
+                <article
+                  key={block.title}
+                  className={`${block.surface} section-reveal flex min-h-[360px] flex-col justify-between rounded-[24px] p-7 md:p-8`}
+                >
                   <div className="flex items-center justify-between">
-                    <p className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-black/65">{block.label}</p>
+                    <p className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-black/65">
+                      {block.label}
+                    </p>
                     <span className="flex h-11 w-11 items-center justify-center rounded-full bg-black text-white">
                       <Icon className="h-5 w-5" />
                     </span>
                   </div>
                   <div>
-                    <h3 className="text-2xl font-semibold leading-tight tracking-[-0.015em] text-black">{block.title}</h3>
-                    <p className="mt-4 text-base font-light leading-7 text-black">{block.description}</p>
+                    <h3 className="text-2xl font-semibold leading-tight tracking-[-0.015em] text-black">
+                      {block.title}
+                    </h3>
+                    <p className="mt-4 text-base font-light leading-7 text-black">
+                      {block.description}
+                    </p>
                   </div>
                 </article>
               );
@@ -534,17 +764,24 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="workflow" className="mx-auto max-w-[1340px] px-6 pb-24 lg:px-8">
+        <section
+          id="workflow"
+          className="mx-auto max-w-[1340px] px-6 pb-24 lg:px-8"
+        >
           <div className="section-reveal rounded-[24px] bg-block-lime p-7 md:p-12">
             <div className="grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
               <div>
-                <p className="mb-5 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-black/60">Workflow</p>
+                <p className="mb-5 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-black/60">
+                  Workflow
+                </p>
                 <h2 className="text-4xl font-[340] leading-[1.04] tracking-[-0.03em] md:text-6xl">
                   From agent brief to answered call.
                 </h2>
               </div>
               <p className="max-w-xl text-xl font-light leading-8 tracking-[-0.01em] text-black">
-                The homepage now shows the operational journey instead of only listing features: design, connect, dispatch, and learn from every conversation.
+                The homepage now shows the operational journey instead of only
+                listing features: design, connect, dispatch, and learn from
+                every conversation.
               </p>
             </div>
 
@@ -556,8 +793,12 @@ export default function HomePage() {
                     <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-white">
                       <Icon className="h-5 w-5" />
                     </span>
-                    <h3 className="mt-8 text-2xl font-semibold tracking-[-0.015em]">{step.title}</h3>
-                    <p className="mt-4 text-sm font-light leading-6 text-black">{step.copy}</p>
+                    <h3 className="mt-8 text-2xl font-semibold tracking-[-0.015em]">
+                      {step.title}
+                    </h3>
+                    <p className="mt-4 text-sm font-light leading-6 text-black">
+                      {step.copy}
+                    </p>
                   </div>
                 );
               })}
@@ -565,35 +806,64 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="engine" className="mx-auto grid max-w-[1340px] gap-6 px-6 pb-24 lg:grid-cols-[1fr_1.05fr] lg:px-8">
+        <section
+          id="engine"
+          className="mx-auto grid max-w-[1340px] gap-6 px-6 pb-24 lg:grid-cols-[1fr_1.05fr] lg:px-8"
+        >
           <div className="section-reveal rounded-[24px] bg-black p-7 text-white md:p-10">
-            <p className="mb-5 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-white/55">Realtime console</p>
+            <p className="mb-5 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-white/55">
+              Realtime console
+            </p>
             <h2 className="text-4xl font-[340] leading-[1.04] tracking-[-0.03em] md:text-5xl">
               Every live call leaves a usable trail.
             </h2>
             <p className="mt-6 text-lg font-light leading-8 text-white">
-              Monitor call state, capture transcript highlights, and route follow-ups without waiting for a separate reporting export.
+              Monitor call state, capture transcript highlights, and route
+              follow-ups without waiting for a separate reporting export.
             </p>
           </div>
 
           <div className="section-reveal rounded-[24px] bg-block-navy p-5 text-white md:p-7">
             <div className="grid gap-3">
               {[
-                { icon: Mic, title: "Speech stream", value: "Listening and transcribing" },
-                { icon: Split, title: "Decision point", value: "Demo booking intent found" },
-                { icon: Clock3, title: "Follow-up", value: "Calendar invite queued" },
-                { icon: ShieldCheck, title: "Operator state", value: "No human handoff needed" },
+                {
+                  icon: Mic,
+                  title: "Speech stream",
+                  value: "Listening and transcribing",
+                },
+                {
+                  icon: Split,
+                  title: "Decision point",
+                  value: "Demo booking intent found",
+                },
+                {
+                  icon: Clock3,
+                  title: "Follow-up",
+                  value: "Calendar invite queued",
+                },
+                {
+                  icon: ShieldCheck,
+                  title: "Operator state",
+                  value: "No human handoff needed",
+                },
               ].map((row) => {
                 const Icon = row.icon;
                 return (
-                  <div key={row.title} className="flex items-center justify-between gap-5 rounded-[16px] bg-white/10 p-4">
+                  <div
+                    key={row.title}
+                    className="flex items-center justify-between gap-5 rounded-[16px] bg-white/10 p-4"
+                  >
                     <div className="flex items-center gap-4">
                       <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-black">
                         <Icon className="h-4 w-4" />
                       </span>
                       <div>
-                        <p className="text-sm font-semibold text-white">{row.title}</p>
-                        <p className="mt-1 text-xs font-light text-white/70">{row.value}</p>
+                        <p className="text-sm font-semibold text-white">
+                          {row.title}
+                        </p>
+                        <p className="mt-1 text-xs font-light text-white/70">
+                          {row.value}
+                        </p>
                       </div>
                     </div>
                     <CheckCircle2 className="h-5 w-5 text-block-lime" />
@@ -608,32 +878,50 @@ export default function HomePage() {
           <div className="section-reveal rounded-[24px] bg-block-coral p-7 md:p-12">
             <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
               <div>
-                <p className="mb-5 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-black/60">Developer surface</p>
+                <p className="mb-5 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-black/60">
+                  Developer surface
+                </p>
                 <h2 className="text-4xl font-[340] leading-[1.04] tracking-[-0.03em] md:text-6xl">
                   Integrations stay readable.
                 </h2>
                 <p className="mt-6 max-w-lg text-lg font-light leading-8 text-black">
-                  Keep APIs, webhooks, phone providers, and CRM updates visible as product objects, not hidden settings.
+                  Keep APIs, webhooks, phone providers, and CRM updates visible
+                  as product objects, not hidden settings.
                 </p>
               </div>
 
               <div className="rounded-[18px] bg-white p-5">
                 {[
                   { method: "POST", endpoint: "/assistants", icon: Bot },
-                  { method: "POST", endpoint: "/campaigns/dispatch", icon: Activity },
+                  {
+                    method: "POST",
+                    endpoint: "/campaigns/dispatch",
+                    icon: Activity,
+                  },
                   { method: "GET", endpoint: "/calls/live", icon: Headphones },
-                  { method: "SYNC", endpoint: "/crm/outcomes", icon: DatabaseZap },
+                  {
+                    method: "SYNC",
+                    endpoint: "/crm/outcomes",
+                    icon: DatabaseZap,
+                  },
                 ].map((api) => {
                   const Icon = api.icon;
                   return (
-                    <div key={api.endpoint} className="flex items-center justify-between gap-4 border-b border-hairline py-4 last:border-b-0">
+                    <div
+                      key={api.endpoint}
+                      className="flex items-center justify-between gap-4 border-b border-hairline py-4 last:border-b-0"
+                    >
                       <div className="flex items-center gap-4">
                         <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-soft text-black">
                           <Icon className="h-4 w-4" />
                         </span>
                         <div>
-                          <p className="font-mono text-xs font-semibold uppercase tracking-[0.14em] text-black/45">{api.method}</p>
-                          <p className="mt-1 font-mono text-sm font-semibold text-black">{api.endpoint}</p>
+                          <p className="font-mono text-xs font-semibold uppercase tracking-[0.14em] text-black/45">
+                            {api.method}
+                          </p>
+                          <p className="mt-1 font-mono text-sm font-semibold text-black">
+                            {api.endpoint}
+                          </p>
                         </div>
                       </div>
                       <ChevronRight className="h-5 w-5 text-black/45" />
@@ -645,58 +933,77 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="pricing" className="mx-auto max-w-[1340px] px-6 pb-24 lg:px-8">
-          <div className="section-reveal mb-12 flex flex-col justify-between gap-6 md:flex-row md:items-end">
-            <div>
-              <p className="mb-5 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-black/50">Pricing</p>
-              <h2 className="text-4xl font-[340] leading-[1.04] tracking-[-0.03em] md:text-6xl">
-                Pick the call volume. Keep the system simple.
-              </h2>
-            </div>
-            <p className="max-w-sm text-base font-light leading-7 text-black">
-              Every plan keeps the core agent workflow visible; scale minutes and service depth as the team grows.
+        <section
+          id="pricing"
+          className="mx-auto max-w-[1340px] px-6 pb-24 lg:px-8"
+        >
+          <div className="section-reveal mb-12">
+            <p className="mb-3 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-black/50">
+              PRICING
+            </p>
+            <h2 className="text-4xl font-bold leading-[1.04] tracking-[-0.03em] md:text-6xl text-black">
+              Clear pricing across every call.
+            </h2>
+            <p className="mt-4 max-w-2xl text-base font-light leading-relaxed text-black/75 md:text-lg">
+              No token charges. No model-provider pass-throughs. No surprise bills.
             </p>
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-3">
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {pricingPlans.map((plan) => (
               <article
                 key={plan.name}
-                className={`section-reveal flex min-h-[520px] flex-col rounded-[24px] p-7 ${
-                  plan.featured ? "bg-black text-white" : "border border-hairline bg-white text-black"
-                }`}
+                className="section-reveal flex flex-col rounded-[16px] border border-black/10 bg-white overflow-hidden shadow-xs transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
               >
-                <div>
-                  <div className="flex items-center justify-between">
-                    <p className={plan.featured ? "font-mono text-xs font-semibold uppercase tracking-[0.18em] text-white/55" : "font-mono text-xs font-semibold uppercase tracking-[0.18em] text-black/45"}>
-                      {plan.name}
-                    </p>
-                    {plan.featured ? <span className="rounded-full bg-block-lime px-3 py-1 text-xs font-semibold text-black">Popular</span> : null}
-                  </div>
-                  <p className="mt-8 text-4xl font-semibold tracking-[-0.03em]">{plan.price}</p>
-                  <p className={plan.featured ? "mt-3 text-sm font-light text-white/70" : "mt-3 text-sm font-light text-black"}>
-                    {plan.note}
+                {/* Header Pastel Block */}
+                <div className={`p-6 ${plan.headerBg}`}>
+                  <p className="font-mono text-xs font-extrabold uppercase tracking-[0.18em] text-black/60">
+                    {plan.audience}
+                  </p>
+                  <h3 className="mt-2 text-2xl font-bold tracking-tight text-black">
+                    {plan.name}
+                  </h3>
+                  <p className="mt-1.5 min-h-[36px] text-xs font-normal leading-relaxed text-black/70">
+                    {plan.description}
                   </p>
                 </div>
 
-                <ul className="mt-8 space-y-4">
-                  {plan.features.map((feature) => (
-                    <li key={feature} className="flex gap-3 text-sm font-light leading-6">
-                      <CheckCircle2 className={`mt-0.5 h-4 w-4 shrink-0 ${plan.featured ? "text-block-lime" : "text-black"}`} />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
+                {/* Body Content */}
+                <div className="flex flex-1 flex-col p-6">
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-4xl font-extrabold tracking-tight text-black">
+                      {plan.price}
+                    </span>
+                    {plan.unit && (
+                      <span className="text-xs font-semibold text-black/60">
+                        {plan.unit}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 mb-6 min-h-[18px] text-xs font-medium text-black/55">
+                    {plan.feeNote}
+                  </p>
 
-                <Link
-                  href="/dashboard"
-                  className={`mt-auto inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition-transform hover:scale-[1.02] ${
-                    plan.featured ? "bg-white text-black" : "bg-black text-white"
-                  }`}
-                >
-                  {plan.action}
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
+                  <Link
+                    href="/dashboard"
+                    className={`inline-flex w-full items-center justify-center rounded-full py-3 text-xs font-bold transition-all active:scale-[0.98] ${
+                      plan.buttonVariant === "outline"
+                        ? "border border-black/20 bg-white text-black hover:bg-black/5"
+                        : "bg-black text-white hover:bg-neutral-800 shadow-sm"
+                    }`}
+                  >
+                    {plan.action}
+                  </Link>
+
+                  <ul className="mt-7 space-y-3 font-sans">
+                    {plan.features.map((feature) => (
+                      <li key={feature} className="flex items-start gap-2.5 text-xs font-medium leading-normal text-black/80">
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-black/75" />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </article>
             ))}
           </div>
@@ -706,11 +1013,17 @@ export default function HomePage() {
           <div className="section-reveal rounded-[24px] bg-block-lime p-7 md:p-12">
             <div className="grid gap-10 lg:grid-cols-[0.75fr_1.25fr]">
               <div>
-                <p className="mb-5 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-black/60">FAQ</p>
+                <p className="mb-5 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-black/60">
+                  FAQ
+                </p>
                 <h2 className="text-4xl font-[340] leading-[1.04] tracking-[-0.03em] md:text-5xl">
                   Questions before the first call?
                 </h2>
-                <PrimaryButton href="/dashboard" variant="light" className="mt-8">
+                <PrimaryButton
+                  href="/dashboard"
+                  variant="light"
+                  className="mt-8"
+                >
                   Open Dashboard
                 </PrimaryButton>
               </div>
@@ -744,7 +1057,9 @@ export default function HomePage() {
                       </button>
                       {isOpen && (
                         <div className="px-5 pb-5 pt-0 text-sm font-light leading-6 text-black/80">
-                          <p className="border-t border-black/5 pt-3">{faq.answer}</p>
+                          <p className="border-t border-black/5 pt-3">
+                            {faq.answer}
+                          </p>
                         </div>
                       )}
                     </div>
@@ -756,100 +1071,158 @@ export default function HomePage() {
         </section>
       </main>
 
-      <RuixenGradientFooter gradientHeight="50vh" minReveal={0} className="relative z-10 border-t border-black/10 bg-white/90 backdrop-blur-sm pt-20 pb-10">
-        <div className="mx-auto w-full max-w-[1340px] px-6 lg:px-8">
-          <div className="grid gap-12 pb-16 lg:grid-cols-12">
-            <div className="flex flex-col justify-between lg:col-span-5">
-              <div>
-                <div className="flex items-center gap-3.5">
-                  <span className="relative flex h-11 w-11 shrink-0 overflow-hidden">
-                    <Image src="/logo.png" alt="GAP Logo" width={44} height={44} className="h-full w-full object-contain" />
-                  </span>
-                  <span className="flex flex-col leading-none">
-                    <span className="text-base font-bold tracking-tight text-black">GAP</span>
-                    <span className="mt-1 font-array text-xs font-semibold uppercase tracking-[0.22em] text-black/50">
-                      VoicePilot
-                    </span>
-                  </span>
-                </div>
-
-                <p className="mt-5 max-w-md text-sm font-normal leading-relaxed text-black/70">
-                  Deploy ultra-low latency Hindi, English, and Hinglish AI voice agents for automated calling, lead qualification, and customer support.
-                </p>
-
-                <form onSubmit={(e) => e.preventDefault()} className="mt-7 flex max-w-md items-center gap-2 rounded-full border border-black/15 bg-surface-soft/80 p-1.5 shadow-sm transition-all focus-within:border-black/40 focus-within:ring-2 focus-within:ring-black/5">
-                  <input
-                    type="email"
-                    placeholder="Enter work email for updates"
-                    className="w-full bg-transparent px-4 text-xs text-black placeholder:text-black/40 focus:outline-none"
-                  />
-                  <button
-                    type="submit"
-                    className="inline-flex shrink-0 items-center justify-center rounded-full bg-black px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-black/85 active:scale-[0.98]"
-                  >
-                    Subscribe
-                  </button>
-                </form>
+      {/* Reference-Matched 100vh Landscape Footer */}
+      <footer
+        ref={footerRef}
+        className="relative z-10 flex min-h-screen w-full flex-col justify-between overflow-hidden bg-[#f7f6f0] bg-cover bg-bottom bg-no-repeat text-black px-6 pt-12 pb-8 sm:px-12 sm:pt-16 sm:pb-12"
+        style={{ backgroundImage: "url('/assets/footer-bg.png')" }}
+      >
+        <div className="mx-auto flex w-full max-w-[1340px] flex-1 flex-col justify-between">
+          {/* Top Section: Brand + Clocks (Left) & Nav Links (Right) */}
+          <div className="flex flex-col justify-between gap-12 md:flex-row md:items-start">
+            {/* Left Column: Brand & World Clocks */}
+            <div className="max-w-xl">
+              <div className="flex items-center gap-3">
+                <Image
+                  src="/logo.png"
+                  alt="GAP VoicePilot Logo"
+                  width={36}
+                  height={36}
+                  className="h-9 w-9 object-contain"
+                />
+                <span className="text-xl font-extrabold tracking-tight text-black">
+                  GAP <span className="font-array font-bold text-[#ff4b2f]">VoicePilot</span>
+                </span>
               </div>
 
-              <div className="mt-8 flex items-center gap-2.5 rounded-full border border-emerald-500/20 bg-emerald-50/80 px-3.5 py-1.5 w-fit text-xs font-medium text-emerald-900">
+              <p className="mt-4 text-xs sm:text-sm font-normal leading-relaxed text-black/70 max-w-md">
+                Sub-240ms AI voice engine for live Indian calls. Built in India at GAP Studio.
+                <br />
+                An independent voice intelligence & AI calling platform.
+              </p>
+
+              {/* World Clocks Row */}
+              <div className="mt-8 grid grid-cols-4 gap-4 max-w-md">
+                <div>
+                  <div className="font-mono text-xs font-bold text-black tracking-wider">
+                    {currentTime ? formatTime("Asia/Kolkata") : "18:35:58"}
+                  </div>
+                  <div className="mt-1 text-xs font-medium text-black/80">Bengaluru</div>
+                  <div className="text-xs font-mono font-medium tracking-wider text-black/40 uppercase scale-90 origin-left">INDIA</div>
+                </div>
+
+                <div>
+                  <div className="font-mono text-xs font-bold text-black tracking-wider">
+                    {currentTime ? formatTime("America/New_York") : "08:05:58"}
+                  </div>
+                  <div className="mt-1 text-xs font-medium text-black/80">New York</div>
+                  <div className="text-xs font-mono font-medium tracking-wider text-black/40 uppercase scale-90 origin-left">N. AMERICA</div>
+                </div>
+
+                <div>
+                  <div className="font-mono text-xs font-bold text-black tracking-wider">
+                    {currentTime ? formatTime("Europe/London") : "13:05:58"}
+                  </div>
+                  <div className="mt-1 text-xs font-medium text-black/80">London</div>
+                  <div className="text-xs font-mono font-medium tracking-wider text-black/40 uppercase scale-90 origin-left">EUROPE</div>
+                </div>
+
+                <div>
+                  <div className="font-mono text-xs font-bold text-black tracking-wider">
+                    {currentTime ? formatTime("Asia/Tokyo") : "21:05:58"}
+                  </div>
+                  <div className="mt-1 text-xs font-medium text-black/80">Tokyo</div>
+                  <div className="text-xs font-mono font-medium tracking-wider text-black/40 uppercase scale-90 origin-left">ASIA</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: Links Grid */}
+            <div className="flex gap-16 sm:gap-24">
+              <div>
+                <h4 className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-black/40">
+                  PRODUCT
+                </h4>
+                <ul className="mt-5 flex flex-col gap-3 text-xs font-medium text-black/75">
+                  <li>
+                    <Link href="/product" className="transition-colors hover:text-black">
+                      Overview
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/dashboard" className="transition-colors hover:text-black">
+                      Console Dashboard
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/pricing" className="transition-colors hover:text-black">
+                      Pricing Plans
+                    </Link>
+                  </li>
+                  <li>
+                    <a href="#" className="inline-flex items-center gap-1 transition-colors hover:text-black">
+                      <span>Developer Docs</span>
+                      <span className="text-xs">↗</span>
+                    </a>
+                  </li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-black/40">
+                  LEGAL
+                </h4>
+                <ul className="mt-5 flex flex-col gap-3 text-xs font-medium text-black/75">
+                  <li>
+                    <a href="#" className="transition-colors hover:text-black">
+                      Privacy Policy
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="transition-colors hover:text-black">
+                      Terms of Service
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="transition-colors hover:text-black">
+                      TRAI & DLT Compliance
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="transition-colors hover:text-black">
+                      Security & DPA
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Middle Centered Info Line (Positioned just above mountain peak) */}
+          <div className="mt-auto mb-12 flex flex-col items-center justify-center text-center">
+            <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 font-mono text-xs font-semibold uppercase tracking-wider text-black/70 sm:text-xs">
+              <span>© {new Date().getFullYear()} GAP VOICEPILOT</span>
+              <span className="text-black/30">•</span>
+              <span className="hover:text-black cursor-pointer underline decoration-black/30 underline-offset-4">GAPVOICE.DEV</span>
+              <span className="text-black/30">•</span>
+              <span className="hover:text-black cursor-pointer underline decoration-black/30 underline-offset-4">HELLO@GAPVOICE.DEV</span>
+              <span className="text-black/30">•</span>
+              <span>BUILT IN INDIA</span>
+              <span className="text-black/30">•</span>
+              <span className="inline-flex items-center gap-1.5 text-emerald-700 font-semibold">
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
                 </span>
-                <span>All systems operational & active</span>
-              </div>
+                ALL SYSTEMS OPERATIONAL
+              </span>
             </div>
-
-            <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:col-span-7">
-              <div>
-                <h3 className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-black">Product</h3>
-                <ul className="mt-5 flex flex-col gap-3.5 text-xs font-medium text-black/65">
-                  <li><Link href="/dashboard" className="transition-all hover:text-black hover:translate-x-1 inline-block">Dashboard Overview</Link></li>
-                  <li><Link href="/dashboard/assistants" className="transition-all hover:text-black hover:translate-x-1 inline-block">AI Voice Assistants</Link></li>
-                  <li><Link href="/dashboard/calls" className="transition-all hover:text-black hover:translate-x-1 inline-block">Realtime Call Logs</Link></li>
-                  <li><Link href="/dashboard/phone-numbers" className="transition-all hover:text-black hover:translate-x-1 inline-block">Phone Numbers</Link></li>
-                  <li><Link href="/dashboard/billing" className="transition-all hover:text-black hover:translate-x-1 inline-block">Credits & Subscriptions</Link></li>
-                </ul>
-              </div>
-
-              <div>
-                <h3 className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-black">Capabilities</h3>
-                <ul className="mt-5 flex flex-col gap-3.5 text-xs font-medium text-black/65">
-                  <li><Link href="#capabilities" className="transition-all hover:text-black hover:translate-x-1 inline-block">Hinglish Voice Models</Link></li>
-                  <li><Link href="#capabilities" className="transition-all hover:text-black hover:translate-x-1 inline-block">Sub-second Latency</Link></li>
-                  <li><Link href="#capabilities" className="transition-all hover:text-black hover:translate-x-1 inline-block">Dynamic Campaign Flow</Link></li>
-                  <li><Link href="#pricing" className="transition-all hover:text-black hover:translate-x-1 inline-block">Flexible Usage Plans</Link></li>
-                  <li><Link href="#faq" className="transition-all hover:text-black hover:translate-x-1 inline-block">Frequently Asked Questions</Link></li>
-                </ul>
-              </div>
-
-              <div>
-                <h3 className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-black">Company & Legal</h3>
-                <ul className="mt-5 flex flex-col gap-3.5 text-xs font-medium text-black/65">
-                  <li><a href="#" className="transition-all hover:text-black hover:translate-x-1 inline-block">About GAP Platform</a></li>
-                  <li><a href="#" className="transition-all hover:text-black hover:translate-x-1 inline-block">Privacy Policy</a></li>
-                  <li><a href="#" className="transition-all hover:text-black hover:translate-x-1 inline-block">Terms of Service</a></li>
-                  <li><a href="#" className="transition-all hover:text-black hover:translate-x-1 inline-block">Security Architecture</a></li>
-                  <li><a href="#" className="transition-all hover:text-black hover:translate-x-1 inline-block">Contact Support</a></li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col items-center justify-between gap-4 border-t border-black/10 pt-8 text-xs font-medium text-black/50 sm:flex-row">
-            <p>© 2026 GAP VoicePilot. All rights reserved.</p>
-            <div className="flex items-center gap-4 font-mono text-[11px] uppercase tracking-wider text-black/60">
-              <span className="transition-colors hover:text-black cursor-pointer">Privacy</span>
-              <span>•</span>
-              <span className="transition-colors hover:text-black cursor-pointer">Terms</span>
-              <span>•</span>
-              <span className="transition-colors hover:text-black cursor-pointer">Cookies</span>
-            </div>
-            <p className="font-mono text-[11px] uppercase tracking-wider text-black/40">Engineered for Next-Gen AI Calling</p>
+            <p className="mt-2 text-xs font-medium text-black/40 max-w-xl leading-normal">
+              GAP VoicePilot is an enterprise AI voice engine. All trademarks belong to their respective owners.
+            </p>
           </div>
         </div>
-      </RuixenGradientFooter>
+      </footer>
 
       {/* Floating Scroll to Top Button */}
       <button
