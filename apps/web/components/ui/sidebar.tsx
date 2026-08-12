@@ -1,103 +1,62 @@
 "use client";
 
+import React, { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { motion } from "framer-motion";
-import { Badge } from "@/components/ui/badge";
-import {
-  Blocks,
-  ChevronsUpDown,
-  LayoutDashboard,
-  LogOut,
-  Plus,
-  Settings,
-  UserCog,
-  Bot,
-  PhoneCall,
-  Phone,
-  FileText,
-  BarChart3,
-  CreditCard,
-  PanelLeftClose,
-  PanelLeftOpen,
-  ShieldCheck,
-} from "lucide-react";
-import Image from "next/image";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
+import {
+  LayoutDashboard,
+  Bot,
+  Megaphone,
+  PhoneCall,
+  Headphones,
+  TrendingUp,
+  CreditCard,
+  Webhook,
+  ShieldCheck,
+  X,
+} from "lucide-react";
+
+import SidebarNavItem from "@/components/sidebar/SidebarNavItem";
+import SidebarHeader from "@/components/sidebar/SidebarHeader";
+import SidebarUserProfileTile, { UserProfileData } from "@/components/sidebar/SidebarUserProfileTile";
+import SidebarEngineCard from "@/components/sidebar/SidebarEngineCard";
 
 const sidebarVariants = {
-  open: {
-    width: "15rem",
-  },
-  closed: {
-    width: "3.75rem",
-  },
-};
-
-const contentVariants = {
-  open: { display: "block", opacity: 1 },
-  closed: { display: "block", opacity: 1 },
-};
-
-const variants = {
-  open: {
-    x: 0,
-    opacity: 1,
-    transition: {
-      x: { stiffness: 1000, velocity: -100 },
-    },
-  },
-  closed: {
-    x: -20,
-    opacity: 0,
-    transition: {
-      x: { stiffness: 100 },
-    },
-  },
+  open: { width: "15.5rem" },
+  closed: { width: "4rem" },
 };
 
 const transitionProps = {
   type: "tween",
-  ease: "easeOut",
+  ease: "easeInOut",
   duration: 0.2,
-  staggerChildren: 0.1,
 } as const;
 
-const staggerVariants = {
-  open: {
-    transition: { staggerChildren: 0.03, delayChildren: 0.02 },
-  },
-};
-
-
-interface SessionNavBarProps {
+export interface SessionNavBarProps {
   mobileOpen?: boolean;
   setMobileOpen?: (open: boolean) => void;
   isPinned?: boolean;
   setIsPinned?: (pinned: boolean) => void;
 }
 
-export function SessionNavBar({ mobileOpen = false, setMobileOpen, isPinned = false, setIsPinned }: SessionNavBarProps) {
+export function SessionNavBar({
+  mobileOpen = false,
+  setMobileOpen,
+  isPinned = true,
+  setIsPinned,
+}: SessionNavBarProps) {
   const [isHovered, setIsHovered] = useState(false);
   const isCollapsed = !isPinned && !isHovered;
   const pathname = usePathname();
-  const [userProfile, setUserProfile] = useState<{ email: string; name: string; initials: string; isAdmin: boolean }>({
+
+  const [userProfile, setUserProfile] = useState<UserProfileData>({
     email: "Loading...",
     name: "User",
     initials: "GV",
-    isAdmin: false
+    isAdmin: false,
   });
 
   useEffect(() => {
@@ -108,7 +67,11 @@ export function SessionNavBar({ mobileOpen = false, setMobileOpen, isPinned = fa
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           const email = user.email || "";
-          const name = user.user_metadata?.full_name || user.user_metadata?.name || email.split("@")[0] || "User";
+          const name =
+            user.user_metadata?.full_name ||
+            user.user_metadata?.name ||
+            (email ? email.split("@")[0] : "User");
+          
           let initials = "GV";
           if (name && name !== "User") {
             const parts = name.trim().split(" ");
@@ -120,8 +83,8 @@ export function SessionNavBar({ mobileOpen = false, setMobileOpen, isPinned = fa
           } else if (email) {
             initials = email.substring(0, 2).toUpperCase();
           }
-          
-          const { checkIsAdminAction } = await import('@/app/actions/kyc');
+
+          const { checkIsAdminAction } = await import("@/app/actions/kyc");
           const isAdmin = await checkIsAdminAction();
 
           setUserProfile({ email, name, initials, isAdmin });
@@ -136,111 +99,97 @@ export function SessionNavBar({ mobileOpen = false, setMobileOpen, isPinned = fa
   const mainNav = [
     { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
     { name: "Assistants", href: "/dashboard/assistants", icon: Bot },
-    { name: "Campaigns", href: "/dashboard/campaigns", icon: PhoneCall },
-    { name: "Phone Numbers", href: "/dashboard/phone-numbers", icon: Phone },
-    { name: "Call Logs", href: "/dashboard/calls", icon: FileText },
-    { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
+    { name: "Campaigns", href: "/dashboard/campaigns", icon: Megaphone },
+    { name: "Phone Numbers", href: "/dashboard/phone-numbers", icon: PhoneCall },
+    { name: "Call Logs & Audio", href: "/dashboard/calls", icon: Headphones },
+    { name: "Analytics", href: "/dashboard/analytics", icon: TrendingUp },
     { name: "Plans & Billing", href: "/dashboard/billing", icon: CreditCard },
   ];
 
   if (userProfile.isAdmin) {
-    mainNav.push({ name: "Admin KYC", href: "/dashboard/admin/kyc", icon: ShieldCheck, isNew: true } as any);
+    mainNav.push({
+      name: "Admin KYC Portal",
+      href: "/dashboard/admin/kyc",
+      icon: ShieldCheck,
+      badge: "ADMIN",
+      badgeVariant: "new",
+    } as any);
   }
 
   return (
     <>
-      {/* Mobile Drawer Backdrop & Slide-Over */}
+      {/* Mobile Drawer Overlay */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-50 md:hidden flex">
-          {/* Backdrop */}
-          <div 
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity" 
+        <div className="fixed inset-0 z-50 flex md:hidden">
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity"
             onClick={() => setMobileOpen?.(false)}
           />
 
-          {/* Mobile Sidebar Content */}
-          <div className="relative w-64 max-w-[80vw] bg-white h-full shadow-2xl flex flex-col z-10 border-r border-hairline animate-in slide-in-from-left duration-200">
-            <div className="flex h-[64px] items-center justify-between px-4 border-b border-hairline">
-              <Link href="/dashboard" className="flex items-center gap-3" onClick={() => setMobileOpen?.(false)}>
-                <div className="w-8 h-8 rounded-[8px] overflow-hidden shrink-0">
-                  <Image src="/logo.png" alt="GAP Logo" width={32} height={32} className="w-full h-full object-cover" />
-                </div>
-                <div className="flex flex-col leading-none">
-                  <span className="font-bold text-base tracking-tight text-black">GAP</span>
-                  <span className="text-[10px] font-mono tracking-widest text-neutral-400 font-semibold uppercase">VOICEPILOT</span>
-                </div>
-              </Link>
-              <button 
+          <div className="relative z-10 flex h-full w-72 max-w-[85vw] flex-col border-r border-neutral-200 bg-white shadow-xl animate-in slide-in-from-left duration-200">
+            <div className="flex h-[64px] items-center justify-between px-3 border-b border-neutral-100">
+              <SidebarHeader isCollapsed={false} onMobileClose={() => setMobileOpen?.(false)} />
+              <button
+                type="button"
                 onClick={() => setMobileOpen?.(false)}
-                className="p-1.5 rounded-[8px] text-neutral-500 hover:text-black hover:bg-surface-soft"
+                className="rounded-xl p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-black"
               >
-                <LogOut className="w-4 h-4 rotate-180" />
+                <X className="h-5 w-5" />
               </button>
             </div>
 
             <ScrollArea className="flex-1 px-3 py-4">
-              <div className="flex flex-col gap-1.5">
+              <div className="space-y-1">
+                <p className="px-3 text-[10px] font-sans font-bold uppercase tracking-wider text-neutral-400 mb-2">
+                  NAVIGATION
+                </p>
                 {mainNav.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname?.startsWith(item.href));
+                  const isActive =
+                    pathname === item.href ||
+                    (item.href !== "/dashboard" && pathname?.startsWith(item.href));
                   return (
-                    <Link
+                    <SidebarNavItem
                       key={item.name}
+                      name={item.name}
                       href={item.href}
+                      icon={item.icon}
+                      isActive={isActive}
+                      badge={(item as any).badge}
+                      badgeVariant={(item as any).badgeVariant}
                       onClick={() => setMobileOpen?.(false)}
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-sm font-semibold transition-colors",
-                        isActive
-                          ? "bg-black text-white font-bold shadow-sm"
-                          : "text-neutral-600 hover:text-black hover:bg-surface-soft"
-                      )}
-                    >
-                      <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-block-lime" : "text-neutral-500")} />
-                      <span>{item.name}</span>
-                    </Link>
+                    />
                   );
                 })}
 
-                <Separator className="my-2 bg-hairline" />
+                <Separator className="my-3 bg-neutral-100" />
 
-                <Link
+                <p className="px-3 text-[10px] font-sans font-bold uppercase tracking-wider text-neutral-400 mb-2">
+                  SYSTEM
+                </p>
+                <SidebarNavItem
+                  name="API & Webhooks"
                   href="/dashboard/settings"
+                  icon={Webhook}
+                  isActive={pathname === "/dashboard/settings"}
+                  badge="LIVE"
+                  badgeVariant="live"
                   onClick={() => setMobileOpen?.(false)}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-sm font-semibold transition-colors",
-                    pathname === "/dashboard/settings"
-                      ? "bg-black text-white font-bold shadow-sm"
-                      : "text-neutral-600 hover:text-black hover:bg-surface-soft"
-                  )}
-                >
-                  <Settings className={cn("h-4 w-4 shrink-0", pathname === "/dashboard/settings" ? "text-block-lime" : "text-neutral-500")} />
-                  <span>API & Webhooks</span>
-                </Link>
+                />
               </div>
             </ScrollArea>
 
-            <div className="p-3 border-t border-hairline bg-surface-soft/40">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5 truncate">
-                  <Avatar className="h-8 w-8 shrink-0 border border-black/10">
-                    <AvatarFallback className="bg-block-cream text-black font-bold text-xs">{userProfile.initials}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col text-left truncate">
-                    <p className="text-xs font-semibold text-black truncate">{userProfile.name}</p>
-                    <p className="text-[10px] text-neutral-400 truncate">{userProfile.email}</p>
-                  </div>
-                </div>
-              </div>
+            {/* Bottom Anchored Card + User Profile Tile */}
+            <div className="mt-auto flex flex-col w-full">
+              <SidebarEngineCard isCollapsed={false} />
+              <SidebarUserProfileTile userProfile={userProfile} onMobileClose={() => setMobileOpen?.(false)} />
             </div>
           </div>
         </div>
       )}
 
-      {/* Desktop Collapsible Sidebar */}
-      <motion.div
-        className={cn(
-          "sidebar hidden md:block fixed left-0 top-0 z-40 h-full shrink-0 border-r border-hairline bg-white text-black shadow-sm",
-        )}
+      {/* Desktop Animated Collapsible Light Sidebar */}
+      <motion.aside
+        className="fixed left-0 top-0 z-40 hidden h-full shrink-0 border-r border-neutral-200/90 bg-white text-neutral-900 shadow-xs md:block"
         initial={isCollapsed ? "closed" : "open"}
         animate={isCollapsed ? "closed" : "open"}
         variants={sidebarVariants}
@@ -248,191 +197,68 @@ export function SessionNavBar({ mobileOpen = false, setMobileOpen, isPinned = fa
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
+        <div className="flex h-full w-full flex-col justify-between overflow-hidden">
+          {/* Top Brand Header */}
+          <SidebarHeader
+            isCollapsed={isCollapsed}
+            isPinned={isPinned}
+            setIsPinned={setIsPinned}
+          />
 
-      <motion.div
-        className="relative z-40 flex h-full shrink-0 flex-col bg-white text-black transition-all"
-        variants={contentVariants}
-      >
-        <motion.ul variants={staggerVariants} className="flex h-full flex-col">
-          <div className="flex grow flex-col items-center w-full">
-            {/* Header with Organization Dropdown & Pin Toggle */}
-            <div className="flex h-[64px] w-full shrink-0 items-center border-b border-hairline px-2">
+          {/* Navigation Links List */}
+          <ScrollArea className="flex-1 px-2.5 py-3">
+            <div className="space-y-1">
               {!isCollapsed && (
-                <button 
-                  onClick={() => setIsPinned?.(!isPinned)} 
-                  className="p-1.5 mr-1 rounded-[8px] text-neutral-400 hover:text-black hover:bg-surface-soft shrink-0 transition-colors"
-                  title={isPinned ? "Collapse Sidebar" : "Keep Sidebar Open"}
-                >
-                  {isPinned ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
-                </button>
+                <p className="px-3 text-[10px] font-sans font-bold uppercase tracking-wider text-neutral-400 mb-2 transition-opacity">
+                  NAVIGATION
+                </p>
               )}
 
-              <DropdownMenu modal={false}>
-                <DropdownMenuTrigger className="flex-1 min-w-0" asChild>
-                  <button
-                    className="flex w-full items-center gap-3 px-2 py-1.5 rounded-[10px] hover:bg-surface-soft transition-colors text-black"
-                  >
-                    <div className="w-9 h-9 rounded-[10px] overflow-hidden shrink-0 flex items-center justify-center mx-auto">
-                      <Image src="/logo.png" alt="GAP Logo" width={36} height={36} className="w-full h-full object-cover" />
-                    </div>
-                    <motion.li
-                      variants={variants}
-                      className="flex w-full items-center justify-between overflow-hidden"
-                    >
-                      {!isCollapsed && (
-                        <>
-                          <div className="flex flex-col text-left leading-none truncate pr-2">
-                            <span className="text-base font-bold tracking-tight text-black truncate">GAP</span>
-                            <span className="text-[10px] font-mono tracking-widest text-neutral-400 font-semibold uppercase mt-0.5 truncate">VOICEPILOT</span>
-                          </div>
-                          <ChevronsUpDown className="h-3.5 w-3.5 text-neutral-400 shrink-0 ml-auto" />
-                        </>
-                      )}
-                    </motion.li>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" sideOffset={8} className="w-56 bg-white border border-hairline shadow-md text-black">
-                  <DropdownMenuItem asChild className="flex items-center gap-2 cursor-pointer text-xs">
-                    <Link href="/dashboard/assistants/create">
-                      <Plus className="h-4 w-4 text-black" /> New Voice Agent
-                    </Link>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {mainNav.map((item) => {
+                const isActive =
+                  pathname === item.href ||
+                  (item.href !== "/dashboard" && pathname?.startsWith(item.href));
+                return (
+                  <SidebarNavItem
+                    key={item.name}
+                    name={item.name}
+                    href={item.href}
+                    icon={item.icon}
+                    isActive={isActive}
+                    isCollapsed={isCollapsed}
+                    badge={(item as any).badge}
+                    badgeVariant={(item as any).badgeVariant}
+                  />
+                );
+              })}
+
+              <Separator className="my-2.5 bg-neutral-100" />
+
+              {!isCollapsed && (
+                <p className="px-3 text-[10px] font-sans font-bold uppercase tracking-wider text-neutral-400 mb-2 transition-opacity">
+                  SYSTEM
+                </p>
+              )}
+
+              <SidebarNavItem
+                name="API & Webhooks"
+                href="/dashboard/settings"
+                icon={Webhook}
+                isActive={pathname === "/dashboard/settings"}
+                isCollapsed={isCollapsed}
+                badge="LIVE"
+                badgeVariant="live"
+              />
             </div>
+          </ScrollArea>
 
-            {/* Scrollable Navigation Links */}
-            <div className="flex h-full w-full flex-col">
-              <div className="flex grow flex-col gap-4">
-                <ScrollArea className="h-16 grow py-3 px-2">
-                  <div className="flex w-full flex-col gap-1.5 items-center">
-                    {mainNav.map((item) => {
-                      const Icon = item.icon;
-                      const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname?.startsWith(item.href));
-                      return (
-                        <Link
-                          key={item.name}
-                          href={item.href}
-                          className={cn(
-                            "flex h-9 w-full items-center rounded-[10px] text-xs font-semibold transition-all",
-                            isCollapsed ? "justify-center px-0" : "px-3 justify-start gap-3",
-                            isActive
-                              ? "bg-black text-white font-bold shadow-sm"
-                              : "text-neutral-600 hover:text-black hover:bg-surface-soft"
-                          )}
-                          title={isCollapsed ? item.name : undefined}
-                        >
-                          <div className="w-8 h-8 flex items-center justify-center shrink-0">
-                            <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-block-lime" : "text-neutral-500")} />
-                          </div>
-                          <motion.li variants={variants}>
-                            {!isCollapsed && (
-                              <span className="text-xs font-semibold whitespace-nowrap">{item.name}</span>
-                            )}
-                          </motion.li>
-                        </Link>
-                      );
-                    })}
-
-                    <Separator className="my-2 w-full bg-hairline" />
-
-                    <Link
-                      href="/dashboard/settings"
-                      className={cn(
-                        "flex h-9 w-full items-center rounded-[10px] text-xs font-semibold transition-all",
-                        isCollapsed ? "justify-center px-0" : "px-3 justify-start gap-3",
-                        pathname === "/dashboard/settings"
-                          ? "bg-black text-white font-bold shadow-sm"
-                          : "text-neutral-600 hover:text-black hover:bg-surface-soft"
-                      )}
-                      title={isCollapsed ? "API & Webhooks" : undefined}
-                    >
-                      <div className="w-8 h-8 flex items-center justify-center shrink-0">
-                        <Settings className={cn("h-4 w-4 shrink-0", pathname === "/dashboard/settings" ? "text-block-lime" : "text-neutral-500")} />
-                      </div>
-                      <motion.li variants={variants}>
-                        {!isCollapsed && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold whitespace-nowrap">API & Webhooks</span>
-                            <Badge className="bg-block-lime text-black border-none text-[9px] px-1.5 py-0 font-bold" variant="outline">
-                              LIVE
-                            </Badge>
-                          </div>
-                        )}
-                      </motion.li>
-                    </Link>
-                  </div>
-                </ScrollArea>
-              </div>
-
-              {/* User Profile & Sign Out Footer */}
-              <div className="flex flex-col p-2 border-t border-hairline w-full">
-                <DropdownMenu modal={false}>
-                  <DropdownMenuTrigger className="w-full">
-                    <div className={cn(
-                      "flex h-9 w-full items-center rounded-[10px] text-xs transition-colors hover:bg-surface-soft",
-                      isCollapsed ? "justify-center px-0" : "px-2.5 justify-start gap-2.5"
-                    )}>
-                      <Avatar className="h-7 w-7 shrink-0 border border-black/10">
-                        <AvatarFallback className="bg-block-cream text-black font-bold text-xs">
-                          {userProfile.initials}
-                        </AvatarFallback>
-                      </Avatar>
-                      <motion.li
-                        variants={variants}
-                        className="flex w-full items-center justify-between overflow-hidden"
-                      >
-                        {!isCollapsed && (
-                          <>
-                            <div className="flex flex-col text-left truncate">
-                              <p className="text-xs font-semibold text-black truncate">{userProfile.name}</p>
-                              <p className="text-[10px] text-neutral-400 truncate">{userProfile.email}</p>
-                            </div>
-                            <ChevronsUpDown className="ml-auto h-3.5 w-3.5 text-neutral-400 shrink-0" />
-                          </>
-                        )}
-                      </motion.li>
-                    </div>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent sideOffset={8} align="start" className="w-52 bg-white border border-hairline text-black shadow-md">
-                    <div className="flex flex-row items-center gap-2.5 p-2">
-                      <Avatar className="h-7 w-7 border border-black/10">
-                        <AvatarFallback className="bg-block-cream text-black font-bold text-xs">
-                          {userProfile.initials}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex flex-col text-left truncate">
-                        <span className="text-xs font-semibold text-black truncate">
-                          {userProfile.name}
-                        </span>
-                        <span className="line-clamp-1 text-[10px] text-neutral-400 truncate">
-                          {userProfile.email}
-                        </span>
-                      </div>
-                    </div>
-                    <DropdownMenuSeparator className="bg-hairline" />
-                    <DropdownMenuItem asChild className="flex items-center gap-2 cursor-pointer text-xs">
-                      <Link href="/dashboard/billing">
-                        <CreditCard className="h-4 w-4 text-black" /> Plans & Billing
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem 
-                      className="flex items-center gap-2 cursor-pointer text-xs text-red-600 focus:text-red-600"
-                      onClick={async () => {
-                        const { signOut } = await import('@/app/actions/auth');
-                        await signOut();
-                      }}
-                    >
-                      <LogOut className="h-4 w-4" /> Sign out
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
+          {/* Bottom Anchored Engine Card + User Profile Tile */}
+          <div className="mt-auto flex flex-col w-full shrink-0">
+            <SidebarEngineCard isCollapsed={isCollapsed} />
+            <SidebarUserProfileTile userProfile={userProfile} isCollapsed={isCollapsed} />
           </div>
-        </motion.ul>
-      </motion.div>
-      </motion.div>
+        </div>
+      </motion.aside>
     </>
   );
 }
@@ -441,8 +267,9 @@ export function SidebarDemo() {
   return (
     <div className="flex h-screen w-screen flex-row">
       <SessionNavBar />
-      <main className="flex h-screen grow flex-col overflow-auto pl-16">
-      </main>
+      <main className="flex h-screen grow flex-col overflow-auto pl-16" />
     </div>
   );
 }
+
+export default SessionNavBar;

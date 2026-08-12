@@ -40,20 +40,36 @@ export async function launchBatchCampaignAction({ name, assistantId, phoneNumber
       return { success: false, error: "Please provide valid phone numbers." };
     }
 
-    // Resolve real Vomyra Assistant ID (24-char ObjectId)
+    // Resolve real Vomyra Assistant ID and phone_number_id
     let realVomyraAssistantId: string = assistantId;
+    let actualPhoneNumberId: string | null = phoneNumberId || null;
+
     if (adminClient) {
       try {
         const { data: ast } = await adminClient
           .from("assistants")
-          .select("provider_resource_id")
+          .select(`
+            provider_resource_id,
+            phone_numbers ( id, phone_number )
+          `)
           .eq("id", assistantId)
           .maybeSingle();
 
         if (ast?.provider_resource_id && /^[0-9a-fA-F]{24}$/.test(ast.provider_resource_id)) {
           realVomyraAssistantId = ast.provider_resource_id;
         }
+        
+        if (!actualPhoneNumberId && ast?.phone_numbers && ast.phone_numbers.length > 0) {
+          actualPhoneNumberId = ast.phone_numbers[0].id;
+          if (!assignedNumber) {
+            assignedNumber = ast.phone_numbers[0].phone_number;
+          }
+        }
       } catch (e) {}
+    }
+
+    if (!actualPhoneNumberId) {
+      return { success: false, error: "The selected assistant must have a phone number assigned before launching a campaign." };
     }
 
     let campaignId = `camp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -67,7 +83,7 @@ export async function launchBatchCampaignAction({ name, assistantId, phoneNumber
             workspace_id: workspaceId,
             created_by: userId,
             assistant_id: assistantId,
-            phone_number_id: phoneNumberId || null,
+            phone_number_id: actualPhoneNumberId,
             name,
             total_contacts: cleanContacts.length,
             status: "running"
@@ -107,9 +123,7 @@ export async function launchBatchCampaignAction({ name, assistantId, phoneNumber
         }
       };
 
-      if (assignedNumber && assignedNumber.trim()) {
-        payload.assigned_number = assignedNumber.trim();
-      } else if (realVomyraAssistantId) {
+      if (realVomyraAssistantId) {
         payload.assistant_id = realVomyraAssistantId;
       }
 
@@ -144,8 +158,7 @@ export async function launchBatchCampaignAction({ name, assistantId, phoneNumber
           await adminClient
             .from("campaigns")
             .update({
-              status: "completed",
-              completed_at: new Date().toISOString()
+              status: "completed"
             })
             .eq("id", campaignId);
         } catch (e) {}
