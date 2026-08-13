@@ -142,7 +142,7 @@ export default function AssistantActionMenu({ assistantId, assistantName }: Assi
             </div>
 
             <div className="p-3.5 rounded-[10px] bg-surface-soft border border-hairline text-xs leading-relaxed text-neutral-700">
-              Are you sure you want to delete <strong className="text-black font-mono font-bold">"{assistantName}"</strong>? This will permanently remove it from both <strong className="text-black">VoicePilot</strong> and <strong className="text-black">Vomyra API</strong>.
+              Are you sure you want to delete <strong className="text-black font-mono font-bold">"{assistantName}"</strong>? This will permanently remove it from both <strong className="text-black">VoicePilot</strong> and <strong className="text-black">Voice API</strong>.
             </div>
 
             <div className="flex items-center gap-3 pt-2">
