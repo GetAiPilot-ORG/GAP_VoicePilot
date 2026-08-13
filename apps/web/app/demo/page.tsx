@@ -56,7 +56,7 @@ const SERVICE_OPTIONS = [
   "Customer Support & Handoff Automation",
   "Inbound Call Routing & AI Answering",
   "Outbound Bulk Phone Campaigns",
-  "Dedicated Phone Number & Calling Channel (₹2,000/mo)",
+  "Dedicated Phone Number & Calling Channel (₹1,499/mo)",
   "Custom AI Voice Workflows & Integrations"
 ];
 
@@ -448,16 +448,6 @@ export default function DemoPage() {
             {/* Left Column: Value Proposition & Proof */}
             <div className="lg:col-span-6 space-y-8 text-left pt-2">
               <div className="space-y-4">
-                <div className="inline-flex items-center gap-2 rounded-full bg-surface-soft px-4 py-2 text-xs font-semibold text-black border border-black/5 shadow-xs">
-                  <span className="flex items-center gap-0.5 text-[#ff4b2f]">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Star key={star} className="h-3.5 w-3.5 fill-current" />
-                    ))}
-                  </span>
-                  <span className="text-black/55">Based on</span>
-                  <span className="text-black font-bold">10,759+ live calls</span>
-                </div>
-
                 <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold font-array tracking-tight text-black leading-[0.95]">
                   Get a Personalized AI Voice Agent Demo
                 </h1>
@@ -577,11 +567,7 @@ export default function DemoPage() {
                   /* FORM STATE */
                   <div className="space-y-6">
                     <div className="space-y-1">
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-soft border border-black/5 text-xs font-semibold text-[#ff4b2f]">
-                        <Sparkles className="h-3.5 w-3.5" />
-                        <span>Request Live Walkthrough</span>
-                      </div>
-                      <h2 className="text-2xl sm:text-3xl font-extrabold font-array tracking-tight text-black pt-1">
+                      <h2 className="text-2xl sm:text-3xl font-extrabold font-array tracking-tight text-black">
                         Schedule Your Demo
                       </h2>
                       <p className="text-xs sm:text-sm text-black/60 leading-relaxed">
@@ -862,10 +848,6 @@ export default function DemoPage() {
           {/* Dedicated Telephony & Calling Channel Plan */}
           <div className="mt-8 rounded-[24px] border border-black/10 bg-white p-6 md:p-8 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 text-left">
             <div className="space-y-2 max-w-2xl">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#f0f4ff] border border-blue-200 text-xs font-bold text-blue-700">
-                <PhoneCall className="h-3.5 w-3.5" />
-                <span>TELEPHONY ADD-ON PLAN</span>
-              </div>
               <h3 className="text-2xl font-bold text-black tracking-tight">
                 Dedicated Phone Number & Concurrent Calling Channel Plan
               </h3>
@@ -882,7 +864,7 @@ export default function DemoPage() {
 
             <div className="flex flex-col sm:flex-row md:flex-col items-start md:items-end gap-3 shrink-0 w-full sm:w-auto">
               <div className="text-left md:text-right">
-                <span className="text-3xl font-extrabold text-black">₹2,000</span>
+                <span className="text-3xl font-extrabold text-black">₹1,499</span>
                 <span className="text-xs font-semibold text-black/60"> /month</span>
                 <p className="text-[11px] text-black/50 font-medium mt-0.5">Per dedicated channel & number</p>
               </div>

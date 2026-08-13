@@ -609,21 +609,31 @@ export default function HomePage() {
               </p>
 
               <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <PrimaryButton href="/dashboard">
-                  {user ? "Open Dashboard" : "Start for free"}
-                </PrimaryButton>
-                <Link
-                  href="/demo"
-                  className="inline-flex h-12 items-center justify-center rounded-full border border-[#ff4b2f]/55 bg-white px-7 text-base font-semibold text-[#d93620] transition-colors hover:bg-[#fff3ef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4b2f] focus-visible:ring-offset-2"
-                >
-                  Get a Demo
-                </Link>
-                <Link
-                  href="/dashboard/assistants"
-                  className="inline-flex h-12 items-center justify-center rounded-full border border-black/10 bg-white px-6 text-sm font-semibold text-black hover:bg-surface-soft transition-colors"
-                >
-                  Explore agents
-                </Link>
+                {user ? (
+                  <>
+                    <PrimaryButton href="/dashboard">
+                      Open Dashboard
+                    </PrimaryButton>
+                    <Link
+                      href="/dashboard/assistants"
+                      className="inline-flex h-12 items-center justify-center rounded-full border border-black/10 bg-white px-6 text-sm font-semibold text-black hover:bg-surface-soft transition-colors"
+                    >
+                      Explore agents
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <PrimaryButton href="/dashboard">
+                      Start for free
+                    </PrimaryButton>
+                    <Link
+                      href="/demo"
+                      className="inline-flex h-12 items-center justify-center rounded-full border border-[#ff4b2f]/55 bg-white px-7 text-base font-semibold text-[#d93620] transition-colors hover:bg-[#fff3ef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4b2f] focus-visible:ring-offset-2"
+                    >
+                      Get a Demo
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
 
@@ -1043,10 +1053,6 @@ export default function HomePage() {
           {/* Dedicated Telephony & Calling Channel Plan */}
           <div className="mt-8 rounded-[24px] border border-black/10 bg-white p-6 md:p-8 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 text-left">
             <div className="space-y-2 max-w-2xl">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#f0f4ff] border border-blue-200 text-xs font-bold text-blue-700">
-                <PhoneCall className="h-3.5 w-3.5" />
-                <span>TELEPHONY ADD-ON PLAN</span>
-              </div>
               <h3 className="text-2xl font-bold text-black tracking-tight">
                 Dedicated Phone Number & Concurrent Calling Channel Plan
               </h3>
@@ -1063,7 +1069,7 @@ export default function HomePage() {
 
             <div className="flex flex-col sm:flex-row md:flex-col items-start md:items-end gap-3 shrink-0 w-full sm:w-auto">
               <div className="text-left md:text-right">
-                <span className="text-3xl font-extrabold text-black">₹2,000</span>
+                <span className="text-3xl font-extrabold text-black">₹1,499</span>
                 <span className="text-xs font-semibold text-black/60"> /month</span>
                 <p className="text-[11px] text-black/50 font-medium mt-0.5">Per dedicated channel & number</p>
               </div>

@@ -522,10 +522,6 @@ export default function PricingPage() {
           {/* Dedicated Telephony & Calling Channel Plan */}
           <div className="mt-10 rounded-[28px] border border-black/10 bg-white p-6 md:p-8 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 text-left">
             <div className="space-y-2 max-w-2xl">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#f0f4ff] border border-blue-200 text-xs font-bold text-blue-700">
-                <PhoneCall className="h-3.5 w-3.5" />
-                <span>TELEPHONY ADD-ON PLAN</span>
-              </div>
               <h3 className="text-2xl font-bold text-black tracking-tight">
                 Dedicated Phone Number & Concurrent Calling Channel Plan
               </h3>
@@ -542,7 +538,7 @@ export default function PricingPage() {
 
             <div className="flex flex-col sm:flex-row md:flex-col items-start md:items-end gap-3 shrink-0 w-full sm:w-auto">
               <div className="text-left md:text-right">
-                <span className="text-3xl font-extrabold text-black">₹2,000</span>
+                <span className="text-3xl font-extrabold text-black">₹1,499</span>
                 <span className="text-xs font-semibold text-black/60"> /month</span>
                 <p className="text-[11px] text-black/50 font-medium mt-0.5">Per dedicated channel & number</p>
               </div>
