@@ -18,6 +18,7 @@ import {
   Zap,
   Inbox,
   Activity,
+  Download,
   ExternalLink,
   Lock,
   Fingerprint

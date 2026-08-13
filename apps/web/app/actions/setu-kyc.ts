@@ -212,7 +212,7 @@ export async function handleDigiLockerCallback(
 
     return {
       success: true,
-      assignedNumber: availableNumber?.phone_number || null,
+      assignedNumber: null,
       verifiedName: aadhaarName,
     };
   } catch (err: any) {
