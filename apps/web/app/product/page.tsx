@@ -9,6 +9,7 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PrimaryButton } from "@/components/ui/primary-button";
+import { LiveAgentDemoSection } from "@/components/LiveAgentDemoSection";
 import { GetDemoButton } from "@/components/demo/GetDemoButton";
 import {
   DropdownMenu,
@@ -815,6 +816,9 @@ export default function ProductPage() {
             </div>
           </div>
         </section>
+
+        {/* Interactive Voice AI Agent Live Phone Call Demo */}
+        <LiveAgentDemoSection user={user} />
 
         {/* Feature Grid Section */}
         <section

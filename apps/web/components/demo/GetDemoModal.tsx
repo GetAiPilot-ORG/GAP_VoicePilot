@@ -31,6 +31,7 @@ const SERVICE_OPTIONS = [
   "Customer Support & Handoff Automation",
   "Inbound Call Routing & AI Answering",
   "Outbound Bulk Phone Campaigns",
+  "Dedicated Phone Number & Calling Channel (₹1,499/mo)",
   "Custom AI Voice Workflows & Integrations"
 ];
 

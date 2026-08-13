@@ -20,12 +20,12 @@ import {
   ExternalLink,
   Lock,
   Fingerprint,
-  Download,
   RadioTower,
   ClipboardCheck,
   Landmark,
   BadgeCheck,
-  Clock3
+  Clock3,
+  Download as DownloadIcon
 } from "lucide-react";
 
 export interface PhoneNumberRecord {
@@ -241,7 +241,7 @@ export function PhoneNumbersClient({
         }`}>
           <div className="flex items-center gap-3">
             {toastMessage.type === 'success' && <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />}
-            {toastMessage.type === 'info' && <Download className="h-5 w-5 text-indigo-600 shrink-0" />}
+            {toastMessage.type === 'info' && <DownloadIcon className="h-5 w-5 text-indigo-600 shrink-0" />}
             {toastMessage.type === 'error' && <AlertCircle className="h-5 w-5 text-rose-600 shrink-0" />}
             <span>{toastMessage.text}</span>
           </div>

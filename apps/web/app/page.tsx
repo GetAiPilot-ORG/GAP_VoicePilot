@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PrimaryButton } from "@/components/ui/primary-button";
 import { GetDemoButton } from "@/components/demo/GetDemoButton";
 import { RuixenGradientFooter } from "@/components/ui/ruixen-gradient-footer";
+import { LiveAgentDemoSection } from "@/components/LiveAgentDemoSection";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -109,16 +110,16 @@ const pricingPlans = [
   {
     audience: "FOR STARTERS",
     name: "Start",
-    description: "1 dedicated number + 100 AI calling minutes included.",
+    description: "250 AI calling minutes included.",
     price: "₹1,499",
     unit: "/mo",
-    feeNote: "₹0 platform fee. No credit card required.",
+    feeNote: "Effective rate: ₹6.00 / min • ₹0 platform fee.",
     action: "Start building",
     headerBg: "bg-[#e4ebd9] border-b border-black/10",
     buttonVariant: "dark",
     features: [
-      "1 Dedicated Business Number",
-      "100 AI Calling Minutes",
+      "250 AI Calling Minutes",
+      "₹6.00 / min per-minute rate",
       "Hindi, English & Hinglish Support",
       "Custom AI System Prompts",
       "Basic Lead & Contact Capture",
@@ -128,15 +129,15 @@ const pricingPlans = [
     audience: "FOR TEAMS",
     name: "Build",
     description: "Daily sales calls, live transfers & auto-CRM sync.",
-    price: "₹2,999",
+    price: "₹4,999",
     unit: "/mo",
-    feeNote: "Includes 500 AI calling minutes.",
+    feeNote: "Effective rate: ₹5.00 / min • Includes 1,000 mins.",
     action: "Start building",
     headerBg: "bg-[#f9f3e5] border-b border-black/10",
     buttonVariant: "dark",
     features: [
-      "3 Dedicated Business Numbers",
-      "500 AI Calling Minutes",
+      "1,000 AI Calling Minutes",
+      "₹5.00 / min per-minute rate",
       "Realtime Live Call Transfer",
       "Automatic CRM Auto-Syncing",
       "Live Call Transcripts & Recording",
@@ -146,15 +147,15 @@ const pricingPlans = [
     audience: "FOR HIGH VOLUME",
     name: "Scale",
     description: "Lowest per-minute rates for high-volume dialers.",
-    price: "₹7,999",
+    price: "₹9,999",
     unit: "/mo",
-    feeNote: "Includes 2,000 AI calling minutes.",
+    feeNote: "Effective rate: ₹5.00 / min • Includes 2,000 mins.",
     action: "Start building",
     headerBg: "bg-[#faeae1] border-b border-black/10",
     buttonVariant: "dark",
     features: [
-      "10 Dedicated Business Numbers",
       "2,000 AI Calling Minutes",
+      "₹5.00 / min per-minute rate",
       "Unlimited Multi-Agent Workflows",
       "Priority SIP Latency Routing",
       "Dedicated Account Manager",
@@ -172,6 +173,7 @@ const pricingPlans = [
     buttonVariant: "outline",
     features: [
       "Concurrency sized to your volume",
+      "Custom per-minute bulk rates",
       "Custom SIP trunking & on-prem",
       "Forward-deployed engineer",
       "TRAI, SOC2 & DLT compliance",
@@ -607,21 +609,31 @@ export default function HomePage() {
               </p>
 
               <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <PrimaryButton href="/dashboard">
-                  {user ? "Open Dashboard" : "Start for free"}
-                </PrimaryButton>
-                <Link
-                  href="/demo"
-                  className="inline-flex h-12 items-center justify-center rounded-full border border-[#ff4b2f]/55 bg-white px-7 text-base font-semibold text-[#d93620] transition-colors hover:bg-[#fff3ef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4b2f] focus-visible:ring-offset-2"
-                >
-                  Get a Demo
-                </Link>
-                <Link
-                  href="/dashboard/assistants"
-                  className="inline-flex h-12 items-center justify-center rounded-full border border-black/10 bg-white px-6 text-sm font-semibold text-black hover:bg-surface-soft transition-colors"
-                >
-                  Explore agents
-                </Link>
+                {user ? (
+                  <>
+                    <PrimaryButton href="/dashboard">
+                      Open Dashboard
+                    </PrimaryButton>
+                    <Link
+                      href="/dashboard/assistants"
+                      className="inline-flex h-12 items-center justify-center rounded-full border border-black/10 bg-white px-6 text-sm font-semibold text-black hover:bg-surface-soft transition-colors"
+                    >
+                      Explore agents
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <PrimaryButton href="/dashboard">
+                      Start for free
+                    </PrimaryButton>
+                    <Link
+                      href="/demo"
+                      className="inline-flex h-12 items-center justify-center rounded-full border border-[#ff4b2f]/55 bg-white px-7 text-base font-semibold text-[#d93620] transition-colors hover:bg-[#fff3ef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4b2f] focus-visible:ring-offset-2"
+                    >
+                      Get a Demo
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
 
@@ -742,6 +754,9 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+
+        {/* Interactive Voice AI Agent Live Phone Call Demo */}
+        <LiveAgentDemoSection user={user} />
 
         <section
           id="capabilities"
@@ -1033,6 +1048,38 @@ export default function HomePage() {
                 </div>
               </article>
             ))}
+          </div>
+
+          {/* Dedicated Telephony & Calling Channel Plan */}
+          <div className="mt-8 rounded-[24px] border border-black/10 bg-white p-6 md:p-8 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 text-left">
+            <div className="space-y-2 max-w-2xl">
+              <h3 className="text-2xl font-bold text-black tracking-tight">
+                Dedicated Phone Number & Concurrent Calling Channel Plan
+              </h3>
+              <p className="text-sm text-black/70 font-light leading-relaxed">
+                Add dedicated virtual business numbers (080, 022, 011, or 1800 Toll-Free) and dedicated multi-channel call concurrency for inbound call answering & outbound AI campaigns.
+              </p>
+              <div className="pt-2 flex flex-wrap gap-x-6 gap-y-2 text-xs font-semibold text-black/80">
+                <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-[#ff4b2f]" /> 1 Dedicated Business Virtual Number</span>
+                <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-[#ff4b2f]" /> Dedicated Calling Concurrency Channel</span>
+                <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-[#ff4b2f]" /> TRAI & DLT Compliant SIP Trunking</span>
+                <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-[#ff4b2f]" /> Instant Setup & Number Activation</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row md:flex-col items-start md:items-end gap-3 shrink-0 w-full sm:w-auto">
+              <div className="text-left md:text-right">
+                <span className="text-3xl font-extrabold text-black">₹1,499</span>
+                <span className="text-xs font-semibold text-black/60"> /month</span>
+                <p className="text-[11px] text-black/50 font-medium mt-0.5">Per dedicated channel & number</p>
+              </div>
+              <Link
+                href="/dashboard/phone-numbers"
+                className="w-full sm:w-auto inline-flex h-11 items-center justify-center rounded-full bg-[#ff4b2f] hover:bg-[#e63e24] text-white px-6 text-xs font-bold shadow-sm transition-all hover:scale-[1.02]"
+              >
+                Get Dedicated Number
+              </Link>
+            </div>
           </div>
         </section>
 
