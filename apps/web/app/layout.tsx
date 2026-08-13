@@ -41,6 +41,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { DemoModalProvider } from "@/components/demo/GetDemoContext";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -64,7 +66,9 @@ export default function RootLayout({
         />
       </head>
       <body className={`${geist.className} ${geistMono.variable} ${arrayFont.variable} font-sans font-normal text-black antialiased`} suppressHydrationWarning>
-        {children}
+        <DemoModalProvider>
+          {children}
+        </DemoModalProvider>
       </body>
     </html>
   );

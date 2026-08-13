@@ -251,6 +251,37 @@ export async function triggerTestCallAction(params: TriggerTestCallParams) {
   }
 }
 
+export interface TriggerDemoCallParams {
+  customerNumber: string;
+  customerName?: string;
+  useCase?: string;
+  assistantId?: string;
+}
+
+/**
+ * Trigger a public / website demo call using configured DEMO_ASSISTANT_ID env variable or prop
+ */
+export async function triggerDemoCallAction(params: TriggerDemoCallParams) {
+  try {
+    const configuredAssistantId =
+      params.assistantId ||
+      process.env.NEXT_PUBLIC_DEMO_ASSISTANT_ID ||
+      process.env.DEMO_ASSISTANT_ID ||
+      "66a87b8f9a2b1c0012345678";
+
+    return await triggerTestCallAction({
+      customerNumber: params.customerNumber,
+      customerName: params.customerName || "Website Demo Visitor",
+      assistantId: configuredAssistantId,
+    });
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message || "Unable to initiate demo call"
+    };
+  }
+}
+
 /**
  * Fetch assigned or active phone numbers for test call caller ID selection
  */

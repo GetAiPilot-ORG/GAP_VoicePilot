@@ -1,33 +1,27 @@
 "use client";
 
 import * as React from "react";
-import { Button } from "@/components/ui/button";
 import { AssistantSelect } from "./components/AssistantSelect";
 import {
   Phone,
-  Plus,
   RefreshCw,
   UserX,
   CheckCircle2,
   X,
-  ShoppingBag,
-  Search,
   Globe,
   Wallet,
   Check,
-  Sparkles,
   ShieldCheck,
   ArrowRight,
-  Download,
   AlertCircle,
   Copy,
   Zap,
   Inbox,
-  UploadCloud,
-  FileText,
-  Building2,
-  HelpCircle,
-  Activity
+  Activity,
+  ExternalLink,
+  Lock,
+  Fingerprint,
+  Download
 } from "lucide-react";
 
 export interface PhoneNumberRecord {
@@ -78,7 +72,6 @@ export function PhoneNumbersClient({
   const [kycStatus, setKycStatus] = React.useState<KycRecord | null>(initialKyc);
   const [balance, setBalance] = React.useState<number>(initialBalance);
   const [isFetching, setIsFetching] = React.useState(false);
-  const [isSubmittingKyc, setIsSubmittingKyc] = React.useState(false);
   const [copiedId, setCopiedId] = React.useState<string | null>(null);
 
   const [toastMessage, setToastMessage] = React.useState<{ type: 'success' | 'info' | 'error'; text: string } | null>(null);
@@ -152,35 +145,6 @@ export function PhoneNumbersClient({
       });
     } finally {
       setIsFetching(false);
-    }
-  };
-
-  const handleKycSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsSubmittingKyc(true);
-    const formData = new FormData(e.currentTarget);
-    
-    try {
-      const { submitKycRequest } = await import("@/app/actions/kyc");
-      const res = await submitKycRequest(formData);
-
-      if (res.success) {
-        setToastMessage({ type: 'success', text: 'KYC submitted successfully. Awaiting admin review.' });
-        setKycStatus({
-          id: 'temp',
-          workspace_id: 'temp',
-          business_name: formData.get('businessName') as string,
-          use_case: formData.get('useCase') as string,
-          status: 'pending',
-          created_at: new Date().toISOString()
-        });
-      } else {
-        setToastMessage({ type: 'error', text: res.error || 'Failed to submit KYC' });
-      }
-    } catch (err: any) {
-      setToastMessage({ type: 'error', text: err.message });
-    } finally {
-      setIsSubmittingKyc(false);
     }
   };
 
@@ -531,92 +495,188 @@ export function PhoneNumbersClient({
               )}
             </div>
           ) : (
-            <form onSubmit={handleKycSubmit} className="space-y-6 bg-white border border-hairline rounded-2xl p-6 sm:p-8 shadow-sm">
-              <div className="space-y-2 border-b border-hairline pb-4">
-                <h3 className="text-lg font-bold text-neutral-900 flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                  Business Identity Verification (KYC)
-                </h3>
-                <p className="text-xs text-neutral-600 leading-relaxed">
-                  Regulatory compliance requires business verification before virtual phone numbers can be provisioned.
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                {/* Business Name */}
-                <div className="space-y-1.5">
-                  <label htmlFor="businessName" className="text-xs font-bold text-neutral-800 flex items-center gap-1.5">
-                    <Building2 className="w-3.5 h-3.5 text-neutral-500" />
-                    Business / Entity Name
-                  </label>
-                  <input
-                    type="text"
-                    id="businessName"
-                    name="businessName"
-                    required
-                    className="w-full px-3.5 py-2.5 bg-surface-soft border border-hairline rounded-xl text-xs text-neutral-900 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black/30 transition-all placeholder:text-neutral-400 font-medium"
-                    placeholder="Acme Voice Solutions Corp"
-                  />
-                </div>
-
-                {/* Purpose */}
-                <div className="space-y-1.5">
-                  <label htmlFor="useCase" className="text-xs font-bold text-neutral-800 flex items-center gap-1.5">
-                    <HelpCircle className="w-3.5 h-3.5 text-neutral-500" />
-                    Intended Use Case
-                  </label>
-                  <textarea
-                    id="useCase"
-                    name="useCase"
-                    required
-                    rows={3}
-                    className="w-full px-3.5 py-2.5 bg-surface-soft border border-hairline rounded-xl text-xs text-neutral-900 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black/30 transition-all placeholder:text-neutral-400 font-medium resize-none"
-                    placeholder="E.g., Inbound customer support automation, outbound sales lead qualification."
-                  ></textarea>
-                </div>
-
-                {/* Document Upload Dropzone */}
-                <div className="space-y-1.5">
-                  <label htmlFor="document" className="text-xs font-bold text-neutral-800 flex items-center gap-1.5">
-                    <FileText className="w-3.5 h-3.5 text-neutral-500" />
-                    Upload ID / Business Registration Document
-                  </label>
-                  <div className="border-2 border-dashed border-hairline hover:border-black/30 rounded-xl p-6 text-center bg-surface-soft/50 hover:bg-white transition-all cursor-pointer relative">
-                    <input
-                      type="file"
-                      id="document"
-                      name="document"
-                      required
-                      accept=".pdf,image/*"
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
-                    <UploadCloud className="w-8 h-8 text-neutral-400 mx-auto mb-2" />
-                    <p className="text-xs font-semibold text-neutral-800">
-                      Click to upload <span className="font-normal text-neutral-500">or drag and drop</span>
-                    </p>
-                    <p className="text-[10px] text-neutral-400 mt-1">PDF, PNG, JPG (Government ID or Company Certificate)</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={isSubmittingKyc}
-                  className="btn-pill-primary w-full justify-center flex items-center gap-2 px-5 py-3 text-xs font-bold shadow-md rounded-xl bg-neutral-900 hover:bg-black text-white transition-all disabled:opacity-50"
-                >
-                  {isSubmittingKyc ? (
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                  )}
-                  <span>{isSubmittingKyc ? "Submitting Request..." : "Submit KYC Verification"}</span>
-                </button>
-              </div>
-            </form>
+            <KycDigiLockerPanel />
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── KYC Verification Panel (PAN + DigiLocker) ───────────────────────────────
+function KycDigiLockerPanel() {
+  const [step, setStep] = React.useState<1 | 2>(1);
+  const [pan, setPan] = React.useState("");
+  const [businessName, setBusinessName] = React.useState("");
+  const [isVerifyingPan, setIsVerifyingPan] = React.useState(false);
+  const [isRedirecting, setIsRedirecting] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [verifiedPanName, setVerifiedPanName] = React.useState<string | null>(null);
+
+  const handleVerifyPan = async () => {
+    if (!pan || pan.length !== 10 || !businessName) {
+      setError("Please enter Business Name and a valid 10-character PAN.");
+      return;
+    }
+    setIsVerifyingPan(true);
+    setError(null);
+    try {
+      const { verifyPanWithSetu } = await import("@/app/actions/setu-kyc");
+      const res = await verifyPanWithSetu(pan, businessName);
+      if (res.success) {
+        setVerifiedPanName(res.verifiedName || null);
+        setStep(2);
+      } else {
+        setError(res.error || "PAN verification failed.");
+      }
+    } catch (e: any) {
+      setError(e.message || "Unexpected error.");
+    } finally {
+      setIsVerifyingPan(false);
+    }
+  };
+
+  const handleDigiLockerRedirect = async () => {
+    setIsRedirecting(true);
+    setError(null);
+    try {
+      const { initiateDigiLockerKyc } = await import("@/app/actions/setu-kyc");
+      const res = await initiateDigiLockerKyc();
+      if (res.success && res.digilockerUrl) {
+        window.location.href = res.digilockerUrl;
+      } else {
+        setError(res.error || "Failed to initiate DigiLocker.");
+        setIsRedirecting(false);
+      }
+    } catch (e: any) {
+      setError(e.message || "Unexpected error.");
+      setIsRedirecting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 bg-white border border-hairline rounded-2xl p-6 sm:p-8 shadow-sm max-w-lg mx-auto">
+      {/* Header */}
+      <div className="space-y-2 border-b border-hairline pb-5">
+        <div className="flex items-center gap-2 mb-1">
+          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
+            <ShieldCheck className="w-4 h-4 text-white" />
+          </div>
+          <h3 className="text-lg font-bold text-neutral-900">
+            Business KYC Verification
+          </h3>
+        </div>
+        <p className="text-xs text-neutral-500 leading-relaxed">
+          Complete our automated 2-step KYC to provision virtual phone numbers instantly.
+        </p>
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-200 rounded-xl">
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+          <p className="text-xs text-rose-700 font-medium">{error}</p>
+        </div>
+      )}
+
+      {/* Step 1: PAN Verification */}
+      <div className={`space-y-4 p-5 rounded-2xl border transition-all ${step === 1 ? 'border-indigo-200 bg-indigo-50/30' : 'border-hairline bg-surface-soft/50 opacity-60'}`}>
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-sm font-bold text-neutral-900 flex items-center gap-2">
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] text-white ${step === 1 ? 'bg-indigo-600' : 'bg-emerald-500'}`}>
+              {step > 1 ? <Check className="w-3 h-3" /> : '1'}
+            </span>
+            PAN Verification
+          </h4>
+          {step > 1 && (
+            <span className="text-[10px] uppercase font-bold text-emerald-600 tracking-wider">Verified</span>
+          )}
+        </div>
+
+        {step === 1 ? (
+          <div className="space-y-3 pt-2">
+            <div>
+              <label className="text-[11px] font-bold text-neutral-700 mb-1 block">Business / Entity Name</label>
+              <input
+                type="text"
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+                placeholder="Acme Corp Pvt Ltd"
+                className="w-full px-3 py-2 text-sm bg-white border border-hairline rounded-lg focus:outline-none focus:border-indigo-400"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-bold text-neutral-700 mb-1 block">10-Digit PAN Number</label>
+              <input
+                type="text"
+                value={pan}
+                onChange={(e) => setPan(e.target.value.toUpperCase())}
+                placeholder="ABCDE1234F"
+                maxLength={10}
+                className="w-full px-3 py-2 text-sm bg-white border border-hairline rounded-lg focus:outline-none focus:border-indigo-400 font-mono uppercase"
+              />
+            </div>
+            <button
+              onClick={handleVerifyPan}
+              disabled={isVerifyingPan || !pan || !businessName}
+              className="w-full py-2.5 mt-2 rounded-lg bg-neutral-900 hover:bg-black text-white text-xs font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isVerifyingPan ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : null}
+              Verify PAN
+            </button>
+          </div>
+        ) : (
+          <div className="pt-1">
+            <p className="text-xs text-neutral-600">Verified as <span className="font-bold text-neutral-900">{verifiedPanName}</span></p>
+          </div>
+        )}
+      </div>
+
+      {/* Step 2: DigiLocker */}
+      <div className={`space-y-4 p-5 rounded-2xl border transition-all ${step === 2 ? 'border-indigo-200 bg-indigo-50/30' : 'border-hairline bg-surface-soft/50 opacity-60'}`}>
+        <div className="flex items-center gap-2 mb-2">
+          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] text-white ${step === 2 ? 'bg-indigo-600' : 'bg-neutral-300'}`}>
+            2
+          </span>
+          <h4 className="text-sm font-bold text-neutral-900">Aadhaar Authentication</h4>
+        </div>
+
+        {step === 2 ? (
+          <div className="space-y-4 pt-1">
+            <p className="text-xs text-neutral-600 leading-relaxed">
+              Verify your identity instantly via DigiLocker using Aadhaar OTP.
+            </p>
+            <div className="flex items-start gap-2.5 p-3 bg-blue-50/80 border border-blue-100 rounded-xl">
+              <Lock className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
+              <p className="text-[10px] text-blue-800 leading-relaxed">
+                <span className="font-bold">Secure &amp; private.</span> We only receive your name and masked Aadhaar. Powered by <a href="https://setu.co" target="_blank" rel="noreferrer" className="font-bold underline underline-offset-2">Setu</a>.
+              </p>
+            </div>
+            <button
+              onClick={handleDigiLockerRedirect}
+              disabled={isRedirecting}
+              className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
+            >
+              {isRedirecting ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Redirecting...</span>
+                </>
+              ) : (
+                <>
+                  <Fingerprint className="w-4 h-4" />
+                  <span>Verify with DigiLocker</span>
+                  <ExternalLink className="w-3.5 h-3.5 opacity-70" />
+                </>
+              )}
+            </button>
+          </div>
+        ) : (
+          <div className="pt-1">
+            <p className="text-xs text-neutral-400">Complete PAN verification first</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
