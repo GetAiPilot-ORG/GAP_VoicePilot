@@ -329,26 +329,27 @@ function normalizeFollowUpDate(raw: any): string {
   const paginatedJobs = campaigns.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
-    <div className="space-y-12 animate-fadeIn pb-24">
+    <div className="space-y-6 animate-fadeIn">
       {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-hairline pb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-hairline pb-6">
         <div>
+          <p className="eyebrow text-neutral-500">// OUTBOUND CALL DISPATCHER</p>
           <h1 className="text-3xl font-bold tracking-tight text-black mt-1">Campaigns</h1>
-          <p className="text-sm text-neutral-600 mt-2">Monitor and manage high-concurrency bulk AI call jobs.</p>
+          <p className="text-sm text-neutral-600">Monitor and manage high-concurrency bulk AI call jobs.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
           <button
             onClick={handleRefresh}
             title="Refresh jobs"
-            className="btn-pill-secondary rounded-full text-xs p-2.5"
+            className="btn-pill-secondary rounded-[10px] text-xs p-2.5"
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
           </button>
 
           <button
             onClick={handleDownloadTemplate}
-            className="btn-pill-secondary rounded-full text-xs px-3.5 sm:px-4 py-2.5"
+            className="btn-pill-secondary rounded-[10px] text-xs px-3.5 sm:px-4 py-2.5"
           >
             <Download className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Download CSV Template</span>
@@ -360,7 +361,7 @@ function normalizeFollowUpDate(raw: any): string {
               setIsUploadModalOpen(true);
               setModalStep("upload");
             }}
-            className="btn-pill-primary rounded-full text-xs px-4 sm:px-5 py-2.5 shadow-sm"
+            className="btn-pill-primary rounded-[10px] text-xs px-4 sm:px-5 py-2.5 shadow-sm"
           >
             <Plus className="h-3.5 w-3.5" />
             Add New Job
@@ -369,28 +370,28 @@ function normalizeFollowUpDate(raw: any): string {
       </div>
 
       {/* KPI Color Block Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        <div className="bg-block-lime rounded-[24px] p-6 text-black border border-black/5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-block-lime rounded-[14px] p-5 text-black border border-black/5">
           <p className="eyebrow text-black/70">TOTAL DISPATCH JOBS</p>
-          <p className="text-4xl font-bold mt-3">{totalJobs}</p>
+          <p className="text-3xl font-bold mt-2">{totalJobs}</p>
         </div>
 
-        <div className="bg-block-mint rounded-[24px] p-6 text-black border border-black/5">
+        <div className="bg-block-mint rounded-[14px] p-5 text-black border border-black/5">
           <p className="eyebrow text-black/70">COMPLETED CAMPAIGNS</p>
-          <p className="text-4xl font-bold mt-3">{completedJobs}</p>
+          <p className="text-3xl font-bold mt-2">{completedJobs}</p>
         </div>
 
-        <div className="bg-block-lilac rounded-[24px] p-6 text-black border border-black/5">
+        <div className="bg-block-lilac rounded-[14px] p-5 text-black border border-black/5">
           <p className="eyebrow text-black/70">IN PROGRESS</p>
-          <p className="text-4xl font-bold mt-3">{inProgressJobs}</p>
+          <p className="text-3xl font-bold mt-2">{inProgressJobs}</p>
         </div>
       </div>
 
       {/* Jobs Table */}
-      <div className="bg-white border border-hairline rounded-[24px] overflow-hidden shadow-sm">
-        <div className="p-5 sm:p-6 border-b border-hairline flex items-center justify-between bg-surface-soft/40">
+      <div className="bg-white border border-hairline rounded-[14px] overflow-hidden shadow-sm">
+        <div className="p-4 sm:p-5 border-b border-hairline flex items-center justify-between bg-surface-soft/40">
           <h2 className="text-base font-bold text-black">Active & Historic Jobs</h2>
-          <span className="eyebrow text-neutral-500 bg-white px-3 py-1 rounded-full border border-hairline text-xs">
+          <span className="eyebrow text-neutral-500 bg-white px-3 py-1 rounded-full border border-hairline text-[10px]">
             {totalJobs} JOBS
           </span>
         </div>
@@ -399,11 +400,11 @@ function normalizeFollowUpDate(raw: any): string {
           <table className="w-full text-left border-collapse min-w-[600px]">
             <thead>
               <tr className="border-b border-hairline bg-surface-soft text-black/70">
-                <th className="py-3.5 px-6 eyebrow text-xs">JOB ID</th>
-                <th className="py-3.5 px-6 eyebrow text-xs">CAMPAIGN NAME</th>
-                <th className="py-3.5 px-6 eyebrow text-xs">CREATED AT</th>
-                <th className="py-3.5 px-6 eyebrow text-xs">STATUS</th>
-                <th className="py-3.5 px-6 eyebrow text-xs text-right">ACTIONS</th>
+                <th className="py-3.5 px-6 eyebrow text-[11px]">JOB ID</th>
+                <th className="py-3.5 px-6 eyebrow text-[11px]">CAMPAIGN NAME</th>
+                <th className="py-3.5 px-6 eyebrow text-[11px]">CREATED AT</th>
+                <th className="py-3.5 px-6 eyebrow text-[11px]">STATUS</th>
+                <th className="py-3.5 px-6 eyebrow text-[11px] text-right">ACTIONS</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-hairline text-xs">
@@ -420,12 +421,12 @@ function normalizeFollowUpDate(raw: any): string {
                   </td>
                   <td className="py-4 px-6">
                     {job.status === "completed" ? (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-block-lime text-black font-semibold text-xs">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-block-lime text-black font-semibold text-[11px]">
                         <CheckCircle2 className="h-3.5 w-3.5 text-emerald-800" />
                         Completed
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-block-lilac text-black font-semibold text-xs">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-block-lilac text-black font-semibold text-[11px]">
                         <Clock className="h-3.5 w-3.5 text-purple-900" />
                         In Progress
                       </span>
@@ -437,7 +438,7 @@ function normalizeFollowUpDate(raw: any): string {
                         setSelectedJobLogs(job);
                         setIsJobLogsModalOpen(true);
                       }}
-                      className="btn-pill-primary rounded-full text-xs px-3.5 py-1.5 shadow-xs hover:scale-[1.02] transition-transform"
+                      className="btn-pill-primary rounded-[8px] text-[11px] px-3.5 py-1.5 shadow-xs hover:scale-[1.02] transition-transform"
                     >
                       View Logs
                     </button>
@@ -461,7 +462,7 @@ function normalizeFollowUpDate(raw: any): string {
       {/* Campaign Job Logs Modal */}
       {isJobLogsModalOpen && selectedJobLogs && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="w-full max-w-md bg-white rounded-[24px] border border-hairline p-6 shadow-[0_10px_35px_rgba(0,0,0,0.06)] space-y-5">
+          <div className="w-full max-w-md bg-white rounded-[16px] border border-hairline p-6 shadow-2xl space-y-5">
             <div className="flex items-center justify-between border-b border-hairline pb-4">
               <div>
                 <div className="flex items-center gap-2">
@@ -482,36 +483,36 @@ function normalizeFollowUpDate(raw: any): string {
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="bg-surface-soft p-3 rounded-[10px] border border-hairline">
-                <p className="text-xs text-neutral-500 font-bold uppercase">Total Contacts</p>
+                <p className="text-[10px] text-neutral-500 font-bold uppercase">Total Contacts</p>
                 <p className="text-xl font-bold text-black mt-0.5">{selectedJobLogs.total_contacts}</p>
               </div>
               <div className="bg-surface-soft p-3 rounded-[10px] border border-hairline">
-                <p className="text-xs text-neutral-500 font-bold uppercase">Status</p>
-                <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 mt-1 capitalize">
+                <p className="text-[10px] text-neutral-500 font-bold uppercase">Status</p>
+                <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 mt-1 capitalize">
                   {selectedJobLogs.status}
                 </span>
               </div>
               <div className="bg-surface-soft p-3 rounded-[10px] border border-hairline">
-                <p className="text-xs text-neutral-500 font-bold uppercase">AI Assistant</p>
+                <p className="text-[10px] text-neutral-500 font-bold uppercase">AI Assistant</p>
                 <p className="font-bold text-black mt-0.5 truncate">{selectedJobLogs.assistant_name || "Voice Assistant"}</p>
               </div>
               <div className="bg-surface-soft p-3 rounded-[10px] border border-hairline">
-                <p className="text-xs text-neutral-500 font-bold uppercase">Dispatched At</p>
-                <p className="font-mono text-neutral-700 mt-0.5 text-xs">{selectedJobLogs.created_at}</p>
+                <p className="text-[10px] text-neutral-500 font-bold uppercase">Dispatched At</p>
+                <p className="font-mono text-neutral-700 mt-0.5 text-[11px]">{selectedJobLogs.created_at}</p>
               </div>
             </div>
 
             <div className="pt-3 border-t border-hairline flex items-center justify-between">
               <button
                 onClick={() => setIsJobLogsModalOpen(false)}
-                className="btn-pill-secondary rounded-full text-xs px-4 py-2"
+                className="btn-pill-secondary rounded-[10px] text-xs px-4 py-2"
               >
                 Close
               </button>
 
               <a
                 href="/dashboard/calls"
-                className="btn-pill-primary rounded-full text-xs px-4 py-2 shadow-sm inline-flex items-center gap-1.5 hover:scale-[1.02] transition-transform"
+                className="btn-pill-primary rounded-[10px] text-xs px-4 py-2 shadow-sm inline-flex items-center gap-1.5 hover:scale-[1.02] transition-transform"
               >
                 <span>View Call Records</span>
                 <ChevronRight className="w-3.5 h-3.5" />
@@ -524,7 +525,7 @@ function normalizeFollowUpDate(raw: any): string {
       {/* Upload Modal */}
       {isUploadModalOpen && modalStep === "upload" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg bg-white rounded-[24px] border border-hairline p-6 shadow-[0_10px_35px_rgba(0,0,0,0.06)] space-y-6">
+          <div className="w-full max-w-lg bg-white rounded-[14px] border border-hairline p-6 shadow-2xl space-y-6">
             <div className="flex items-center justify-between border-b border-hairline pb-4">
               <div className="flex items-center gap-2 font-bold text-base text-black">
                 <Upload className="h-5 w-5 text-black" />
@@ -532,7 +533,7 @@ function normalizeFollowUpDate(raw: any): string {
               </div>
               <button
                 onClick={() => setIsUploadModalOpen(false)}
-                className="p-1 rounded-full hover:bg-surface-soft text-neutral-500"
+                className="p-1 rounded-[8px] hover:bg-surface-soft text-neutral-500"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -546,7 +547,7 @@ function normalizeFollowUpDate(raw: any): string {
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
               onClick={() => document.getElementById("file-upload-input")?.click()}
-              className="cursor-pointer flex flex-col items-center justify-center rounded-[24px] border-2 border-dashed border-hairline bg-surface-soft p-8 text-center hover:border-black/30 transition-colors"
+              className="cursor-pointer flex flex-col items-center justify-center rounded-[10px] border-2 border-dashed border-hairline bg-surface-soft p-8 text-center hover:border-black/30 transition-colors"
             >
               <input
                 id="file-upload-input"
@@ -563,7 +564,7 @@ function normalizeFollowUpDate(raw: any): string {
             </div>
 
             {selectedFile && (
-              <div className="flex items-center justify-between rounded-[16px] bg-block-cream border border-black/10 p-3.5">
+              <div className="flex items-center justify-between rounded-[10px] bg-block-cream border border-black/10 p-3.5">
                 <div className="flex items-center gap-3">
                   <FileSpreadsheet className="h-5 w-5 text-black" />
                   <p className="text-xs font-bold text-black">{selectedFile.name}</p>
@@ -577,14 +578,14 @@ function normalizeFollowUpDate(raw: any): string {
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setIsUploadModalOpen(false)}
-                className="btn-pill-secondary rounded-full text-xs px-4 py-2"
+                className="btn-pill-secondary rounded-[10px] text-xs px-4 py-2"
               >
                 Cancel
               </button>
               <button
                 disabled={!selectedFile}
                 onClick={handleParseAndPreview}
-                className="btn-pill-primary rounded-full text-xs px-5 py-2"
+                className="btn-pill-primary rounded-[10px] text-xs px-5 py-2"
               >
                 Parse & Preview
               </button>
@@ -596,7 +597,7 @@ function normalizeFollowUpDate(raw: any): string {
       {/* Review & Edit Data Modal (1:1 Vomyra Parity) */}
       {isUploadModalOpen && modalStep === "preview" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="w-full max-w-3xl bg-white rounded-[24px] border border-hairline p-6 shadow-[0_10px_35px_rgba(0,0,0,0.06)] space-y-5 max-h-[90vh] overflow-y-auto">
+          <div className="w-full max-w-3xl bg-white rounded-[16px] border border-hairline p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-hairline pb-4">
               <div>
@@ -614,11 +615,11 @@ function normalizeFollowUpDate(raw: any): string {
                 <Phone className="w-4 h-4" />
               </div>
               <div className="flex-1">
-                <label className="text-xs font-bold text-black uppercase tracking-wider block mb-1">Select Phone Number / Caller ID</label>
+                <label className="text-[11px] font-bold text-black uppercase tracking-wider block mb-1">Select Phone Number / Caller ID</label>
                 <select
                   value={selectedAssistantId}
                   onChange={(e) => setSelectedAssistantId(e.target.value)}
-                  className="w-full bg-white border border-hairline rounded-full px-4 py-2 text-xs font-semibold text-black focus:outline-none focus:ring-1 focus:ring-black"
+                  className="w-full bg-white border border-hairline rounded-[8px] px-3 py-1.5 text-xs font-semibold text-black focus:outline-none focus:ring-1 focus:ring-black"
                 >
                   {assistants.map((a) => (
                     <option key={a.id} value={a.id}>
@@ -630,7 +631,7 @@ function normalizeFollowUpDate(raw: any): string {
             </div>
 
             {/* Contacts Table (1:1 Vomyra Column Order: #, Phone Number, Follow Up Date, Name, Details) */}
-            <div className="rounded-[16px] border border-hairline overflow-hidden text-xs shadow-xs">
+            <div className="rounded-[12px] border border-hairline overflow-hidden text-xs shadow-xs">
               <table className="w-full text-left">
                 <thead className="bg-surface-soft font-bold border-b border-hairline text-neutral-700">
                   <tr>
@@ -679,14 +680,14 @@ function normalizeFollowUpDate(raw: any): string {
               <div className="flex gap-3">
                 <button
                   onClick={() => setModalStep("upload")}
-                  className="btn-pill-secondary rounded-full text-xs px-4 py-2"
+                  className="btn-pill-secondary rounded-[10px] text-xs px-4 py-2"
                 >
                   Cancel
                 </button>
                 <button
                   disabled={isProcessing || parsedRows.length === 0}
                   onClick={handleProcessCall}
-                  className="inline-flex items-center gap-2 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-6 py-2.5 shadow-sm transition-all hover:scale-[1.02] disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-[10px] bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-6 py-2.5 shadow-md transition-all hover:scale-[1.02] disabled:opacity-50"
                 >
                   <Phone className="w-3.5 h-3.5" />
                   {isProcessing ? "Processing Calls..." : "Process Call"}

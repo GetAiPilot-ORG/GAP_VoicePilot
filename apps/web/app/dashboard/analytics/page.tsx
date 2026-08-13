@@ -237,7 +237,7 @@ export default async function AnalyticsPage() {
                     <PhoneCall className="h-4 w-4 text-block-lime" />
                   </div>
                   <p className="mt-3 text-4xl font-semibold text-white [letter-spacing:0]">{totalCalls}</p>
-                  <p className="mt-1 text-xs text-white/48">VoicePilot-filtered workspace stream</p>
+                  <p className="mt-1 text-xs text-white/48">Vomyra-filtered workspace stream</p>
                 </div>
 
                 <div className="rounded-[12px] bg-white/[0.08] p-4 ring-1 ring-white/10">

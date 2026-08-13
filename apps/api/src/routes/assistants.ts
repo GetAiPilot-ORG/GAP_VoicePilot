@@ -125,13 +125,29 @@ assistantRouter.post('/', async (req, res) => {
     let targetWorkspaceId = workspaceId;
     let targetCreatedBy = createdBy;
 
+    // Validate if the workspace exists in the database
+    if (targetWorkspaceId) {
+      const { data: wsExists } = await supabase.from('workspaces').select('id').eq('id', targetWorkspaceId).maybeSingle();
+      if (!wsExists) {
+        targetWorkspaceId = null;
+      }
+    }
+
+    // Validate if the user profile exists in the database
+    if (targetCreatedBy) {
+      const { data: profileExists } = await supabase.from('profiles').select('id').eq('id', targetCreatedBy).maybeSingle();
+      if (!profileExists) {
+        targetCreatedBy = null;
+      }
+    }
+
     if (!targetWorkspaceId || !targetCreatedBy) {
       const { data: anyWs } = await supabase.from('workspaces').select('id, owner_id').limit(1).maybeSingle();
       if (anyWs) {
         targetWorkspaceId = targetWorkspaceId || anyWs.id;
         targetCreatedBy = targetCreatedBy || anyWs.owner_id;
       } else {
-        return res.status(400).json({ error: 'workspaceId and createdBy are required' });
+        return res.status(400).json({ error: 'workspaceId and createdBy are required, and no active workspace exists in the database.' });
       }
     }
 
@@ -160,16 +176,11 @@ assistantRouter.post('/', async (req, res) => {
     }).select().single();
 
     if (error) {
-      console.warn('Supabase DB insert error:', error.message);
+      console.error('Supabase DB insert error:', error.message);
+      return res.status(500).json({ error: `Database Save Error: ${error.message}` });
     }
 
-    return res.status(201).json(data || {
-      id: realVomyraId,
-      name: assistantPayload.name || 'Untitled Assistant',
-      provider_resource_id: realVomyraId,
-      config_snapshot: finalSnapshot,
-      status: 'active'
-    });
+    return res.status(201).json(data);
   } catch (error: any) {
     console.error('Error creating assistant:', error);
     res.status(500).json({ error: error.message });

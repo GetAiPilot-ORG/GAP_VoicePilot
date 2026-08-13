@@ -84,7 +84,7 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
   const synthRef = useRef<SpeechSynthesis | null>(null);
   const isPlayingRef = useRef<boolean>(false);
 
-  const [selectedAssistant, setSelectedAssistant] = useState<{ id: string; name: string }>(
+  const [selectedAssistant] = useState<{ id: string; name: string }>(
     assistants[0] || { id: "ast_default", name: "Voice Assistant" }
   );
 
@@ -328,25 +328,8 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
-  // Keyboard shortcut listener for Space to play/pause
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isDetailModalOpen) return;
-      // Allow spacebar scrolling/typing if inside an input/textarea
-      const target = e.target as HTMLElement;
-      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
-
-      if (e.code === "Space") {
-        e.preventDefault();
-        togglePlayAudio();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isDetailModalOpen, togglePlayAudio]);
-
   return (
-    <div className="space-y-12 animate-fadeIn pb-24">
+    <div className="space-y-6 animate-fadeIn pb-12">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-hairline pb-6">
         <div>
@@ -356,28 +339,9 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
         </div>
 
         <div className="flex items-center gap-3">
-          {assistants.length > 1 && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-neutral-500 font-medium hidden sm:inline">Bot:</span>
-              <select
-                value={selectedAssistant.id}
-                onChange={(e) => {
-                  const selected = assistants.find((a) => a.id === e.target.value);
-                  if (selected) setSelectedAssistant(selected);
-                }}
-                className="text-xs font-medium border border-hairline bg-surface-soft rounded-full px-3 py-1.5 outline-none hover:bg-neutral-100 cursor-pointer"
-              >
-                {assistants.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
           <button
             onClick={() => setIsTestModalOpen(true)}
-            className="btn-pill-primary rounded-full text-xs px-4 py-2 shadow-sm flex items-center gap-2 hover:scale-[1.02] transition-transform"
+            className="btn-pill-primary rounded-[10px] text-xs px-4 py-2 shadow-sm flex items-center gap-2 hover:scale-[1.02] transition-transform"
           >
             <PhoneCall className="w-3.5 h-3.5" />
             Quick Test Call
@@ -386,20 +350,20 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
       </div>
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-block-lime rounded-[24px] p-5 text-black border border-black/5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-block-lime rounded-[14px] p-5 text-black border border-black/5">
           <p className="eyebrow text-black/70">TOTAL DISPATCHED</p>
           <p className="text-3xl font-bold mt-2">{totalCalls} Calls</p>
-          <p className="text-xs text-black/70 mt-1">Direct via Voice SIP Pipeline</p>
+          <p className="text-xs text-black/70 mt-1">Direct via Vomyra SIP Pipeline</p>
         </div>
 
-        <div className="bg-block-lilac rounded-[24px] p-5 text-black border border-black/5">
+        <div className="bg-block-lilac rounded-[14px] p-5 text-black border border-black/5">
           <p className="eyebrow text-black/70">COMPLETED CALLS</p>
           <p className="text-3xl font-bold mt-2">{completedCalls} Calls</p>
           <p className="text-xs text-black/70 mt-1">Interactive conversations logged</p>
         </div>
 
-        <div className="bg-block-mint rounded-[24px] p-5 text-black border border-black/5">
+        <div className="bg-block-mint rounded-[14px] p-5 text-black border border-black/5">
           <p className="eyebrow text-black/70">NO ANSWER / BUSY</p>
           <p className="text-3xl font-bold mt-2">{noAnswerCalls} Calls</p>
           <p className="text-xs text-black/70 mt-1">Filtered & scheduled for retry</p>
@@ -407,10 +371,10 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
       </div>
 
       {/* Calls Table (1:1 Vomyra Fields) */}
-      <div className="bg-white border border-hairline rounded-[24px] overflow-hidden shadow-sm">
+      <div className="bg-white border border-hairline rounded-[14px] overflow-hidden shadow-sm">
         <div className="p-5 border-b border-hairline flex items-center justify-between bg-surface-soft/40">
           <h2 className="text-base font-bold text-black">Live Telephony Activity</h2>
-          <span className="eyebrow text-neutral-500 bg-white px-3 py-1 rounded-full border border-hairline text-xs">
+          <span className="eyebrow text-neutral-500 bg-white px-3 py-1 rounded-full border border-hairline text-[10px]">
             {calls.length} TOTAL LOGS
           </span>
         </div>
@@ -419,14 +383,14 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-hairline bg-surface-soft text-black/70">
-                <th className="py-3 px-4 eyebrow text-xs">CALL ID</th>
-                <th className="py-3 px-4 eyebrow text-xs">CALL TIME</th>
-                <th className="py-3 px-4 eyebrow text-xs">CUSTOMER NUMBER</th>
-                <th className="py-3 px-4 eyebrow text-xs">ASSIGNED NUMBER</th>
-                <th className="py-3 px-4 eyebrow text-xs">DURATION</th>
-                <th className="py-3 px-4 eyebrow text-xs">STATUS</th>
-                <th className="py-3 px-4 eyebrow text-xs">DIRECTION</th>
-                <th className="py-3 px-4 eyebrow text-xs">RECORDING & DETAILS</th>
+                <th className="py-3 px-4 eyebrow text-[11px]">CALL ID</th>
+                <th className="py-3 px-4 eyebrow text-[11px]">CALL TIME</th>
+                <th className="py-3 px-4 eyebrow text-[11px]">CUSTOMER NUMBER</th>
+                <th className="py-3 px-4 eyebrow text-[11px]">ASSIGNED NUMBER</th>
+                <th className="py-3 px-4 eyebrow text-[11px]">DURATION</th>
+                <th className="py-3 px-4 eyebrow text-[11px]">STATUS</th>
+                <th className="py-3 px-4 eyebrow text-[11px]">DIRECTION</th>
+                <th className="py-3 px-4 eyebrow text-[11px]">RECORDING & DETAILS</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-hairline text-xs">
@@ -443,7 +407,7 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
                   <td className="py-3.5 px-4 font-medium">{c.duration}</td>
                   <td className="py-3.5 px-4">
                     <span
-                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
                         c.status === "completed"
                           ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                           : "bg-red-50 text-red-700 border border-red-200"
@@ -458,7 +422,7 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
                     </span>
                   </td>
                   <td className="py-3.5 px-4 font-medium text-neutral-600">
-                    <span className="bg-surface-soft px-2 py-1 rounded-[6px] border border-hairline font-mono text-xs">
+                    <span className="bg-surface-soft px-2 py-1 rounded-[6px] border border-hairline font-mono text-[10px]">
                       {c.direction}
                     </span>
                   </td>
@@ -469,7 +433,7 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
                           e.stopPropagation();
                           handleOpenCallDetail(c);
                         }}
-                        className="btn-pill-primary rounded-full text-xs px-3 py-1.5 inline-flex items-center gap-1.5 shadow-xs"
+                        className="btn-pill-primary rounded-[8px] text-[11px] px-3 py-1.5 inline-flex items-center gap-1.5 shadow-xs"
                       >
                         <Play className="w-3 h-3" />
                         Listen & Inspect
@@ -483,19 +447,15 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
         </div>
       </div>
 
+      {/* Call Detail & Audio Inspector Modal (1:1 Vomyra Parity) */}
       {isDetailModalOpen && selectedCall && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="call-detail-title"
-            className="w-full max-w-3xl bg-white rounded-[24px] border border-hairline p-8 shadow-[0_10px_35px_rgba(0,0,0,0.06)] space-y-6 max-h-[90vh] overflow-y-auto"
-          >
+          <div className="w-full max-w-3xl bg-white rounded-[16px] border border-hairline p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
             {/* Modal Top Header */}
             <div className="flex items-center justify-between border-b border-hairline pb-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 id="call-detail-title" className="font-bold text-lg text-black">Call Details</h3>
+                  <h3 className="font-bold text-lg text-black">Call Details</h3>
                   <span className="font-mono text-xs bg-surface-soft border border-hairline px-2 py-0.5 rounded text-neutral-600">
                     {selectedCall.id}
                   </span>
@@ -544,7 +504,7 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
             />
 
             {/* Audio Recording Player Bar */}
-            <div className="bg-surface-soft/80 border border-hairline rounded-[12px] p-4 space-y-3">
+            <div className="bg-surface-soft/80 border border-hairline rounded-[14px] p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center">
@@ -552,7 +512,7 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
                   </div>
                   <div>
                     <p className="text-xs font-bold text-black">Call Audio Recording</p>
-                    <p className="text-xs text-neutral-500 font-mono">
+                    <p className="text-[11px] text-neutral-500 font-mono">
                       {isLoadingAudio ? "Connecting to telephony media stream..." : activeRecordingUrl ? activeRecordingUrl.slice(0, 45) + "..." : "telephony_audio_stream.wav"}
                     </p>
                   </div>
@@ -581,8 +541,6 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
                 <button
                   onClick={togglePlayAudio}
                   disabled={isLoadingAudio}
-                  aria-label={isPlayingAudio ? "Pause audio" : "Play audio"}
-                  aria-keyshortcuts="Space"
                   className="w-10 h-10 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm transition-transform active:scale-95 disabled:opacity-50"
                 >
                   {isLoadingAudio ? (
@@ -603,24 +561,23 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
                     step="0.1"
                     value={currentTime}
                     onChange={handleSeek}
-                    aria-label="Seek audio position"
                     className="w-full accent-emerald-600 cursor-pointer h-1.5 bg-neutral-200 rounded-lg appearance-none"
                   />
                 </div>
               </div>
 
               {audioError && (
-                <p className="text-xs text-amber-600 font-medium">{audioError}</p>
+                <p className="text-[11px] text-amber-600 font-medium">{audioError}</p>
               )}
             </div>
 
             {/* AI Summary Card */}
-            <div className="rounded-[24px] bg-block-cream border border-black/10 p-5 space-y-2">
+            <div className="rounded-[14px] bg-block-cream border border-black/10 p-4 space-y-2">
               <div className="flex items-center gap-2 text-black font-bold text-xs">
                 <Sparkles className="w-4 h-4 text-emerald-600" />
                 <span>AI WhatsApp & Call Summary</span>
               </div>
-              <div className="text-xs text-neutral-700 whitespace-pre-line leading-relaxed bg-white/70 rounded-[12px] p-3 border border-black/5 font-sans">
+              <div className="text-xs text-neutral-700 whitespace-pre-line leading-relaxed bg-white/70 rounded-[10px] p-3 border border-black/5 font-sans">
                 {selectedCall.summary}
               </div>
             </div>
@@ -632,7 +589,7 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
                 Turn-by-Turn Transcription
               </h4>
 
-              <div className="border border-hairline rounded-[16px] p-4 bg-surface-soft/40 max-h-64 overflow-y-auto space-y-3">
+              <div className="border border-hairline rounded-[14px] p-4 bg-surface-soft/40 max-h-64 overflow-y-auto space-y-3">
                 {selectedCall.transcriptMessages.length > 0 ? (
                   selectedCall.transcriptMessages.map((msg, idx) => (
                     <div
@@ -658,7 +615,7 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
                             : "bg-emerald-600 text-white"
                         }`}
                       >
-                        <div className="flex items-center justify-between gap-4 text-xs opacity-70">
+                        <div className="flex items-center justify-between gap-4 text-[10px] opacity-70">
                           <span className="font-bold uppercase tracking-wider flex items-center gap-1">
                             {msg.role === "assistant" ? selectedCall.assistant : "Customer"}
                             {activePlayingIndex === idx && (
@@ -686,21 +643,21 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
             </div>
 
             {/* Call Metadata Grid (16 Vomyra Fields) */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-hairline text-xs">
-              <div className="bg-surface-soft p-3 rounded-[12px] border border-hairline">
-                <p className="text-xs text-neutral-500 font-bold uppercase">Customer Number</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-hairline text-xs">
+              <div className="bg-surface-soft p-2.5 rounded-[8px] border border-hairline">
+                <p className="text-[10px] text-neutral-500 font-bold uppercase">Customer Number</p>
                 <p className="font-mono font-bold text-black mt-0.5">{selectedCall.customerNumber}</p>
               </div>
-              <div className="bg-surface-soft p-3 rounded-[12px] border border-hairline">
-                <p className="text-xs text-neutral-500 font-bold uppercase">Assigned Number</p>
+              <div className="bg-surface-soft p-2.5 rounded-[8px] border border-hairline">
+                <p className="text-[10px] text-neutral-500 font-bold uppercase">Assigned Number</p>
                 <p className="font-mono font-bold text-black mt-0.5">{selectedCall.assignedNumber}</p>
               </div>
-              <div className="bg-surface-soft p-3 rounded-[12px] border border-hairline">
-                <p className="text-xs text-neutral-500 font-bold uppercase">Duration & Latency</p>
+              <div className="bg-surface-soft p-2.5 rounded-[8px] border border-hairline">
+                <p className="text-[10px] text-neutral-500 font-bold uppercase">Duration & Latency</p>
                 <p className="font-mono font-bold text-black mt-0.5">{selectedCall.duration} ({selectedCall.latency})</p>
               </div>
-              <div className="bg-surface-soft p-3 rounded-[12px] border border-hairline">
-                <p className="text-xs text-neutral-500 font-bold uppercase">Estimated Cost</p>
+              <div className="bg-surface-soft p-2.5 rounded-[8px] border border-hairline">
+                <p className="text-[10px] text-neutral-500 font-bold uppercase">Estimated Cost</p>
                 <p className="font-mono font-bold text-emerald-700 mt-0.5">{selectedCall.cost}</p>
               </div>
             </div>

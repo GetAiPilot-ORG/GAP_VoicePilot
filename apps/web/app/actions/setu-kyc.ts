@@ -3,6 +3,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
 
 // ─── Setu Credentials ─────────────────────────────────────────────────────────
 const SETU_BASE_URL = process.env.SETU_BASE_URL || "https://dg-sandbox.setu.co";
@@ -13,33 +14,8 @@ const SETU_DIGILOCKER_PRODUCT_INSTANCE_ID =
   "930f371d-020f-4b6e-971a-898d848c94a3";
 const SETU_PAN_PRODUCT_INSTANCE_ID =
   process.env.SETU_PAN_PRODUCT_INSTANCE_ID ||
-  "YOUR_PAN_PRODUCT_INSTANCE_ID_HERE";
+  "YOUR_PAN_PRODUCT_INSTANCE_ID_HERE"; // From Metabull Universe - PAN product
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-
-type DigiLockerStatusResponse = {
-  status?: string;
-  traceId?: string;
-  digilockerUserDetails?: {
-    digilockerId?: string;
-    email?: string;
-    phoneNumber?: string;
-  };
-};
-
-type AadhaarResponse = {
-  aadhaar?: {
-    name?: string;
-    dob?: string;
-    gender?: string;
-    phone?: string;
-    uid?: string;
-    address?: unknown;
-  };
-  data?: {
-    name?: string;
-  };
-  name?: string;
-};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 async function getAdminClient() {
@@ -164,11 +140,10 @@ export async function initiateDigiLockerKyc() {
 // ─── 2. Handle DigiLocker Callback ────────────────────────────────────────────
 export async function handleDigiLockerCallback(
   setuRequestId: string,
-  successParam: string,
-  scopeParam = ""
+  successParam: string
 ) {
   try {
-    if (successParam.toLowerCase() !== "true") {
+    if (successParam !== "True") {
       return {
         success: false,
         error: "User cancelled or DigiLocker verification failed.",
@@ -196,18 +171,6 @@ export async function handleDigiLockerCallback(
       return { success: true, alreadyApproved: true };
     }
 
-    const scopes = scopeParam
-      .split(/[ +]/)
-      .map((scope) => scope.trim().toUpperCase())
-      .filter(Boolean);
-
-    if (!scopes.includes("ADHAR")) {
-      return {
-        success: false,
-        error: "Aadhaar consent was not granted in DigiLocker. Please select Aadhaar and try again.",
-      };
-    }
-
     // Check DigiLocker status with Setu
     const statusRes = await fetch(
       `${SETU_BASE_URL}/api/digilocker/${setuRequestId}/status`,
@@ -219,61 +182,33 @@ export async function handleDigiLockerCallback(
       return { success: false, error: `Could not verify DigiLocker status with Setu. Setu said: ${errText}` };
     }
 
-    const statusData = (await statusRes.json()) as DigiLockerStatusResponse;
-    const digilockerStatus = statusData.status?.toLowerCase();
-    if (digilockerStatus !== "authenticated") {
-      return {
-        success: false,
-        error: `DigiLocker request is not authenticated yet (status: ${statusData.status || "unknown"}).`,
-      };
+    // Try fetching Aadhaar data for name
+    let aadhaarName: string | null = null;
+    try {
+      const aadhaarRes = await fetch(
+        `${SETU_BASE_URL}/api/digilocker/${setuRequestId}/aadhaar`,
+        { method: "GET", headers: setuHeaders(SETU_DIGILOCKER_PRODUCT_INSTANCE_ID) }
+      );
+      if (aadhaarRes.ok) {
+        const aadhaarData = await aadhaarRes.json();
+        aadhaarName = aadhaarData?.data?.name || aadhaarData?.name || null;
+      }
+    } catch (_) {
+      // Best-effort only
     }
 
-    const aadhaarRes = await fetch(
-      `${SETU_BASE_URL}/api/digilocker/${setuRequestId}/aadhaar`,
-      { method: "GET", headers: setuHeaders(SETU_DIGILOCKER_PRODUCT_INSTANCE_ID) }
-    );
-
-    if (!aadhaarRes.ok) {
-      const aadhaarErr = await aadhaarRes.text();
-      return {
-        success: false,
-        error: `Could not fetch Aadhaar data from DigiLocker. Setu said: ${aadhaarErr}`,
-      };
-    }
-
-    const aadhaarData = (await aadhaarRes.json()) as AadhaarResponse;
-    const aadhaarName =
-      aadhaarData.aadhaar?.name || aadhaarData.data?.name || aadhaarData.name || null;
-
-    if (!aadhaarName) {
-      return {
-        success: false,
-        error: "DigiLocker did not return an Aadhaar name. Please try again.",
-      };
-    }
-
-    // Mark identity as verified, but leave status as 'pending' for manual admin review/assignment.
-    const { error: updateError } = await adminClient
+    // Mark identity as verified, but leave status as 'pending' for manual Admin review/assignment
+    await adminClient
       .from("kyc_requests")
       .update({
         digilocker_verified: true,
+        business_name: aadhaarName || kycRecord.business_name,
         verification_method: "setu_pan_and_digilocker",
-        digilocker_status: digilockerStatus,
-        digilocker_verified_name: aadhaarName,
-        digilocker_verified_at: new Date().toISOString(),
-        digilocker_callback_scope: scopes.join("+"),
-        digilocker_trace_id: statusData.traceId || null,
-        digilocker_user_details: null,
-        aadhaar_data: null,
       })
       .eq("id", kycRecord.id);
 
-    if (updateError) {
-      return {
-        success: false,
-        error: `Database error while updating DigiLocker status: ${updateError.message}`,
-      };
-    }
+    revalidatePath("/dashboard/phone-numbers");
+    revalidatePath("/dashboard/admin/kyc");
 
     return {
       success: true,
@@ -316,15 +251,6 @@ export async function verifyPanWithSetu(pan: string, businessName: string) {
 
     if (!pan || pan.length !== 10) {
       return { success: false, error: "Invalid PAN format." };
-    }
-
-    if (
-      !SETU_CLIENT_ID ||
-      !SETU_CLIENT_SECRET ||
-      !SETU_PAN_PRODUCT_INSTANCE_ID ||
-      SETU_PAN_PRODUCT_INSTANCE_ID === "YOUR_PAN_PRODUCT_INSTANCE_ID_HERE"
-    ) {
-      return { success: false, error: "Setu PAN credentials are not configured." };
     }
 
     // Call Setu PAN Verification API
@@ -373,10 +299,6 @@ export async function verifyPanWithSetu(pan: string, businessName: string) {
         .update({
           business_name: businessName,
           verified_pan_name: verifiedName,
-          pan_verified: true,
-          pan_verified_at: new Date().toISOString(),
-          pan_number_last4: pan.toUpperCase().slice(-4),
-          verification_method: "setu_pan_and_digilocker",
         })
         .eq("id", existingPending.id);
 
@@ -387,12 +309,8 @@ export async function verifyPanWithSetu(pan: string, businessName: string) {
       const { error: insertErr } = await adminClient.from("kyc_requests").insert({
         workspace_id: workspaceId,
         business_name: businessName,
-        use_case: "Phone number provisioning",
         status: "pending",
         verified_pan_name: verifiedName,
-        pan_verified: true,
-        pan_verified_at: new Date().toISOString(),
-        pan_number_last4: pan.toUpperCase().slice(-4),
         verification_method: "setu_pan_and_digilocker",
       });
 

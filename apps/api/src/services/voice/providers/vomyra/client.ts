@@ -39,6 +39,12 @@ export class VomyraClient implements VoiceProvider {
   async createAssistant(input: CreateAssistantInput): Promise<any> {
     const sanitizedInput = { ...input };
 
+    // Strip custom integrations that Vomyra API doesn't support
+    const customIntegrations = ['petpooja', 'gsheets', 'gcal', 'webhook'];
+    for (const key of customIntegrations) {
+      delete sanitizedInput[key];
+    }
+
     if (sanitizedInput.voice) {
       const voiceObj = { ...sanitizedInput.voice };
       if (!voiceObj.tts_model || voiceObj.tts_model === null) {
@@ -63,6 +69,13 @@ export class VomyraClient implements VoiceProvider {
 
   async updateAssistant(id: string, input: any): Promise<any> {
     const sanitizedInput = { ...input };
+
+    // Strip custom integrations that Vomyra API doesn't support
+    const customIntegrations = ['petpooja', 'gsheets', 'gcal', 'webhook'];
+    for (const key of customIntegrations) {
+      delete sanitizedInput[key];
+    }
+
     if (sanitizedInput.voice && (sanitizedInput.voice.tts_model === null || !sanitizedInput.voice.tts_model)) {
       delete sanitizedInput.voice.tts_model;
     }

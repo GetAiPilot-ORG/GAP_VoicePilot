@@ -17,15 +17,11 @@ import {
   Copy,
   Zap,
   Inbox,
+  Activity,
   ExternalLink,
   Lock,
   Fingerprint,
-  RadioTower,
-  ClipboardCheck,
-  Landmark,
-  BadgeCheck,
-  Clock3,
-  Download as DownloadIcon
+  Download
 } from "lucide-react";
 
 export interface PhoneNumberRecord {
@@ -62,78 +58,6 @@ interface PhoneNumbersClientProps {
   initialKyc: KycRecord | null;
   assistants: AssistantOption[];
   workspaceBalance: number;
-}
-
-const kycTone = {
-  pending: {
-    label: "Pending review",
-    shell: "bg-[#fff7e6] text-amber-950 border-amber-200",
-    dot: "bg-amber-500",
-  },
-  approved: {
-    label: "Approved",
-    shell: "bg-emerald-50 text-emerald-950 border-emerald-200",
-    dot: "bg-emerald-500",
-  },
-  rejected: {
-    label: "Rejected",
-    shell: "bg-rose-50 text-rose-950 border-rose-200",
-    dot: "bg-rose-500",
-  },
-} as const;
-
-function KycStatusPill({ status }: { status?: KycRecord["status"] | null }) {
-  if (!status) {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-white px-2.5 py-1 text-xs font-semibold text-neutral-600">
-        <span className="h-1.5 w-1.5 rounded-full bg-neutral-400" />
-        Not started
-      </span>
-    );
-  }
-
-  const tone = kycTone[status];
-  return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${tone.shell}`}>
-      <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
-      {tone.label}
-    </span>
-  );
-}
-
-function MetricTile({
-  label,
-  value,
-  detail,
-  icon: Icon,
-  tone = "neutral",
-}: {
-  label: string;
-  value: string | number;
-  detail: string;
-  icon: React.ComponentType<{ className?: string }>;
-  tone?: "neutral" | "mint" | "lilac";
-}) {
-  const tones = {
-    neutral: "bg-white text-neutral-950 border-black/10",
-    mint: "bg-block-mint/50 text-emerald-950 border-emerald-200",
-    lilac: "bg-block-lilac/50 text-purple-950 border-purple-200",
-  };
-
-  return (
-    <div className={`rounded-[24px] border p-5 ${tones[tone]}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-bold uppercase text-current/55">{label}</p>
-          <p className="mt-2 text-3xl font-black tracking-tight">{value}</p>
-        </div>
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-white/70 text-black">
-          <Icon className="h-4 w-4" />
-        </span>
-      </div>
-      <p className="mt-3 text-xs font-medium text-current/65">{detail}</p>
-    </div>
-  );
 }
 
 export function PhoneNumbersClient({
@@ -229,10 +153,10 @@ export function PhoneNumbersClient({
   const unassignedMyNumbers = totalMyNumbers - activeMyNumbers;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-12 pb-24 animate-fadeIn">
+    <div className="space-y-8 animate-fadeIn max-w-7xl mx-auto pb-12">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className={`flex items-center justify-between rounded-[14px] border px-4 py-3 text-xs font-semibold shadow-[0_18px_45px_rgba(0,0,0,0.08)] backdrop-blur-sm transition-all duration-200 ${
+        <div className={`flex items-center justify-between rounded-xl border p-4 text-xs font-semibold shadow-lg backdrop-blur-sm transition-all duration-200 ${
           toastMessage.type === 'success' 
             ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-950'
             : toastMessage.type === 'info'
@@ -241,7 +165,7 @@ export function PhoneNumbersClient({
         }`}>
           <div className="flex items-center gap-3">
             {toastMessage.type === 'success' && <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />}
-            {toastMessage.type === 'info' && <DownloadIcon className="h-5 w-5 text-indigo-600 shrink-0" />}
+            {toastMessage.type === 'info' && <Download className="h-5 w-5 text-indigo-600 shrink-0" />}
             {toastMessage.type === 'error' && <AlertCircle className="h-5 w-5 text-rose-600 shrink-0" />}
             <span>{toastMessage.text}</span>
           </div>
@@ -252,80 +176,66 @@ export function PhoneNumbersClient({
       )}
 
       {/* Header Bar */}
-      <div className="overflow-hidden rounded-[24px] border border-black/10 bg-white shadow-[0_10px_35px_rgba(0,0,0,0.06)]">
-        <div className="grid gap-0 lg:grid-cols-[1fr_360px]">
-          <div className="p-5 sm:p-7">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-black px-3 py-1 text-xs font-bold text-white">
-                <RadioTower className="h-3.5 w-3.5" />
-                Live Gateway
-              </span>
-              <KycStatusPill status={kycStatus?.status} />
-            </div>
-            <div className="mt-5 max-w-2xl">
-              <h1 className="text-3xl font-black tracking-tight text-neutral-950 sm:text-4xl">Phone Numbers</h1>
-              <p className="mt-2 text-sm leading-6 text-neutral-600">
-                Manage verified phone lines, bind assistants, and complete business KYC before provisioning new numbers.
-              </p>
-            </div>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 border-b border-hairline pb-6">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="eyebrow text-neutral-500">// PHONE NUMBERS</span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              Live Gateway
+            </span>
           </div>
+          <h1 className="text-3xl font-extrabold tracking-tight text-neutral-900">Phone Numbers</h1>
+          <p className="text-sm text-neutral-600 max-w-xl">
+            Bind virtual phone lines directly to your GAP AI Voice Assistants for instant inbound & outbound calling.
+          </p>
+        </div>
 
-          <div className="border-t border-black/10 bg-block-lime/60 p-5 sm:p-7 lg:border-l lg:border-t-0">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-bold uppercase text-black/55">AI Calling Balance</p>
-                <p className="mt-2 font-mono text-3xl font-black tracking-tight text-black">
-                  {Math.floor(balance).toLocaleString()}
-                  <span className="ml-2 font-sans text-sm font-bold text-black/55">mins</span>
-                </p>
-              </div>
-              <span className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-white text-black shadow-sm">
-                <Wallet className="h-5 w-5" />
-              </span>
+        {/* Balance & API Fetch Button */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2.5 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 px-4 py-2.5 rounded-xl text-xs shadow-xs">
+            <div className="w-6 h-6 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-700 font-bold">
+              <Wallet className="h-3.5 w-3.5" />
             </div>
-            <div className="mt-5 grid grid-cols-2 gap-2 text-xs font-semibold text-black/65">
-              <div className="rounded-[12px] bg-white/70 px-3 py-2">
-                <span className="block text-black/45">Lines</span>
-                <span className="mt-0.5 block text-black">{totalMyNumbers}</span>
-              </div>
-              <div className="rounded-[12px] bg-white/70 px-3 py-2">
-                <span className="block text-black/45">Bound</span>
-                <span className="mt-0.5 block text-black">{activeMyNumbers}</span>
-              </div>
+            <div>
+              <span className="text-neutral-500 text-[11px] block leading-none">AI Calling Balance</span>
+              <span className="font-bold text-neutral-900 font-mono text-sm leading-tight block mt-0.5">
+                {Math.floor(balance).toLocaleString()} <span className="text-xs font-sans font-medium text-neutral-500">Mins</span>
+              </span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Navigation Sub-Tabs */}
-      <div className="grid gap-2 rounded-[24px] border border-black/10 bg-surface-soft p-1.5 sm:inline-grid sm:grid-cols-2">
+      <div className="inline-flex p-1 bg-surface-soft border border-hairline rounded-xl gap-1">
         <button
           onClick={() => setActiveTab("my-numbers")}
-          className={`flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-xs font-bold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
             activeTab === "my-numbers"
-              ? "bg-white text-black shadow-sm"
-              : "text-neutral-600 hover:bg-white/60 hover:text-black"
+              ? "bg-white text-black shadow-sm border border-black/5"
+              : "text-neutral-600 hover:text-black hover:bg-white/50"
           }`}
         >
           <Phone className="h-3.5 w-3.5" />
           <span>My Numbers</span>
-          <span className={`px-1.5 py-0.2 rounded-md text-xs ${activeTab === 'my-numbers' ? 'bg-neutral-900 text-white' : 'bg-neutral-200 text-neutral-700'}`}>
+          <span className={`px-1.5 py-0.2 rounded-md text-[10px] ${activeTab === 'my-numbers' ? 'bg-neutral-900 text-white' : 'bg-neutral-200 text-neutral-700'}`}>
             {totalMyNumbers}
           </span>
         </button>
 
         <button
           onClick={() => setActiveTab("buy-numbers")}
-          className={`flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-xs font-bold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
             activeTab === "buy-numbers"
-              ? "bg-white text-black shadow-sm"
-              : "text-neutral-600 hover:bg-white/60 hover:text-black"
+              ? "bg-white text-black shadow-sm border border-black/5"
+              : "text-neutral-600 hover:text-black hover:bg-white/50"
           }`}
         >
-          <ShieldCheck className="h-3.5 w-3.5" />
+          <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
           <span>Request Number (KYC)</span>
           {kycStatus && (
-            <span className={`px-1.5 py-0.2 rounded-md text-xs uppercase font-mono font-semibold ${
+            <span className={`px-1.5 py-0.2 rounded-md text-[10px] uppercase font-mono font-semibold ${
               kycStatus.status === 'approved' ? 'bg-emerald-100 text-emerald-800' :
               kycStatus.status === 'pending' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'
             }`}>
@@ -339,79 +249,96 @@ export function PhoneNumbersClient({
       {activeTab === "my-numbers" && (
         <div className="space-y-6">
           {/* Status Metrics Cards */}
-          <div className="grid gap-3 sm:grid-cols-3">
-            <MetricTile
-              label="Purchased lines"
-              value={totalMyNumbers}
-              detail="Numbers available in this workspace."
-              icon={Phone}
-            />
-            <MetricTile
-              label="Active routes"
-              value={activeMyNumbers}
-              detail="Bound to assistant call flows."
-              icon={Zap}
-              tone="mint"
-            />
-            <MetricTile
-              label="Ready pool"
-              value={unassignedMyNumbers}
-              detail="Waiting for assistant assignment."
-              icon={Inbox}
-              tone="lilac"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Total Numbers */}
+            <div className="p-5 rounded-2xl bg-white border border-hairline shadow-sm hover:border-black/20 transition-all flex flex-col justify-between group">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">Purchased Lines</span>
+                <div className="w-8 h-8 rounded-xl bg-neutral-100 group-hover:bg-neutral-900 group-hover:text-white transition-colors flex items-center justify-center text-neutral-700">
+                  <Phone className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-4">
+                <span className="text-3xl font-black tracking-tight text-neutral-900">{totalMyNumbers}</span>
+                <p className="text-[11px] text-neutral-500 mt-1">Total active phone lines in pool</p>
+              </div>
+            </div>
+
+            {/* Active / Assigned */}
+            <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-50/80 to-emerald-100/30 border border-emerald-200/80 shadow-sm hover:border-emerald-300 transition-all flex flex-col justify-between group">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">Active / Assigned</span>
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 group-hover:bg-emerald-600 group-hover:text-white transition-colors flex items-center justify-center text-emerald-700">
+                  <Zap className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-4">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-black tracking-tight text-emerald-950">{activeMyNumbers}</span>
+                  {activeMyNumbers > 0 && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-200/60 text-emerald-900">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                      Bound & Ready
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-emerald-800/80 mt-1">Bound to AI Voice Assistant bots</p>
+              </div>
+            </div>
+
+            {/* Unassigned Pool */}
+            <div className="p-5 rounded-2xl bg-gradient-to-br from-purple-50/80 to-purple-100/30 border border-purple-200/80 shadow-sm hover:border-purple-300 transition-all flex flex-col justify-between group">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-purple-800">Unassigned Pool</span>
+                <div className="w-8 h-8 rounded-xl bg-purple-100 group-hover:bg-purple-600 group-hover:text-white transition-colors flex items-center justify-center text-purple-700">
+                  <Inbox className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-4">
+                <span className="text-3xl font-black tracking-tight text-purple-950">{unassignedMyNumbers}</span>
+                <p className="text-[11px] text-purple-800/80 mt-1">Available lines ready for assignment</p>
+              </div>
+            </div>
           </div>
 
           {/* Numbers Table Card */}
-          <div className="overflow-hidden rounded-[24px] border border-black/10 bg-white shadow-sm">
+          <div className="bg-white border border-hairline rounded-2xl overflow-hidden shadow-sm">
             {myNumbers.length === 0 ? (
-              <div className="p-8 sm:p-14">
+              <div className="p-10 sm:p-16 text-center space-y-4">
                 {(!kycStatus || kycStatus.status !== 'approved') ? (
-                  <div className="mx-auto grid max-w-3xl gap-6 md:grid-cols-[220px_1fr] md:items-center">
-                    <div className="rounded-[24px] bg-block-mint/70 p-5 text-black">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-[12px] bg-white">
-                        <ShieldCheck className="h-5 w-5" />
-                      </div>
-                      <p className="mt-8 text-xs font-bold uppercase text-black/55">Provisioning locked</p>
-                      <p className="mt-1 text-2xl font-black tracking-tight">KYC first</p>
+                  <div className="max-w-md mx-auto space-y-4">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-inner">
+                      <ShieldCheck className="w-6 h-6" />
                     </div>
-                    <div className="space-y-4 text-left">
-                      <div>
-                        <h3 className="text-xl font-black tracking-tight text-neutral-950">Verify your business to request numbers</h3>
-                        <p className="mt-2 text-sm leading-6 text-neutral-600">
-                          Complete PAN verification and DigiLocker authentication before a dedicated phone line is assigned.
-                        </p>
-                      </div>
-                      <div className="grid gap-2 text-xs font-semibold text-neutral-700 sm:grid-cols-2">
-                        <div className="rounded-[12px] border border-black/10 bg-surface-soft px-3 py-2">
-                          <span className="block text-neutral-500">Step 1</span>
-                          PAN verification
-                        </div>
-                        <div className="rounded-[12px] border border-black/10 bg-surface-soft px-3 py-2">
-                          <span className="block text-neutral-500">Step 2</span>
-                          DigiLocker Aadhaar consent
-                        </div>
-                      </div>
+                    <div className="space-y-1">
+                      <h3 className="text-base font-bold text-neutral-900">Identity Verification Required</h3>
+                      <p className="text-xs text-neutral-500 leading-relaxed">
+                        To purchase or assign virtual phone numbers to your workspace assistants, please complete your quick business KYC submission.
+                      </p>
+                    </div>
+                    <div className="pt-2">
                       <button
                         onClick={() => setActiveTab("buy-numbers")}
-                        className="inline-flex items-center gap-2 rounded-full bg-black px-5 py-2.5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2"
+                        className="btn-pill-primary bg-neutral-900 hover:bg-black text-white text-xs px-5 py-2.5 inline-flex items-center gap-2 rounded-xl shadow-md transition-all"
                       >
-                        <ShieldCheck className="h-4 w-4 text-block-lime" />
-                        <span>Start KYC Verification</span>
-                        <ArrowRight className="h-3.5 w-3.5 opacity-70" />
+                        <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                        <span>Complete KYC Verification</span>
+                        <ArrowRight className="w-3.5 h-3.5 opacity-70" />
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="mx-auto max-w-md space-y-4 text-center">
-                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[16px] bg-surface-soft text-neutral-700">
-                      <Phone className="h-6 w-6" />
+                  <div className="max-w-md mx-auto space-y-4">
+                    <div className="w-12 h-12 rounded-2xl bg-neutral-100 text-neutral-600 flex items-center justify-center mx-auto">
+                      <Phone className="w-6 h-6" />
                     </div>
-                    <div>
-                      <h3 className="text-lg font-black tracking-tight text-neutral-950">No phone numbers yet</h3>
-                      <p className="mt-2 text-sm leading-6 text-neutral-600">
-                        Your KYC is approved. The assigned line will appear here after admin provisioning.
+                    <div className="space-y-1">
+                      <h3 className="text-base font-bold text-neutral-900">No Phone Numbers Found</h3>
+                      <p className="text-xs text-neutral-500 leading-relaxed">
+                        Your KYC is approved! Please request a new line or contact support.
                       </p>
+                    </div>
+                    <div className="pt-2 flex items-center justify-center gap-3">
                     </div>
                   </div>
                 )}
@@ -419,52 +346,52 @@ export function PhoneNumbersClient({
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs min-w-[700px]">
-                  <thead className="border-b border-black/10 bg-surface-soft text-neutral-500">
+                  <thead className="bg-surface-soft/80 text-neutral-500 uppercase tracking-wider font-mono font-semibold border-b border-hairline">
                     <tr>
-                      <th className="px-5 py-3 text-xs font-bold uppercase">Phone Line</th>
-                      <th className="px-5 py-3 text-xs font-bold uppercase">Provider</th>
-                      <th className="px-5 py-3 text-xs font-bold uppercase">Assigned AI Assistant</th>
-                      <th className="px-5 py-3 text-xs font-bold uppercase">Status</th>
-                      <th className="px-5 py-3 text-right text-xs font-bold uppercase">Action</th>
+                      <th className="px-6 py-4">Phone Line</th>
+                      <th className="px-6 py-4">Provider</th>
+                      <th className="px-6 py-4">Assigned AI Assistant</th>
+                      <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4 text-right">Quick Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-black/10">
+                  <tbody className="divide-y divide-hairline">
                     {myNumbers.map((item) => (
-                      <tr key={item.id} className="group transition-colors hover:bg-surface-soft/70">
+                      <tr key={item.id} className="hover:bg-neutral-50/80 transition-colors group">
                         {/* Phone Number */}
-                        <td className="px-5 py-4">
+                        <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-black text-white transition-colors">
-                              <Phone className="h-3.5 w-3.5" />
+                            <div className="w-7 h-7 rounded-lg bg-neutral-100 group-hover:bg-black group-hover:text-white text-neutral-700 transition-colors flex items-center justify-center shrink-0">
+                              <Phone className="w-3.5 h-3.5" />
                             </div>
-                            <span className="font-mono text-sm font-black tracking-tight text-neutral-950">
+                            <span className="font-mono font-bold text-neutral-900 text-sm tracking-tight">
                               {item.phone_number}
                             </span>
                             <button
                               type="button"
                               onClick={() => handleCopyNumber(item.phone_number, item.id)}
                               title="Copy Phone Number"
-                              className="ml-1 rounded-[8px] p-1 text-neutral-400 transition-colors hover:bg-white hover:text-black focus:outline-none focus:ring-2 focus:ring-black/20"
+                              className="p-1 rounded-md text-neutral-400 hover:text-black hover:bg-neutral-200/50 transition-colors ml-1"
                             >
                               {copiedId === item.id ? (
-                                <Check className="h-3.5 w-3.5 text-emerald-600" />
+                                <Check className="w-3.5 h-3.5 text-emerald-600" />
                               ) : (
-                                <Copy className="h-3.5 w-3.5" />
+                                <Copy className="w-3.5 h-3.5" />
                               )}
                             </button>
                           </div>
                         </td>
 
                         {/* Provider */}
-                        <td className="px-5 py-4">
-                          <span className="inline-flex items-center gap-1.5 rounded-[10px] border border-black/10 bg-white px-2.5 py-1 text-xs font-bold uppercase text-neutral-800">
-                            <Globe className="h-3 w-3 text-neutral-400" />
+                        <td className="px-6 py-4">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold uppercase bg-surface-soft border border-hairline text-neutral-800">
+                            <Globe className="w-3 h-3 text-neutral-400" />
                             {item.provider}
                           </span>
                         </td>
 
                         {/* Assigned Assistant Dropdown */}
-                        <td className="px-5 py-4">
+                        <td className="px-6 py-4">
                           <AssistantSelect
                             value={item.assigned_assistant_id || "none"}
                             assistants={assistants}
@@ -473,32 +400,32 @@ export function PhoneNumbersClient({
                         </td>
 
                         {/* Status Tag */}
-                        <td className="px-5 py-4">
+                        <td className="px-6 py-4">
                           {item.assigned_assistant_id ? (
-                            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold uppercase text-emerald-800">
-                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-emerald-100/80 text-emerald-800 border border-emerald-200">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
                               Active
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-neutral-100 px-2.5 py-1 text-xs font-bold uppercase text-neutral-600">
-                              <span className="h-1.5 w-1.5 rounded-full bg-neutral-400"></span>
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-neutral-100 text-neutral-600 border border-hairline">
+                              <span className="w-1.5 h-1.5 rounded-full bg-neutral-400"></span>
                               Unassigned
                             </span>
                           )}
                         </td>
 
                         {/* Action */}
-                        <td className="px-5 py-4 text-right">
+                        <td className="px-6 py-4 text-right">
                           {item.assigned_assistant_id ? (
                             <button
                               onClick={() => handleAssignAssistant(item.id, "none")}
-                              className="inline-flex items-center gap-1 rounded-full border border-transparent px-3 py-1.5 text-xs font-semibold text-rose-600 transition-all hover:border-rose-200 hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-200"
+                              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-all inline-flex items-center gap-1"
                             >
-                              <UserX className="h-3.5 w-3.5" />
+                              <UserX className="w-3.5 h-3.5" />
                               <span>Unassign</span>
                             </button>
                           ) : (
-                            <span className="text-xs text-neutral-400 font-medium">No actions</span>
+                            <span className="text-[11px] text-neutral-400 font-medium">No actions</span>
                           )}
                         </td>
                       </tr>
@@ -513,70 +440,54 @@ export function PhoneNumbersClient({
 
       {/* TAB 2: REQUEST NUMBER KYC */}
       {activeTab === "buy-numbers" && (
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="max-w-2xl">
           {kycStatus ? (
-            <div className="rounded-[24px] border border-black/10 bg-white p-6 shadow-[0_10px_35px_rgba(0,0,0,0.06)] sm:p-8">
+            <div className="p-8 bg-white border border-hairline rounded-2xl text-center space-y-5 shadow-sm">
               {kycStatus.status === 'pending' && (
-                <div className="grid gap-6 md:grid-cols-[180px_1fr] md:items-center">
-                  <div className="rounded-[24px] bg-[#fff7e6] p-5 text-amber-950">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-white text-amber-700 shadow-sm">
-                      <Clock3 className="h-5 w-5" />
-                    </div>
-                    <p className="mt-10 text-xs font-bold uppercase text-amber-900/55">Review queue</p>
-                    <p className="mt-1 text-2xl font-black tracking-tight">Pending</p>
+                <div className="space-y-4">
+                  <div className="w-16 h-16 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto shadow-inner">
+                    <ShieldCheck className="w-8 h-8 animate-pulse" />
                   </div>
-                  <div>
-                    <KycStatusPill status="pending" />
-                    <h3 className="mt-4 text-2xl font-black tracking-tight text-neutral-950">KYC verification in progress</h3>
-                    <p className="mt-2 max-w-xl text-sm leading-6 text-neutral-600">
-                      Your PAN and DigiLocker verification are under review by our admin team. Dedicated phone lines will be provisioned upon approval.
+                  <div className="space-y-1">
+                    <h3 className="text-xl font-bold text-neutral-900">KYC Verification in Progress</h3>
+                    <p className="text-xs text-neutral-600 max-w-md mx-auto leading-relaxed">
+                      Your identity document and business details are currently under review by our admin team. Dedicated phone lines will be provisioned upon approval.
                     </p>
-                    <div className="mt-5 grid gap-2 text-xs font-semibold text-neutral-700 sm:grid-cols-3">
-                      <div className="rounded-[12px] bg-surface-soft px-3 py-2">PAN checked</div>
-                      <div className="rounded-[12px] bg-surface-soft px-3 py-2">Aadhaar consented</div>
-                      <div className="rounded-[12px] bg-surface-soft px-3 py-2">Admin assigning line</div>
-                    </div>
+                  </div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-xs font-mono font-semibold">
+                    <Activity className="w-3.5 h-3.5 animate-spin text-amber-600" />
+                    <span>Status: Pending Review</span>
                   </div>
                 </div>
               )}
               {kycStatus.status === 'approved' && (
-                <div className="grid gap-6 md:grid-cols-[180px_1fr] md:items-center">
-                  <div className="rounded-[24px] bg-block-mint/70 p-5 text-emerald-950">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-white text-emerald-700 shadow-sm">
-                      <BadgeCheck className="h-5 w-5" />
-                    </div>
-                    <p className="mt-10 text-xs font-bold uppercase text-emerald-900/55">Verified</p>
-                    <p className="mt-1 text-2xl font-black tracking-tight">Approved</p>
+                <div className="space-y-4">
+                  <div className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-inner">
+                    <CheckCircle2 className="w-8 h-8" />
                   </div>
-                  <div>
-                    <KycStatusPill status="approved" />
-                    <h3 className="mt-4 text-2xl font-black tracking-tight text-neutral-950">KYC verification approved</h3>
-                    <p className="mt-2 max-w-xl text-sm leading-6 text-neutral-600">
+                  <div className="space-y-1">
+                    <h3 className="text-xl font-bold text-neutral-900">KYC Verification Approved</h3>
+                    <p className="text-xs text-neutral-600 max-w-md mx-auto leading-relaxed">
                       Your business identity is fully verified! You can sync or manage your assigned phone numbers in the "My Numbers" tab.
                     </p>
-                    <button
-                      onClick={() => setActiveTab("my-numbers")}
-                      className="mt-5 inline-flex items-center gap-2 rounded-full bg-black px-5 py-2.5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2"
-                    >
-                      <Phone className="h-3.5 w-3.5" />
-                      <span>Go to My Numbers</span>
-                    </button>
                   </div>
+                  <button
+                    onClick={() => setActiveTab("my-numbers")}
+                    className="btn-pill-primary bg-neutral-900 hover:bg-black text-white text-xs px-5 py-2.5 inline-flex items-center gap-2 rounded-xl shadow-sm"
+                  >
+                    <Phone className="w-3.5 h-3.5" />
+                    <span>Go to My Numbers</span>
+                  </button>
                 </div>
               )}
               {kycStatus.status === 'rejected' && (
-                <div className="grid gap-6 md:grid-cols-[180px_1fr] md:items-center">
-                  <div className="rounded-[24px] bg-rose-50 p-5 text-rose-950">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-white text-rose-700 shadow-sm">
-                      <AlertCircle className="h-5 w-5" />
-                    </div>
-                    <p className="mt-10 text-xs font-bold uppercase text-rose-900/55">Needs support</p>
-                    <p className="mt-1 text-2xl font-black tracking-tight">Rejected</p>
+                <div className="space-y-4">
+                  <div className="w-16 h-16 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto shadow-inner">
+                    <AlertCircle className="w-8 h-8" />
                   </div>
-                  <div>
-                    <KycStatusPill status="rejected" />
-                    <h3 className="mt-4 text-2xl font-black tracking-tight text-neutral-950">Verification rejected</h3>
-                    <p className="mt-2 max-w-xl text-sm leading-6 text-neutral-600">
+                  <div className="space-y-1">
+                    <h3 className="text-xl font-bold text-neutral-900">Verification Rejected</h3>
+                    <p className="text-xs text-neutral-600 max-w-md mx-auto leading-relaxed">
                       Unfortunately, your identity verification request could not be processed. Please reach out to support for assistance.
                     </p>
                   </div>
@@ -586,32 +497,6 @@ export function PhoneNumbersClient({
           ) : (
             <KycDigiLockerPanel />
           )}
-          <div className="rounded-[24px] border border-black/10 bg-black p-6 text-white shadow-[0_10px_35px_rgba(0,0,0,0.06)]">
-            <div className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-white text-black">
-              <ClipboardCheck className="h-4 w-4" />
-            </div>
-            <h3 className="mt-5 text-xl font-black tracking-tight">Verification checklist</h3>
-            <div className="mt-5 space-y-3 text-sm">
-              <div className="flex items-center gap-3">
-                <span className={`flex h-6 w-6 items-center justify-center rounded-full ${kycStatus ? "bg-block-lime text-black" : "bg-white/10 text-white/55"}`}>
-                  <Check className="h-3.5 w-3.5" />
-                </span>
-                <span className="text-white/80">PAN name verification</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className={`flex h-6 w-6 items-center justify-center rounded-full ${kycStatus ? "bg-block-lime text-black" : "bg-white/10 text-white/55"}`}>
-                  <Fingerprint className="h-3.5 w-3.5" />
-                </span>
-                <span className="text-white/80">DigiLocker Aadhaar consent</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className={`flex h-6 w-6 items-center justify-center rounded-full ${kycStatus?.status === "approved" ? "bg-block-lime text-black" : "bg-white/10 text-white/55"}`}>
-                  <Phone className="h-3.5 w-3.5" />
-                </span>
-                <span className="text-white/80">Phone line assignment</span>
-              </div>
-            </div>
-          </div>
         </div>
       )}
     </div>
@@ -627,15 +512,10 @@ function KycDigiLockerPanel() {
   const [isRedirecting, setIsRedirecting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [verifiedPanName, setVerifiedPanName] = React.useState<string | null>(null);
-  const [panConsent, setPanConsent] = React.useState(false);
 
   const handleVerifyPan = async () => {
     if (!pan || pan.length !== 10 || !businessName) {
       setError("Please enter Business Name and a valid 10-character PAN.");
-      return;
-    }
-    if (!panConsent) {
-      setError("Please provide consent to verify this PAN for business KYC.");
       return;
     }
     setIsVerifyingPan(true);
@@ -675,153 +555,127 @@ function KycDigiLockerPanel() {
   };
 
   return (
-    <div className="overflow-hidden rounded-[24px] border border-black/10 bg-white shadow-[0_10px_35px_rgba(0,0,0,0.06)]">
-      <div className="border-b border-black/10 bg-surface-soft p-5 sm:p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-black text-white">
-              <ShieldCheck className="h-4 w-4" />
-            </div>
-            <h3 className="mt-4 text-2xl font-black tracking-tight text-neutral-950">
-              Business KYC verification
-            </h3>
-            <p className="mt-2 max-w-xl text-sm leading-6 text-neutral-600">
-              Verify PAN first, then complete Aadhaar authentication with DigiLocker.
-            </p>
+    <div className="space-y-6 bg-white border border-hairline rounded-2xl p-6 sm:p-8 shadow-sm max-w-lg mx-auto">
+      {/* Header */}
+      <div className="space-y-2 border-b border-hairline pb-5">
+        <div className="flex items-center gap-2 mb-1">
+          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
+            <ShieldCheck className="w-4 h-4 text-white" />
           </div>
-          <div className="flex min-w-[172px] rounded-full border border-black/10 bg-white p-1 text-xs font-bold">
-            <span className={`flex flex-1 items-center justify-center rounded-full px-3 py-1.5 ${step === 1 ? "bg-black text-white" : "text-neutral-500"}`}>
-              PAN
-            </span>
-            <span className={`flex flex-1 items-center justify-center rounded-full px-3 py-1.5 ${step === 2 ? "bg-black text-white" : "text-neutral-500"}`}>
-              DigiLocker
-            </span>
-          </div>
+          <h3 className="text-lg font-bold text-neutral-900">
+            Business KYC Verification
+          </h3>
         </div>
+        <p className="text-xs text-neutral-500 leading-relaxed">
+          Complete our automated 2-step KYC to provision virtual phone numbers instantly.
+        </p>
       </div>
 
-      <div className="space-y-4 p-5 sm:p-6">
-        {error && (
-          <div className="flex items-start gap-3 rounded-[14px] border border-rose-200 bg-rose-50 p-3 text-rose-800">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <p className="text-xs font-semibold leading-5">{error}</p>
+      {/* Error */}
+      {error && (
+        <div className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-200 rounded-xl">
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+          <p className="text-xs text-rose-700 font-medium">{error}</p>
+        </div>
+      )}
+
+      {/* Step 1: PAN Verification */}
+      <div className={`space-y-4 p-5 rounded-2xl border transition-all ${step === 1 ? 'border-indigo-200 bg-indigo-50/30' : 'border-hairline bg-surface-soft/50 opacity-60'}`}>
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-sm font-bold text-neutral-900 flex items-center gap-2">
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] text-white ${step === 1 ? 'bg-indigo-600' : 'bg-emerald-500'}`}>
+              {step > 1 ? <Check className="w-3 h-3" /> : '1'}
+            </span>
+            PAN Verification
+          </h4>
+          {step > 1 && (
+            <span className="text-[10px] uppercase font-bold text-emerald-600 tracking-wider">Verified</span>
+          )}
+        </div>
+
+        {step === 1 ? (
+          <div className="space-y-3 pt-2">
+            <div>
+              <label className="text-[11px] font-bold text-neutral-700 mb-1 block">Business / Entity Name</label>
+              <input
+                type="text"
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+                placeholder="Acme Corp Pvt Ltd"
+                className="w-full px-3 py-2 text-sm bg-white border border-hairline rounded-lg focus:outline-none focus:border-indigo-400"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-bold text-neutral-700 mb-1 block">10-Digit PAN Number</label>
+              <input
+                type="text"
+                value={pan}
+                onChange={(e) => setPan(e.target.value.toUpperCase())}
+                placeholder="ABCDE1234F"
+                maxLength={10}
+                className="w-full px-3 py-2 text-sm bg-white border border-hairline rounded-lg focus:outline-none focus:border-indigo-400 font-mono uppercase"
+              />
+            </div>
+            <button
+              onClick={handleVerifyPan}
+              disabled={isVerifyingPan || !pan || !businessName}
+              className="w-full py-2.5 mt-2 rounded-lg bg-neutral-900 hover:bg-black text-white text-xs font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isVerifyingPan ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : null}
+              Verify PAN
+            </button>
+          </div>
+        ) : (
+          <div className="pt-1">
+            <p className="text-xs text-neutral-600">Verified as <span className="font-bold text-neutral-900">{verifiedPanName}</span></p>
           </div>
         )}
+      </div>
 
-        <div className={`rounded-[24px] border p-5 transition-all ${step === 1 ? "border-black/15 bg-white shadow-sm" : "border-emerald-200 bg-emerald-50"}`}>
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <span className={`flex h-8 w-8 items-center justify-center rounded-[10px] ${step > 1 ? "bg-emerald-600 text-white" : "bg-black text-white"}`}>
-                {step > 1 ? <Check className="h-4 w-4" /> : <Landmark className="h-4 w-4" />}
-              </span>
-              <div>
-                <h4 className="text-sm font-black text-neutral-950">PAN Verification</h4>
-                <p className="text-xs font-medium text-neutral-500">Business name and PAN match</p>
-              </div>
-            </div>
-            {step > 1 && (
-              <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold uppercase text-emerald-700">
-                Verified
-              </span>
-            )}
-          </div>
-
-          {step === 1 ? (
-            <div className="mt-5 space-y-3">
-              <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase text-neutral-500">Business / Entity Name</label>
-                <input
-                  type="text"
-                  value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
-                  placeholder="Acme Corp Pvt Ltd"
-                  className="w-full rounded-[12px] border border-black/10 bg-surface-soft px-3 py-2.5 text-sm font-semibold text-neutral-950 outline-none transition-colors placeholder:text-neutral-400 focus:border-black focus:bg-white focus:ring-2 focus:ring-black/10"
-                />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase text-neutral-500">PAN Number</label>
-                <input
-                  type="text"
-                  value={pan}
-                  onChange={(e) => setPan(e.target.value.toUpperCase())}
-                  placeholder="ABCDE1234F"
-                  maxLength={10}
-                  className="w-full rounded-[12px] border border-black/10 bg-surface-soft px-3 py-2.5 font-mono text-sm font-black uppercase text-neutral-950 outline-none transition-colors placeholder:text-neutral-400 focus:border-black focus:bg-white focus:ring-2 focus:ring-black/10"
-                />
-              </div>
-              <label className="flex items-start gap-3 rounded-[14px] border border-black/10 bg-white p-3 text-xs font-medium leading-5 text-neutral-600">
-                <input
-                  type="checkbox"
-                  checked={panConsent}
-                  onChange={(e) => setPanConsent(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-neutral-300 accent-black"
-                />
-                <span>
-                  I consent to verify this PAN with Setu for business KYC and phone number provisioning.
-                </span>
-              </label>
-              <button
-                onClick={handleVerifyPan}
-                disabled={isVerifyingPan || !pan || !businessName || !panConsent}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-black px-4 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2"
-              >
-                {isVerifyingPan ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Landmark className="h-4 w-4" />}
-                Verify PAN
-              </button>
-            </div>
-          ) : (
-            <div className="mt-4 rounded-[12px] bg-white px-3 py-2 text-xs font-semibold text-neutral-700">
-              Verified as <span className="font-black text-neutral-950">{verifiedPanName}</span>
-            </div>
-          )}
+      {/* Step 2: DigiLocker */}
+      <div className={`space-y-4 p-5 rounded-2xl border transition-all ${step === 2 ? 'border-indigo-200 bg-indigo-50/30' : 'border-hairline bg-surface-soft/50 opacity-60'}`}>
+        <div className="flex items-center gap-2 mb-2">
+          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] text-white ${step === 2 ? 'bg-indigo-600' : 'bg-neutral-300'}`}>
+            2
+          </span>
+          <h4 className="text-sm font-bold text-neutral-900">Aadhaar Authentication</h4>
         </div>
 
-        <div className={`rounded-[24px] border p-5 transition-all ${step === 2 ? "border-black/15 bg-white shadow-sm" : "border-black/10 bg-surface-soft opacity-75"}`}>
-          <div className="flex items-center gap-3">
-            <span className={`flex h-8 w-8 items-center justify-center rounded-[10px] ${step === 2 ? "bg-black text-white" : "bg-neutral-200 text-neutral-500"}`}>
-              <Fingerprint className="h-4 w-4" />
-            </span>
-            <div>
-              <h4 className="text-sm font-black text-neutral-950">Aadhaar Authentication</h4>
-              <p className="text-xs font-medium text-neutral-500">DigiLocker consent and OTP</p>
+        {step === 2 ? (
+          <div className="space-y-4 pt-1">
+            <p className="text-xs text-neutral-600 leading-relaxed">
+              Verify your identity instantly via DigiLocker using Aadhaar OTP.
+            </p>
+            <div className="flex items-start gap-2.5 p-3 bg-blue-50/80 border border-blue-100 rounded-xl">
+              <Lock className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
+              <p className="text-[10px] text-blue-800 leading-relaxed">
+                <span className="font-bold">Secure &amp; private.</span> We only receive your name and masked Aadhaar. Powered by <a href="https://setu.co" target="_blank" rel="noreferrer" className="font-bold underline underline-offset-2">Setu</a>.
+              </p>
             </div>
+            <button
+              onClick={handleDigiLockerRedirect}
+              disabled={isRedirecting}
+              className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
+            >
+              {isRedirecting ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Redirecting...</span>
+                </>
+              ) : (
+                <>
+                  <Fingerprint className="w-4 h-4" />
+                  <span>Verify with DigiLocker</span>
+                  <ExternalLink className="w-3.5 h-3.5 opacity-70" />
+                </>
+              )}
+            </button>
           </div>
-
-          {step === 2 ? (
-            <div className="mt-5 space-y-4">
-              <div className="rounded-[14px] border border-blue-100 bg-blue-50 p-3">
-                <div className="flex items-start gap-2.5">
-                  <Lock className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" />
-                  <p className="text-xs font-medium leading-5 text-blue-900">
-                    We only receive your name and masked Aadhaar. Powered by <a href="https://setu.co" target="_blank" rel="noreferrer" className="font-black underline underline-offset-2">Setu</a>.
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={handleDigiLockerRedirect}
-                disabled={isRedirecting}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-wait disabled:bg-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
-              >
-                {isRedirecting ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    <span>Redirecting...</span>
-                  </>
-                ) : (
-                  <>
-                    <Fingerprint className="h-4 w-4" />
-                    <span>Verify with DigiLocker</span>
-                    <ExternalLink className="h-3.5 w-3.5 opacity-70" />
-                  </>
-                )}
-              </button>
-            </div>
-          ) : (
-            <div className="mt-4 rounded-[12px] bg-white px-3 py-2 text-xs font-semibold text-neutral-500">
-              Complete PAN verification first.
-            </div>
-          )}
-        </div>
+        ) : (
+          <div className="pt-1">
+            <p className="text-xs text-neutral-400">Complete PAN verification first</p>
+          </div>
+        )}
       </div>
     </div>
   );
