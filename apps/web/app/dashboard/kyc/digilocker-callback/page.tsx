@@ -1,5 +1,4 @@
 import { handleDigiLockerCallback } from "@/app/actions/setu-kyc";
-import { redirect } from "next/navigation";
 import { CheckCircle2, AlertCircle, Phone, Shield } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +15,7 @@ interface Props {
 
 export default async function DigiLockerCallbackPage({ searchParams }: Props) {
   const params = await searchParams;
-  const { success, id, errCode, errMessage } = params;
+  const { success, id, scope } = params;
 
   // If no id, something went wrong before even reaching DigiLocker
   if (!id) {
@@ -24,7 +23,7 @@ export default async function DigiLockerCallbackPage({ searchParams }: Props) {
   }
 
   // Process the callback server-side
-  const result = await handleDigiLockerCallback(id, success || "False");
+  const result = await handleDigiLockerCallback(id, success || "False", scope || "");
 
   if (!result.success && result.error === "User cancelled or DigiLocker verification failed.") {
     return <CallbackResult success={false} error="You cancelled the DigiLocker verification. Please try again." />;

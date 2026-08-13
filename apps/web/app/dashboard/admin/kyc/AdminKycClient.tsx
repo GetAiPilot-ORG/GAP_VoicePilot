@@ -99,9 +99,23 @@ export function AdminKycClient({ initialRequests, initialAvailableNumbers = [] }
                             PAN: <strong className="text-black">{r.verified_pan_name}</strong>
                           </span>
                         )}
+                        {r.digilocker_verified_name && (
+                          <span className="text-xs text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded">
+                            DigiLocker: <strong className="text-black">{r.digilocker_verified_name}</strong>
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
+
+                  {r.verification_method === "setu_pan_and_digilocker" && (
+                    <div className="grid gap-2 rounded bg-neutral-50 p-3 text-xs text-neutral-600 sm:grid-cols-2">
+                      <span>Setu Request: <strong className="font-mono text-black">{r.digilocker_request_id || "N/A"}</strong></span>
+                      <span>Trace: <strong className="font-mono text-black">{r.digilocker_trace_id || "N/A"}</strong></span>
+                      <span>PAN time: <strong className="text-black">{r.pan_verified_at ? new Date(r.pan_verified_at).toLocaleString() : "N/A"}</strong></span>
+                      <span>DigiLocker time: <strong className="text-black">{r.digilocker_verified_at ? new Date(r.digilocker_verified_at).toLocaleString() : "N/A"}</strong></span>
+                    </div>
+                  )}
                   
                   {assigningId === r.id ? (
                     <div className="flex flex-col gap-2 mt-2 border-t pt-3">
