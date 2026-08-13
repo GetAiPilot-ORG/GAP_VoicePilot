@@ -7,7 +7,12 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 async function getOrCreateWorkspace(supabase: any, user: any): Promise<string> {
-  const { data: member } = await supabase
+  const adminClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const { data: member } = await adminClient
     .from('workspace_members')
     .select('workspace_id')
     .eq('user_id', user.id)
@@ -15,11 +20,6 @@ async function getOrCreateWorkspace(supabase: any, user: any): Promise<string> {
     .maybeSingle();
 
   if (member?.workspace_id) return member.workspace_id;
-
-  const adminClient = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
 
   try {
     await adminClient.from('profiles').upsert({
@@ -137,6 +137,7 @@ export async function createAssistantAction(formData: FormData) {
     throw new Error(errMessage);
   }
 
+  revalidatePath("/dashboard/assistants");
   return { success: true };
 }
 
@@ -164,6 +165,7 @@ export async function updateAssistantAction(id: string, payload: any) {
     throw new Error(err.error || 'Failed to update assistant');
   }
 
+  revalidatePath("/dashboard/assistants");
   return await res.json();
 }
 

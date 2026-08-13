@@ -180,7 +180,7 @@ export default async function AssistantsPage() {
                       </span>
                     </td>
                     <td className="py-4 px-6 text-right">
-                      <AssistantActionMenu assistantId={ast.id} assistantName={ast.name} />
+                      <AssistantActionMenu assistant={ast} />
                     </td>
                   </tr>
                 );
