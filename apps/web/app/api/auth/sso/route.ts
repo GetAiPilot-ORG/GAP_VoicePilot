@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
       options: { redirectTo },
     });
 
-    if (linkError || !linkData?.properties?.action_link) {
+    if (linkError || !linkData?.properties) {
       console.error("[SSO] generateLink error:", linkError?.message);
       return NextResponse.json(
         { success: false, error: linkError?.message || "Failed to generate authentication link" },
@@ -175,7 +175,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`[SSO] ✅ Successfully issued magic link for ${email}`);
+    // Exchange token_hash for session directly on server to avoid hash fragment loss
+    const hashedToken = linkData.properties.hashed_token;
+    if (hashedToken) {
+      const { data: sessionData, error: sessionError } = await supabaseAdmin.auth.verifyOtp({
+        token_hash: hashedToken,
+        type: "magiclink",
+      });
+
+      if (!sessionError && sessionData?.session) {
+        console.log(`[SSO] ✅ Successfully authenticated session directly for ${email}`);
+        return NextResponse.json({
+          success: true,
+          session: {
+            access_token: sessionData.session.access_token,
+            refresh_token: sessionData.session.refresh_token,
+          },
+          magic_link_url: linkData.properties.action_link,
+        });
+      } else {
+        console.warn("[SSO] verifyOtp fallback warning:", sessionError?.message);
+      }
+    }
+
+    console.log(`[SSO] ✅ Issued magic link fallback for ${email}`);
     return NextResponse.json({
       success: true,
       magic_link_url: linkData.properties.action_link,

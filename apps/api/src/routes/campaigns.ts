@@ -54,32 +54,40 @@ campaignRouter.post(
         return res.status(400).json({ error: 'No valid phone numbers found in contact list.' });
       }
 
-      // Resolve real Vomyra Assistant ID and phone_number_id
-      let realVomyraAssistantId = assistantId;
-      let actualPhoneNumberId = phoneNumberId || null;
+      const { data: assistant } = await supabase
+        .from('assistants')
+        .select('id')
+        .eq('id', assistantId)
+        .eq('workspace_id', workspaceId)
+        .is('deleted_at', null)
+        .maybeSingle();
 
-      try {
-        const { data: assistant } = await supabase
-          .from('assistants')
-          .select(`
-            provider_resource_id,
-            phone_numbers ( id )
-          `)
-          .eq('id', assistantId)
-          .maybeSingle();
+      if (!assistant) {
+        return res.status(400).json({ error: 'The selected assistant was not found in this workspace.' });
+      }
 
-        if (assistant?.provider_resource_id && /^[0-9a-fA-F]{24}$/.test(assistant.provider_resource_id)) {
-          realVomyraAssistantId = assistant.provider_resource_id;
-        }
-        
-        if (!actualPhoneNumberId && assistant?.phone_numbers && assistant.phone_numbers.length > 0) {
-          actualPhoneNumberId = assistant.phone_numbers[0].id;
-        }
-      } catch {}
+      let numberQuery = supabase
+        .from('phone_numbers')
+        .select('id, phone_number')
+        .eq('workspace_id', workspaceId)
+        .eq('assigned_assistant_id', assistantId)
+        .is('deleted_at', null);
 
-      if (!actualPhoneNumberId) {
+      if (phoneNumberId) {
+        numberQuery = numberQuery.eq('id', phoneNumberId);
+      }
+
+      const { data: campaignNumber, error: campaignNumberError } = await numberQuery
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (campaignNumberError || !campaignNumber?.phone_number) {
         return res.status(400).json({ error: 'The selected assistant must have a phone number assigned before launching a campaign.' });
       }
+
+      const actualPhoneNumberId = campaignNumber.id;
+      const assignedNumber = campaignNumber.phone_number.trim();
 
       let campaignId = `camp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       try {
@@ -104,7 +112,7 @@ campaignRouter.post(
       }
 
       console.log(
-        `[Campaigns] Launching campaign "${name}" with ${contactList.length} contacts using assistant ${realVomyraAssistantId}`
+        `[Campaigns] Launching campaign "${name}" with ${contactList.length} contacts using assigned number ${assignedNumber}`
       );
 
       const dispatchPromises = contactList.map(async (contact, index) => {
@@ -122,7 +130,7 @@ campaignRouter.post(
           const callResult = await voiceProvider.initiateCall({
             customer_number: cleanNumber,
             customer_name: contact.name || 'Valued Customer',
-            assistant_id: realVomyraAssistantId,
+            assigned_number: assignedNumber,
             customer_country_code: cleanNumber.startsWith('+91') ? '+91' : '+1',
             additional_data: {
               campaign_id: campaignId,

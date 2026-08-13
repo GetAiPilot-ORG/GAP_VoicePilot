@@ -5,57 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-
-async function getOrCreateWorkspace(supabase: any, user: any): Promise<string> {
-  const { data: member } = await supabase
-    .from('workspace_members')
-    .select('workspace_id')
-    .eq('user_id', user.id)
-    .limit(1)
-    .maybeSingle();
-
-  if (member?.workspace_id) return member.workspace_id;
-
-  const adminClient = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-
-  try {
-    await adminClient.from('profiles').upsert({
-      id: user.id,
-      email: user.email || 'user@example.com',
-      name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
-    }, { onConflict: 'id' });
-  } catch (e) {}
-
-  // Fallback removed to prevent assigning users to random workspaces
-
-  try {
-    const { data: newWs } = await adminClient
-      .from('workspaces')
-      .insert({
-        name: `${user.email?.split('@')[0] || 'Default'}'s Workspace`,
-        owner_id: user.id,
-        status: 'active'
-      })
-      .select('id')
-      .single();
-
-    if (newWs?.id) {
-      try {
-        await adminClient.from('workspace_members').insert({
-          workspace_id: newWs.id,
-          user_id: user.id,
-          role: 'owner'
-        });
-      } catch (e) {}
-      return newWs.id;
-    }
-  } catch (e) {}
-
-  return "00000000-0000-0000-0000-000000000000";
-}
+import { getCurrentWorkspace } from "@/lib/workspace";
 
 export async function generatePromptAction(topic: string, category: string = 'general') {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -103,7 +53,11 @@ export async function createAssistantAction(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
-  const workspaceId = await getOrCreateWorkspace(supabase, user);
+  const workspace = await getCurrentWorkspace();
+  if (!workspace || workspace.userId !== user.id) {
+    throw new Error("No workspace is provisioned for this user.");
+  }
+  const workspaceId = workspace.workspaceId;
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
   
@@ -232,7 +186,11 @@ export async function duplicateAssistantAction(assistantId: string) {
 
   if (!target) throw new Error("Assistant not found");
 
-  const workspaceId = await getOrCreateWorkspace(supabase, user);
+  const workspace = await getCurrentWorkspace();
+  if (!workspace || workspace.userId !== user.id) {
+    throw new Error("No workspace is provisioned for this user.");
+  }
+  const workspaceId = workspace.workspaceId;
 
   const payload = {
     ...(target.config_snapshot || {}),

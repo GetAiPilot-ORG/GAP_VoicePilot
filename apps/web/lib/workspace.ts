@@ -53,32 +53,15 @@ export async function getCurrentWorkspace(): Promise<{
     const adminClient = await getAdminClient();
     if (!adminClient) return null;
 
-    // 1. Check existing workspace membership
-    const { data: member } = await adminClient
-      .from("workspace_members")
-      .select("workspace_id")
-      .eq("user_id", user.id)
-      .limit(1)
-      .maybeSingle();
-
-    if (member?.workspace_id) {
-      return {
-        workspaceId: member.workspace_id,
-        userId: user.id,
-        userEmail: user.email || "",
-      };
-    }
-
-    // 2. Check if user owns an existing workspace
+    // Resolve the single workspace owned by this user. Signup provisioning is
+    // handled atomically by the database trigger.
     const { data: ownedWs } = await adminClient
       .from("workspaces")
       .select("id")
       .eq("owner_id", user.id)
-      .limit(1)
       .maybeSingle();
 
     if (ownedWs?.id) {
-      // Add workspace member row
       await adminClient.from("workspace_members").upsert({
         workspace_id: ownedWs.id,
         user_id: user.id,
@@ -91,68 +74,8 @@ export async function getCurrentWorkspace(): Promise<{
         userEmail: user.email || "",
       };
     }
-
-    // 3. Auto-provision a dedicated workspace for this user
-    const wsName = user.email ? `${user.email.split("@")[0]}'s Workspace` : "My Workspace";
-    const { data: newWs, error: createWsErr } = await adminClient
-      .from("workspaces")
-      .insert({
-        name: wsName,
-        owner_id: user.id,
-        balance: 50.00
-      })
-      .select()
-      .single();
-
-    if (createWsErr || !newWs) {
-      // Fallback if schema doesn't have balance column
-      const { data: fallbackWs } = await adminClient
-        .from("workspaces")
-        .insert({
-          name: wsName,
-          owner_id: user.id
-        })
-        .select()
-        .single();
-
-      if (fallbackWs?.id) {
-        await adminClient.from("workspace_members").upsert({
-          workspace_id: fallbackWs.id,
-          user_id: user.id,
-          role: "owner"
-        });
-
-        return {
-          workspaceId: fallbackWs.id,
-          userId: user.id,
-          userEmail: user.email || "",
-        };
-      }
-      return null;
-    }
-
-    // Insert workspace member
-    await adminClient.from("workspace_members").upsert({
-      workspace_id: newWs.id,
-      user_id: user.id,
-      role: "owner"
-    });
-
-    // Seed initial free trial credits (50 mins)
-    try {
-      await adminClient.from("credit_ledger").insert({
-        workspace_id: newWs.id,
-        amount: 50.00,
-        type: "top_up",
-        notes: "Welcome free trial credits (50 AI Mins)"
-      });
-    } catch (e) {}
-
-    return {
-      workspaceId: newWs.id,
-      userId: user.id,
-      userEmail: user.email || "",
-    };
+    console.error("No workspace was provisioned for authenticated user", user.id);
+    return null;
   } catch (err) {
     console.error("Error resolving workspace:", err);
     return null;
