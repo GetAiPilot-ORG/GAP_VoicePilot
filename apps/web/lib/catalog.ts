@@ -6,6 +6,7 @@ export interface VoiceOption {
   language: string;
   locale: string;
   tags: string[];
+  preview_url?: string | null;
 }
 
 export const GAP_CATALOG = {
@@ -79,7 +80,8 @@ export const GAP_CATALOG = {
         gender: "female",
         language: "Hindi",
         locale: "IN • unknown",
-        tags: ["Azure", "Hindi", "female", "general"]
+        tags: ["Azure", "Hindi", "female", "general"],
+        preview_url: "https://ai.azure.com/speechassetscache/ttsvoice/Masterpieces/hi-IN-Aarti-General-Audio.wav"
       },
       {
         name: "hi-IN-ArjunNeural",
@@ -88,7 +90,8 @@ export const GAP_CATALOG = {
         gender: "male",
         language: "Hindi",
         locale: "IN • unknown",
-        tags: ["Azure", "Hindi", "male", "general"]
+        tags: ["Azure", "Hindi", "male", "general"],
+        preview_url: "https://ai.azure.com/speechassetscache/ttsvoice/Masterpieces/hi-IN-Arjun-General-Audio.wav"
       },
       {
         name: "en-IN-AartiNeural",
@@ -97,7 +100,8 @@ export const GAP_CATALOG = {
         gender: "female",
         language: "English",
         locale: "IN • unknown",
-        tags: ["Azure", "English", "female", "general"]
+        tags: ["Azure", "English", "female", "general"],
+        preview_url: "https://ai.azure.com/speechassetscache/ttsvoice/Masterpieces/en-IN-Aarti-General-Audio.wav"
       },
       {
         name: "en-IN-ArjunNeural",
@@ -106,7 +110,8 @@ export const GAP_CATALOG = {
         gender: "male",
         language: "English",
         locale: "IN • unknown",
-        tags: ["Azure", "English", "male", "general"]
+        tags: ["Azure", "English", "male", "general"],
+        preview_url: "https://ai.azure.com/speechassetscache/ttsvoice/Masterpieces/en-IN-Arjun-General-Audio.wav"
       },
       {
         name: "en-US-AriaNeural",
@@ -134,6 +139,51 @@ export const GAP_CATALOG = {
         language: "English",
         locale: "US • news",
         tags: ["ElevenLabs", "English", "male", "professional"]
+      },
+      {
+        name: "21m00Tcm4TlvDq8ikWAM",
+        title: "Rachel (Multilingual) - ElevenLabs",
+        provider: "elevenlabs",
+        gender: "female",
+        language: "Hindi",
+        locale: "IN/US • conversational",
+        tags: ["ElevenLabs", "Hindi", "English", "female", "expressive"]
+      },
+      {
+        name: "pNInz6obpgqjVWt2A5cL",
+        title: "Adam (Multilingual) - ElevenLabs",
+        provider: "elevenlabs",
+        gender: "male",
+        language: "Hindi",
+        locale: "IN/US • deep",
+        tags: ["ElevenLabs", "Hindi", "English", "male", "professional"]
+      },
+      {
+        name: "EXAVITQu4vr4xnSDxMaL",
+        title: "Bella (Multilingual) - ElevenLabs",
+        provider: "elevenlabs",
+        gender: "female",
+        language: "Hindi",
+        locale: "IN/US • pleasant",
+        tags: ["ElevenLabs", "Hindi", "English", "female", "conversational"]
+      },
+      {
+        name: "AZnzlk1XvdvUeBnXmlld",
+        title: "Domi (Multilingual) - ElevenLabs",
+        provider: "elevenlabs",
+        gender: "female",
+        language: "Hindi",
+        locale: "IN/US • strong",
+        tags: ["ElevenLabs", "Hindi", "English", "female", "energetic"]
+      },
+      {
+        name: "ErXwobaYiN019PkySvjV",
+        title: "Antoni (Multilingual) - ElevenLabs",
+        provider: "elevenlabs",
+        gender: "male",
+        language: "Hindi",
+        locale: "IN/US • warm",
+        tags: ["ElevenLabs", "Hindi", "English", "male", "conversational"]
       },
       {
         name: "alloy",
@@ -208,22 +258,31 @@ export const GAP_CATALOG = {
         tags: ["GAP", "English", "male", "professional"]
       },
       {
-        name: "244d4432-5638-445b-9d0e-f2378a9630d6",
-        title: "Barbershop Man - Cartesia",
+        name: "f91ab3e6-5071-4e15-b016-cde6f2bcd222",
+        title: "Slow Female Voice - Cartesia",
+        provider: "cartesia",
+        gender: "female",
+        language: "Hindi",
+        locale: "IN • standard",
+        tags: ["Cartesia", "Hindi", "female", "conversational"]
+      },
+      {
+        name: "9cebb910-d4b7-4a4a-85a4-12c79137724c",
+        title: "Indian Accented Female - Cartesia",
+        provider: "cartesia",
+        gender: "female",
+        language: "Hindi",
+        locale: "IN • accented",
+        tags: ["Cartesia", "Hindi", "female", "relatable"]
+      },
+      {
+        name: "39d518b7-fd0b-4676-9b8b-29d64ff31e12",
+        title: "Warm Indian Accented Male - Cartesia",
         provider: "cartesia",
         gender: "male",
         language: "English",
-        locale: "US • sonic",
-        tags: ["Cartesia", "English", "male", "expressive"]
-      },
-      {
-        name: "79a125e8-cd45-4c13-8a67-188112f4dd22",
-        title: "Helpful Woman - Cartesia",
-        provider: "cartesia",
-        gender: "female",
-        language: "English",
-        locale: "US • sonic",
-        tags: ["Cartesia", "English", "female", "helpful"]
+        locale: "IN • accented",
+        tags: ["Cartesia", "English", "male", "storytelling"]
       },
       {
         name: "xai-voice-1",
@@ -237,14 +296,14 @@ export const GAP_CATALOG = {
     ] as VoiceOption[],
     voices: {
       azure: [
-        { name: "hi-IN-AartiNeural", title: "Aarti (Hindi Female)", gender: "female", language: "hi-IN" },
-        { name: "hi-IN-ArjunNeural", title: "Arjun (Hindi Male)", gender: "male", language: "hi-IN" },
-        { name: "hi-IN-AaravNeural", title: "Aarav (Hindi Male)", gender: "male", language: "hi-IN" },
-        { name: "en-IN-AartiNeural", title: "Aarti (Indian English Female)", gender: "female", language: "en-IN" },
-        { name: "en-IN-ArjunNeural", title: "Arjun (Indian English Male)", gender: "male", language: "en-IN" },
-        { name: "en-IN-AaravNeural", title: "Aarav (Indian English Male)", gender: "male", language: "en-IN" },
-        { name: "en-US-AriaNeural", title: "Aria (US Female)", gender: "female", language: "en-US" },
-        { name: "en-US-DavisNeural", title: "Davis (US Male)", gender: "male", language: "en-US" }
+        { name: "hi-IN-AartiNeural", title: "Aarti (Hindi Female)", gender: "female", language: "hi-IN", preview_url: "https://ai.azure.com/speechassetscache/ttsvoice/Masterpieces/hi-IN-Aarti-General-Audio.wav" },
+        { name: "hi-IN-ArjunNeural", title: "Arjun (Hindi Male)", gender: "male", language: "hi-IN", preview_url: "https://ai.azure.com/speechassetscache/ttsvoice/Masterpieces/hi-IN-Arjun-General-Audio.wav" },
+        { name: "hi-IN-AaravNeural", title: "Aarav (Hindi Male)", gender: "male", language: "hi-IN", preview_url: "https://ai.azure.com/speechassetscache/ttsvoice/Masterpieces/hi-IN-Aarav-General-Audio.wav" },
+        { name: "en-IN-AartiNeural", title: "Aarti (Indian English Female)", gender: "female", language: "en-IN", preview_url: "https://ai.azure.com/speechassetscache/ttsvoice/Masterpieces/en-IN-Aarti-General-Audio.wav" },
+        { name: "en-IN-ArjunNeural", title: "Arjun (Indian English Male)", gender: "male", language: "en-IN", preview_url: "https://ai.azure.com/speechassetscache/ttsvoice/Masterpieces/en-IN-Arjun-General-Audio.wav" },
+        { name: "en-IN-AaravNeural", title: "Aarav (Indian English Male)", gender: "male", language: "en-IN", preview_url: "https://ai.azure.com/speechassetscache/ttsvoice/Masterpieces/en-IN-Aarav-General-Audio.wav" },
+        { name: "en-US-AriaNeural", title: "Aria (US Female)", gender: "female", language: "en-US", preview_url: "https://ai.azure.com/speechassetscache/ttsvoice/Masterpieces/en-US-AriaNeural-General-Audio.wav" },
+        { name: "en-US-DavisNeural", title: "Davis (US Male)", gender: "male", language: "en-US", preview_url: "https://ai.azure.com/speechassetscache/ttsvoice/Masterpieces/en-US-DavisNeural-General-Audio.wav" }
       ],
       elevenlabs: [
         { name: "rachel", title: "Rachel (Calm & Clear)", gender: "female", language: "en-US" },
@@ -253,8 +312,9 @@ export const GAP_CATALOG = {
         { name: "domi", title: "Domi (Strong)", gender: "female", language: "en-US" }
       ],
       cartesia: [
-        { name: "244d4432-5638-445b-9d0e-f2378a9630d6", title: "Barbershop Man", gender: "male", language: "en-US" },
-        { name: "79a125e8-cd45-4c13-8a67-188112f4dd22", title: "Helpful Woman", gender: "female", language: "en-US" }
+        { name: "f91ab3e6-5071-4e15-b016-cde6f2bcd222", title: "Slow Female Voice (Hindi)", gender: "female", language: "hi-IN" },
+        { name: "9cebb910-d4b7-4a4a-85a4-12c79137724c", title: "Indian Accented Female (Hindi)", gender: "female", language: "hi-IN" },
+        { name: "39d518b7-fd0b-4676-9b8b-29d64ff31e12", title: "Warm Male Voice (Indian English)", gender: "male", language: "en-IN" }
       ],
       openai: [
         { name: "alloy", title: "Alloy", gender: "neutral", language: "en-US" },
