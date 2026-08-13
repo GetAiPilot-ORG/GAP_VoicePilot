@@ -107,17 +107,23 @@ export async function createAssistantAction(formData: FormData) {
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
   
-  const res = await fetch(`${apiUrl}/api/v1/assistants`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      workspaceId: workspaceId,
-      createdBy: user.id,
-      ...payload
-    })
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${apiUrl}/api/v1/assistants`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        workspaceId: workspaceId,
+        createdBy: user.id,
+        ...payload
+      })
+    });
+  } catch (networkErr: any) {
+    console.error("Failed to connect to backend API server:", networkErr);
+    throw new Error(`Cannot connect to backend server at ${apiUrl}. Please make sure the API server is running (npm run dev in apps/api).`);
+  }
 
   if (!res.ok) {
     const text = await res.text();

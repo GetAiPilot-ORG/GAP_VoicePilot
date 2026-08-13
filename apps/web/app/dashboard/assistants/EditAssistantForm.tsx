@@ -110,10 +110,23 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
       return;
     }
 
-    setPlayingVoiceId(voice.name);
-    setTimeout(() => {
-      setPlayingVoiceId(null);
-    }, 2000);
+    if (voice.preview_url) {
+      if (audioRef.current) {
+        audioRef.current.src = voice.preview_url;
+        audioRef.current.play().catch((err) => console.warn("Failed to play preview audio:", err));
+      }
+      setPlayingVoiceId(voice.name);
+      if (audioRef.current) {
+        audioRef.current.onended = () => {
+          setPlayingVoiceId(null);
+        };
+      }
+    } else {
+      setPlayingVoiceId(voice.name);
+      setTimeout(() => {
+        setPlayingVoiceId(null);
+      }, 2000);
+    }
   };
 
   const handleToggleTool = async (toolId: string) => {
@@ -703,8 +716,20 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
                 </div>
 
                 <div className="flex items-end justify-between mt-6">
-                  <button type="button" onClick={(e) => handlePreviewVoice(e, 'hi-IN')} className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center hover:bg-emerald-400 transition-colors shadow-sm">
-                    <Play className="w-4 h-4 text-black ml-0.5" />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const v = VOMYRA_CATALOG.voice.featured_voices.find((x) => x.name === "hi-IN-AartiNeural");
+                      if (v) handlePlayVoice(v);
+                    }}
+                    className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center hover:bg-emerald-400 transition-colors shadow-sm"
+                  >
+                    {playingVoiceId === "hi-IN-AartiNeural" ? (
+                      <Pause className="w-4 h-4 text-black" />
+                    ) : (
+                      <Play className="w-4 h-4 text-black ml-0.5" />
+                    )}
                   </button>
                   <div className="text-right">
                     <p className="text-[10px] text-neutral-500">Details:</p>
@@ -739,8 +764,20 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
                 </div>
 
                 <div className="flex items-end justify-between mt-6">
-                  <button type="button" onClick={(e) => handlePreviewVoice(e, 'hi-IN')} className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center hover:bg-emerald-400 transition-colors shadow-sm">
-                    <Play className="w-4 h-4 text-black ml-0.5" />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const v = VOMYRA_CATALOG.voice.featured_voices.find((x) => x.name === "hi-IN-ArjunNeural");
+                      if (v) handlePlayVoice(v);
+                    }}
+                    className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center hover:bg-emerald-400 transition-colors shadow-sm"
+                  >
+                    {playingVoiceId === "hi-IN-ArjunNeural" ? (
+                      <Pause className="w-4 h-4 text-black" />
+                    ) : (
+                      <Play className="w-4 h-4 text-black ml-0.5" />
+                    )}
                   </button>
                   <div className="text-right">
                     <p className="text-[10px] text-neutral-500">Details:</p>
@@ -775,8 +812,20 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
                 </div>
 
                 <div className="flex items-end justify-between mt-6">
-                  <button type="button" onClick={(e) => handlePreviewVoice(e, 'en-IN')} className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center hover:bg-emerald-400 transition-colors shadow-sm">
-                    <Play className="w-4 h-4 text-black ml-0.5" />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const v = VOMYRA_CATALOG.voice.featured_voices.find((x) => x.name === "en-IN-AartiNeural");
+                      if (v) handlePlayVoice(v);
+                    }}
+                    className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center hover:bg-emerald-400 transition-colors shadow-sm"
+                  >
+                    {playingVoiceId === "en-IN-AartiNeural" ? (
+                      <Pause className="w-4 h-4 text-black" />
+                    ) : (
+                      <Play className="w-4 h-4 text-black ml-0.5" />
+                    )}
                   </button>
                   <div className="text-right">
                     <p className="text-[10px] text-neutral-500">Details:</p>
@@ -811,8 +860,20 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
                 </div>
 
                 <div className="flex items-end justify-between mt-6">
-                  <button type="button" onClick={(e) => handlePreviewVoice(e, 'en-IN')} className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center hover:bg-emerald-400 transition-colors shadow-sm">
-                    <Play className="w-4 h-4 text-black ml-0.5" />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const v = VOMYRA_CATALOG.voice.featured_voices.find((x) => x.name === "en-IN-ArjunNeural");
+                      if (v) handlePlayVoice(v);
+                    }}
+                    className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center hover:bg-emerald-400 transition-colors shadow-sm"
+                  >
+                    {playingVoiceId === "en-IN-ArjunNeural" ? (
+                      <Pause className="w-4 h-4 text-black" />
+                    ) : (
+                      <Play className="w-4 h-4 text-black ml-0.5" />
+                    )}
                   </button>
                   <div className="text-right">
                     <p className="text-[10px] text-neutral-500">Details:</p>
@@ -1401,6 +1462,7 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
       >
         <Bot className="w-6 h-6 text-white group-hover:animate-pulse" />
       </button>
+      <audio ref={audioRef} className="hidden" />
     </form>
   );
 }
