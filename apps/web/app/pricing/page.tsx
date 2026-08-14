@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
+import { createClient } from "@/utils/supabase/client";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -48,63 +49,72 @@ const navItems = [
 
 const pricingPlans = [
   {
-    name: "Call Lite",
+    name: "Start",
     monthlyPrice: 1499,
     annualPrice: 1199,
     note: "250 AI calling minutes • ₹6.00/min rate",
-    action: "Start Lite Plan",
+    action: "Start building",
     featured: false,
-    badge: undefined,
+    badge: "FOR STARTERS",
     minutes: "250 AI Minutes",
     features: [
-      "250 AI Calling Minutes included",
+      "250 AI Calling Minutes",
       "₹6.00 / min per-minute rate",
       "Hindi, English & Hinglish Support",
-      "Custom System Prompts",
+      "Custom AI System Prompts",
       "Basic Lead & Contact Capture",
-      "Standard Webhook Notifications",
-      "Email & Community Support",
     ],
   },
   {
-    name: "Call Pro",
+    name: "Build",
     monthlyPrice: 4999,
     annualPrice: 3999,
     note: "1,000 AI calling minutes • ₹5.00/min rate",
-    action: "Start Pro Plan",
+    action: "Start building",
     featured: true,
-    badge: "MOST POPULAR",
+    badge: "FOR TEAMS",
     minutes: "1,000 AI Minutes",
     features: [
-      "1,000 AI Calling Minutes included",
+      "1,000 AI Calling Minutes",
       "₹5.00 / min per-minute rate",
-      "Hindi, English & Hinglish Support",
-      "Real-time Live Call Transfer",
-      "Automatic CRM Syncing & Notes",
-      "High-Definition Call Recording",
-      "Live Call Monitoring & Transcripts",
-      "Priority Webhook & API Latency",
-      "Priority Email & Chat Support",
+      "Realtime Live Call Transfer",
+      "Automatic CRM Auto-Syncing",
+      "Live Call Transcripts & Recording",
     ],
   },
   {
-    name: "Call Elite",
+    name: "Scale",
     monthlyPrice: 9999,
     annualPrice: 7999,
     note: "2,000 AI calling minutes • ₹5.00/min rate",
-    action: "Contact Enterprise Sales",
+    action: "Start building",
     featured: false,
-    badge: "ENTERPRISE",
+    badge: "FOR HIGH VOLUME",
     minutes: "2,000 AI Minutes",
     features: [
-      "2,000 AI Calling Minutes included",
+      "2,000 AI Calling Minutes",
       "₹5.00 / min per-minute rate",
       "Unlimited Multi-Agent Workflows",
-      "Custom Neural Voice Clone",
-      "Custom SIP & PBX Trunk Integration",
-      "Dedicated Technical Account Manager",
-      "99.9% Uptime SLA Guarantee",
-      "Custom Contract & Invoice Billing",
+      "Priority SIP Latency Routing",
+      "Dedicated Account Manager",
+    ],
+  },
+  {
+    name: "Enterprise",
+    monthlyPrice: 0,
+    annualPrice: 0,
+    note: "Dedicated infrastructure & custom SLA",
+    action: "Talk to our team",
+    featured: false,
+    badge: "FOR ORGANIZATIONS",
+    minutes: "Custom Volume",
+    features: [
+      "Concurrency sized to your volume",
+      "Custom per-minute bulk rates",
+      "Custom SIP trunking & on-prem",
+      "Forward-deployed engineer",
+      "TRAI, SOC2 & DLT compliance",
+      "Zero data retention & SSO",
     ],
   },
 ];
@@ -186,6 +196,44 @@ export default function PricingPage() {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [isFooterVisible, setIsFooterVisible] = useState(false);
+  const [plansList, setPlansList] = useState(pricingPlans);
+
+  useEffect(() => {
+    const fetchDbPlans = async () => {
+      try {
+        const supabase = createClient();
+        const { data: dbPlans } = await supabase
+          .from("plans")
+          .select("*")
+          .eq("is_active", true)
+          .order("price_monthly", { ascending: true });
+
+        if (dbPlans && dbPlans.length > 0) {
+          const mapped = dbPlans.map((p) => {
+            const feats = p.features || {};
+            const isEnt = p.id === "enterprise" || feats.is_enterprise;
+            return {
+              name: p.name || (isEnt ? "Enterprise" : "Plan"),
+              monthlyPrice: p.price_monthly,
+              annualPrice: Math.round(p.price_monthly * 0.8),
+              note: feats.feeNote || (p.price_monthly > 0 ? `${p.included_credits} AI calling minutes` : "Contracted to your volume."),
+              action: isEnt ? "Talk to our team" : "Start building",
+              featured: feats.is_popular || false,
+              badge: feats.audience || (isEnt ? "FOR ORGANIZATIONS" : undefined),
+              minutes: p.included_credits > 0 ? `${p.included_credits} AI Minutes` : "Custom Volume",
+              features: feats.feature_list || [
+                `${p.included_credits} AI Calling Minutes`,
+                "Hindi, English & Hinglish Support",
+                "Custom AI System Prompts"
+              ]
+            };
+          });
+          setPlansList(mapped);
+        }
+      } catch (e) {}
+    };
+    fetchDbPlans();
+  }, []);
 
   useEffect(() => {
     setCurrentTime(new Date());
@@ -445,8 +493,8 @@ export default function PricingPage() {
 
         {/* Pricing Cards Grid */}
         <section className="mx-auto max-w-[1340px] px-6 pb-24 lg:px-8">
-          <div className="grid gap-6 lg:grid-cols-3 items-stretch">
-            {pricingPlans.map((plan) => {
+          <div className="grid gap-6 lg:grid-cols-4 items-stretch">
+            {plansList.map((plan) => {
               const price = isAnnual ? plan.annualPrice : plan.monthlyPrice;
               return (
                 <article
