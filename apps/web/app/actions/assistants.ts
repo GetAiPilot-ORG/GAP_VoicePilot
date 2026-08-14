@@ -7,7 +7,12 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 async function getOrCreateWorkspace(supabase: any, user: any): Promise<string> {
-  const { data: member } = await supabase
+  const adminClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const { data: member } = await adminClient
     .from('workspace_members')
     .select('workspace_id')
     .eq('user_id', user.id)
@@ -15,11 +20,6 @@ async function getOrCreateWorkspace(supabase: any, user: any): Promise<string> {
     .maybeSingle();
 
   if (member?.workspace_id) return member.workspace_id;
-
-  const adminClient = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
 
   try {
     await adminClient.from('profiles').upsert({
@@ -107,17 +107,23 @@ export async function createAssistantAction(formData: FormData) {
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
   
-  const res = await fetch(`${apiUrl}/api/v1/assistants`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      workspaceId: workspaceId,
-      createdBy: user.id,
-      ...payload
-    })
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${apiUrl}/api/v1/assistants`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        workspaceId: workspaceId,
+        createdBy: user.id,
+        ...payload
+      })
+    });
+  } catch (networkErr: any) {
+    console.error("Failed to connect to backend API server:", networkErr);
+    throw new Error(`Cannot connect to backend server at ${apiUrl}. Please make sure the API server is running (npm run dev in apps/api).`);
+  }
 
   if (!res.ok) {
     const text = await res.text();
@@ -131,6 +137,7 @@ export async function createAssistantAction(formData: FormData) {
     throw new Error(errMessage);
   }
 
+  revalidatePath("/dashboard/assistants");
   return { success: true };
 }
 
@@ -158,6 +165,7 @@ export async function updateAssistantAction(id: string, payload: any) {
     throw new Error(err.error || 'Failed to update assistant');
   }
 
+  revalidatePath("/dashboard/assistants");
   return await res.json();
 }
 
