@@ -27,6 +27,7 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
   const [activeTab, setActiveTab] = React.useState<"model" | "speech" | "voice" | "tools" | "advance">("model");
   const [isUpdating, setIsUpdating] = React.useState(false);
   const [saveSuccess, setSaveSuccess] = React.useState(false);
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [isTestModalOpen, setIsTestModalOpen] = React.useState(false);
 
   const initialCfg = assistant.config_snapshot || {};
@@ -202,6 +203,7 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsUpdating(true);
+    setErrorMessage(null);
 
     const payload = {
       name,
@@ -256,11 +258,15 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
     };
 
     try {
-      await updateAssistantAction(assistant.id, payload);
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+      const result = await updateAssistantAction(assistant.id, payload);
+      if (result && result.success !== false) {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      } else {
+        setErrorMessage(result?.error || "Failed to update assistant. Please check your settings and try again.");
+      }
     } catch (err: any) {
-      alert("Failed to update assistant: " + err.message);
+      setErrorMessage(err.message || "An unexpected error occurred while updating the assistant.");
     } finally {
       setIsUpdating(false);
     }
@@ -273,6 +279,18 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
 
   return (
     <form onSubmit={handleUpdate} className="space-y-6 animate-fadeIn pb-12">
+      {errorMessage && (
+        <div className="p-4 rounded-[12px] bg-red-50 border border-red-200 text-red-700 font-bold text-xs shadow-sm flex items-center justify-between animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <X className="w-4 h-4 text-red-600 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+          <button type="button" onClick={() => setErrorMessage(null)} className="text-red-500 hover:text-red-800 p-1">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Top Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-hairline pb-4">
         <div>

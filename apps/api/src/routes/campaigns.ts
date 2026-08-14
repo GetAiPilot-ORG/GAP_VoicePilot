@@ -3,6 +3,7 @@ import { Router, Request, Response } from 'express';
 import { requireFeature, requireMinCredits } from '../middleware/entitlements';
 import { supabaseAdmin as supabase } from '../config/supabase';
 import { VomyraClient } from '../services/voice/providers/vomyra/client';
+import { upsertVoiceContactForEcosystem } from '../services/ecosystemSync';
 
 export const campaignRouter = Router();
 
@@ -54,40 +55,32 @@ campaignRouter.post(
         return res.status(400).json({ error: 'No valid phone numbers found in contact list.' });
       }
 
-      const { data: assistant } = await supabase
-        .from('assistants')
-        .select('id')
-        .eq('id', assistantId)
-        .eq('workspace_id', workspaceId)
-        .is('deleted_at', null)
-        .maybeSingle();
+      // Resolve real Vomyra Assistant ID and phone_number_id
+      let realVomyraAssistantId = assistantId;
+      let actualPhoneNumberId = phoneNumberId || null;
 
-      if (!assistant) {
-        return res.status(400).json({ error: 'The selected assistant was not found in this workspace.' });
-      }
+      try {
+        const { data: assistant } = await supabase
+          .from('assistants')
+          .select(`
+            provider_resource_id,
+            phone_numbers ( id )
+          `)
+          .eq('id', assistantId)
+          .maybeSingle();
 
-      let numberQuery = supabase
-        .from('phone_numbers')
-        .select('id, phone_number')
-        .eq('workspace_id', workspaceId)
-        .eq('assigned_assistant_id', assistantId)
-        .is('deleted_at', null);
+        if (assistant?.provider_resource_id && /^[0-9a-fA-F]{24}$/.test(assistant.provider_resource_id)) {
+          realVomyraAssistantId = assistant.provider_resource_id;
+        }
+        
+        if (!actualPhoneNumberId && assistant?.phone_numbers && assistant.phone_numbers.length > 0) {
+          actualPhoneNumberId = assistant.phone_numbers[0].id;
+        }
+      } catch {}
 
-      if (phoneNumberId) {
-        numberQuery = numberQuery.eq('id', phoneNumberId);
-      }
-
-      const { data: campaignNumber, error: campaignNumberError } = await numberQuery
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
-      if (campaignNumberError || !campaignNumber?.phone_number) {
+      if (!actualPhoneNumberId) {
         return res.status(400).json({ error: 'The selected assistant must have a phone number assigned before launching a campaign.' });
       }
-
-      const actualPhoneNumberId = campaignNumber.id;
-      const assignedNumber = campaignNumber.phone_number.trim();
 
       let campaignId = `camp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       try {
@@ -112,7 +105,28 @@ campaignRouter.post(
       }
 
       console.log(
-        `[Campaigns] Launching campaign "${name}" with ${contactList.length} contacts using assigned number ${assignedNumber}`
+        `[Campaigns] Launching campaign "${name}" with ${contactList.length} contacts using assistant ${realVomyraAssistantId}`
+      );
+
+      const localContacts = new Map<string, string>();
+      await Promise.allSettled(
+        contactList.map(async (contact) => {
+          const cleanNumber = contact.phone.startsWith('+')
+            ? contact.phone
+            : `+91${contact.phone.replace(/^0+/, '')}`;
+          const row = await upsertVoiceContactForEcosystem(supabase, {
+            workspaceId,
+            userId: createdBy,
+            name: contact.name || 'Customer',
+            phone: cleanNumber,
+            metadata: {
+              followUpDate: contact.followUpDate,
+              details: contact.details,
+              source: 'campaign_launch',
+            },
+          });
+          if (row?.id) localContacts.set(cleanNumber, row.id);
+        })
       );
 
       const dispatchPromises = contactList.map(async (contact, index) => {
@@ -130,11 +144,12 @@ campaignRouter.post(
           const callResult = await voiceProvider.initiateCall({
             customer_number: cleanNumber,
             customer_name: contact.name || 'Valued Customer',
-            assigned_number: assignedNumber,
+            assistant_id: realVomyraAssistantId,
             customer_country_code: cleanNumber.startsWith('+91') ? '+91' : '+1',
             additional_data: {
               campaign_id: campaignId,
               campaign_name: name,
+              contact_id: localContacts.get(cleanNumber),
               followUpDate: contact.followUpDate,
               details: contact.details,
               dispatched_at: new Date().toISOString(),

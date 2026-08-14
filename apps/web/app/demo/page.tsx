@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
+import { createClient } from "@/utils/supabase/client";
 import {
   Sparkles,
   CheckCircle2,
@@ -33,6 +34,7 @@ import {
 } from "lucide-react";
 import { submitDemoInquiry } from "@/app/actions/demo";
 import { PrimaryButton } from "@/components/ui/primary-button";
+import { DemoCallSection } from "@/components/demo/DemoCallSection";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -172,6 +174,45 @@ export default function DemoPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isFooterVisible, setIsFooterVisible] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [plansList, setPlansList] = useState(pricingPlans);
+
+  useEffect(() => {
+    const fetchDbPlans = async () => {
+      try {
+        const supabase = createClient();
+        const { data: dbPlans } = await supabase
+          .from("plans")
+          .select("*")
+          .eq("is_active", true)
+          .order("price_monthly", { ascending: true });
+
+        if (dbPlans && dbPlans.length > 0) {
+          const mapped = dbPlans.map((p) => {
+            const feats = p.features || {};
+            const isEnt = p.id === "enterprise" || feats.is_enterprise;
+            return {
+              audience: feats.audience || (isEnt ? "FOR ORGANIZATIONS" : "FOR STARTERS"),
+              name: p.name || (isEnt ? "Enterprise" : "Plan"),
+              description: feats.description || `${p.included_credits} AI calling minutes included.`,
+              price: p.price_monthly > 0 ? `₹${p.price_monthly.toLocaleString()}` : "Custom",
+              unit: p.price_monthly > 0 ? "/mo" : "",
+              feeNote: feats.feeNote || (p.price_monthly > 0 ? `Includes ${p.included_credits} mins.` : "Contracted to your volume."),
+              action: isEnt ? "Talk to our team" : "Start building",
+              headerBg: p.id === "call_lite" ? "bg-[#e4ebd9] border-b border-black/10" : p.id === "call_pro" ? "bg-[#f9f3e5] border-b border-black/10" : p.id === "call_elite" ? "bg-[#faeae1] border-b border-black/10" : "bg-[#e7e9e8] border-b border-black/10",
+              buttonVariant: isEnt ? "outline" : "dark",
+              features: feats.feature_list || [
+                `${p.included_credits} AI Calling Minutes`,
+                "Hindi, English & Hinglish Support",
+                "Custom AI System Prompts"
+              ]
+            };
+          });
+          setPlansList(mapped);
+        }
+      } catch (e) {}
+    };
+    fetchDbPlans();
+  }, []);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const footerRef = useRef<HTMLElement | null>(null);
 
@@ -217,9 +258,11 @@ export default function DemoPage() {
       try {
         const { createClient } = await import("@/utils/supabase/client");
         const supabase = createClient();
-        const { data: { session } } = await supabase.auth.getSession();
+        const sessionRes = await supabase.auth.getSession();
+        const session = sessionRes?.data?.session;
         if (isMounted && session?.user) setUser(session.user);
-        const { data: { user: serverUser } } = await supabase.auth.getUser();
+        const userRes = await supabase.auth.getUser();
+        const serverUser = userRes?.data?.user;
         if (isMounted) setUser(serverUser ?? session?.user ?? null);
       } catch {
         if (isMounted) setUser(null);
@@ -578,7 +621,7 @@ export default function DemoPage() {
                     {submitError && (
                       <div className="p-3.5 rounded-[16px] bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2.5">
                         <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
-                        <span>{submitError}</span>
+                        <span>{typeof submitError === "string" ? submitError : (submitError as any)?.message || JSON.stringify(submitError)}</span>
                       </div>
                     )}
 
@@ -787,7 +830,7 @@ export default function DemoPage() {
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 text-left">
-            {pricingPlans.map((plan) => (
+            {plansList.map((plan) => (
               <article
                 key={plan.name}
                 className="flex flex-col rounded-[16px] border border-black/10 bg-white overflow-hidden shadow-xs transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
@@ -877,6 +920,9 @@ export default function DemoPage() {
             </div>
           </div>
         </section>
+
+        {/* Real One-Time Test Call Section (Placed Below Pricing) */}
+        <DemoCallSection user={user} />
       </main>
 
       {/* Reference-Matched 100vh Landscape Footer (Matching Home Page) */}

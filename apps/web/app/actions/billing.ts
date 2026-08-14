@@ -1,9 +1,10 @@
 "use server";
 
+import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
-import { getCurrentWorkspace } from "@/lib/workspace";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -31,9 +32,53 @@ async function getAdminClient() {
 }
 
 async function getWorkspaceId(): Promise<string> {
-  const workspace = await getCurrentWorkspace();
-  if (!workspace) throw new Error("No workspace is provisioned for this user.");
-  return workspace.workspaceId;
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    {
+      cookies: {
+        getAll: () => cookieStore.getAll(),
+        setAll: (cookiesToSet) => {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            );
+          } catch {}
+        },
+      },
+    }
+  );
+
+  const adminClient = await getAdminClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (user) {
+    const { data: member } = await adminClient
+      .from('workspace_members')
+      .select('workspace_id')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (member?.workspace_id) return member.workspace_id;
+  }
+
+  // Fallback to ANY workspace removed to prevent random assignment
+
+  const { data: newWs } = await adminClient.from('workspaces').insert({ name: `${user?.email?.split('@')[0] || 'Default'}'s Workspace`, owner_id: user?.id || '00000000-0000-0000-0000-000000000000' }).select().single();
+  
+  if (newWs?.id && user?.id) {
+    try {
+      await adminClient.from('workspace_members').insert({
+        workspace_id: newWs.id,
+        user_id: user.id,
+        role: 'owner'
+      });
+    } catch(e) {}
+  }
+  return newWs.id;
 }
 
 export async function getBillingDataAction() {

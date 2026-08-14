@@ -125,13 +125,29 @@ assistantRouter.post('/', async (req, res) => {
     let targetWorkspaceId = workspaceId;
     let targetCreatedBy = createdBy;
 
+    // Validate if the workspace exists in the database
+    if (targetWorkspaceId) {
+      const { data: wsExists } = await supabase.from('workspaces').select('id').eq('id', targetWorkspaceId).maybeSingle();
+      if (!wsExists) {
+        targetWorkspaceId = null;
+      }
+    }
+
+    // Validate if the user profile exists in the database
+    if (targetCreatedBy) {
+      const { data: profileExists } = await supabase.from('profiles').select('id').eq('id', targetCreatedBy).maybeSingle();
+      if (!profileExists) {
+        targetCreatedBy = null;
+      }
+    }
+
     if (!targetWorkspaceId || !targetCreatedBy) {
       const { data: anyWs } = await supabase.from('workspaces').select('id, owner_id').limit(1).maybeSingle();
       if (anyWs) {
         targetWorkspaceId = targetWorkspaceId || anyWs.id;
         targetCreatedBy = targetCreatedBy || anyWs.owner_id;
       } else {
-        return res.status(400).json({ error: 'workspaceId and createdBy are required' });
+        return res.status(400).json({ error: 'workspaceId and createdBy are required, and no active workspace exists in the database.' });
       }
     }
 
@@ -160,16 +176,11 @@ assistantRouter.post('/', async (req, res) => {
     }).select().single();
 
     if (error) {
-      console.warn('Supabase DB insert error:', error.message);
+      console.error('Supabase DB insert error:', error.message);
+      return res.status(500).json({ error: `Database Save Error: ${error.message}` });
     }
 
-    return res.status(201).json(data || {
-      id: realVomyraId,
-      name: assistantPayload.name || 'Untitled Assistant',
-      provider_resource_id: realVomyraId,
-      config_snapshot: finalSnapshot,
-      status: 'active'
-    });
+    return res.status(201).json(data);
   } catch (error: any) {
     console.error('Error creating assistant:', error);
     res.status(500).json({ error: error.message });
@@ -226,25 +237,50 @@ assistantRouter.get('/:id', async (req, res) => {
 
 // PUT /api/v1/assistants/:id - Update Assistant
 assistantRouter.put('/:id', async (req, res) => {
+  const { id } = req.params;
+  const updatePayload = req.body || {};
+  console.log(`[Express API] PUT /api/v1/assistants/${id} requested`);
+
   try {
-    const { id } = req.params;
-    const updatePayload = req.body;
+    let dbAssistant: any = null;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
-    const { data: dbAssistant, error: fetchErr } = await supabase
-      .from('assistants')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (fetchErr || !dbAssistant) {
-      return res.status(404).json({ error: 'Assistant not found' });
+    if (isUuid) {
+      const { data } = await supabase
+        .from('assistants')
+        .select('*')
+        .eq('id', id)
+        .is('deleted_at', null)
+        .maybeSingle();
+      dbAssistant = data;
     }
 
-    let updatedConfig = { ...dbAssistant.config_snapshot, ...updatePayload };
+    if (!dbAssistant) {
+      const { data } = await supabase
+        .from('assistants')
+        .select('*')
+        .eq('provider_resource_id', id)
+        .is('deleted_at', null)
+        .maybeSingle();
+      dbAssistant = data;
+    }
 
-    if (dbAssistant.provider_resource_id && !dbAssistant.provider_resource_id.startsWith('mock_') && !dbAssistant.provider_resource_id.startsWith('ast_')) {
+    if (!dbAssistant) {
+      console.warn(`[Express API] PUT /api/v1/assistants/${id} - Assistant not found in database`);
+      return res.status(404).json({
+        success: false,
+        error: 'Assistant not found in database',
+        code: 'ASSISTANT_NOT_FOUND'
+      });
+    }
+
+    const realDbId = dbAssistant.id;
+    let updatedConfig = { ...(dbAssistant.config_snapshot || {}), ...updatePayload };
+
+    const providerResId = dbAssistant.provider_resource_id || id;
+    if (providerResId && !providerResId.startsWith('mock_') && !providerResId.startsWith('ast_')) {
       try {
-        const vomyraRes = await voiceProvider.updateAssistant(dbAssistant.provider_resource_id, updatePayload);
+        const vomyraRes = await voiceProvider.updateAssistant(providerResId, updatePayload);
         const vomyraData = vomyraRes?.data || vomyraRes || {};
         updatedConfig = {
           ...(dbAssistant.config_snapshot || {}),
@@ -252,7 +288,7 @@ assistantRouter.put('/:id', async (req, res) => {
           ...updatePayload
         };
       } catch (err: any) {
-        console.warn(`Could not update Vomyra assistant ${dbAssistant.provider_resource_id}:`, err.message);
+        console.warn(`[Express API] Could not update Vomyra assistant ${providerResId}:`, err.message);
       }
     }
 
@@ -263,16 +299,47 @@ assistantRouter.put('/:id', async (req, res) => {
         config_snapshot: updatedConfig,
         updated_at: new Date().toISOString()
       })
-      .eq('id', id)
+      .eq('id', realDbId)
       .select()
       .single();
 
-    if (updateErr) throw updateErr;
+    if (updateErr) {
+      console.error(`[Express API] Database update error for assistant ${realDbId}:`, updateErr.message);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to update assistant in database',
+        code: 'DATABASE_UPDATE_FAILED'
+      });
+    }
 
-    res.json(updatedRecord);
+    // Sync selected_tools if passed
+    if (Array.isArray(updatePayload.selected_tools)) {
+      try {
+        await supabase.from('assistant_tools').delete().eq('assistant_id', realDbId);
+        if (updatePayload.selected_tools.length > 0) {
+          const toolRows = updatePayload.selected_tools.map((tId: string) => ({
+            assistant_id: realDbId,
+            tool_id: tId
+          }));
+          await supabase.from('assistant_tools').insert(toolRows);
+        }
+      } catch (tErr: any) {
+        console.warn(`[Express API] Tool assignment sync error:`, tErr.message);
+      }
+    }
+
+    console.log(`[Express API] Successfully updated assistant ${realDbId}`);
+    return res.status(200).json({
+      success: true,
+      data: updatedRecord
+    });
   } catch (error: any) {
-    console.error('Error updating assistant:', error);
-    res.status(500).json({ error: error.message });
+    console.error(`[Express API] Error updating assistant ${id}:`, error.message || error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Internal server error while updating assistant',
+      code: 'ASSISTANT_UPDATE_FAILED'
+    });
   }
 });
 

@@ -10,7 +10,8 @@ import {
   FileText, 
   BarChart3, 
   CreditCard,
-  Settings
+  Settings,
+  Users
 } from "lucide-react";
 import SidebarNavItem from "@/components/sidebar/SidebarNavItem";
 import SidebarEngineCard from "@/components/sidebar/SidebarEngineCard";
@@ -22,6 +23,7 @@ export default function DashboardSidebarNav() {
   const mainNav = [
     { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
     { name: "Assistants", href: "/dashboard/assistants", icon: Bot },
+    { name: "Contacts & Sync", href: "/dashboard/contacts", icon: Users },
     { name: "Campaigns", href: "/dashboard/campaigns", icon: PhoneCall },
     { name: "Phone Numbers", href: "/dashboard/phone-numbers", icon: Phone },
     { name: "Call Logs & Audio", href: "/dashboard/calls", icon: FileText },

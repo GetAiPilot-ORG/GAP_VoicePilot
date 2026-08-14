@@ -1,3 +1,7 @@
+-- Add is_super_admin and current_plan to profiles ------------------
+alter table profiles add column if not exists is_super_admin boolean default false;
+alter table profiles add column if not exists current_plan text references plans(id);
+
 -- Plans Table ------------------------------------------------------
 create table if not exists plans (
   id text primary key,
@@ -10,10 +14,6 @@ create table if not exists plans (
   is_active boolean default true,
   created_at timestamptz default now()
 );
-
--- Add is_super_admin and current_plan to profiles ------------------
-alter table profiles add column if not exists is_super_admin boolean default false;
-alter table profiles add column if not exists current_plan text references plans(id);
 
 -- Seed Default Plans (INR ₹ Currency)
 insert into plans (id, name, price_monthly, included_credits, max_assistants, max_concurrent_calls, features)

@@ -16,7 +16,7 @@ const settingsSections = [
   },
   {
     title: "Integrations",
-    description: "Supabase, Voice API, Razorpay, and AI provider configuration.",
+    description: "Supabase, Vomyra, Razorpay, and AI provider configuration.",
     status: "Env",
     icon: Link2,
   },
