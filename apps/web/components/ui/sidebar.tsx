@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   LayoutDashboard,
   Bot,
+  Users,
   Megaphone,
   PhoneCall,
   Headphones,

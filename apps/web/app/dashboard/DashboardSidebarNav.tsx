@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { 
   LayoutDashboard, 
   Bot, 
+  Users,
   PhoneCall, 
   Phone, 
   FileText, 
