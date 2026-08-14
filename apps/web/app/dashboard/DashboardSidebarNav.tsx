@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { 
   LayoutDashboard, 
   Bot, 
+  Users,
   PhoneCall, 
   Phone, 
   FileText, 
@@ -22,6 +23,7 @@ export default function DashboardSidebarNav() {
   const mainNav = [
     { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
     { name: "Assistants", href: "/dashboard/assistants", icon: Bot },
+    { name: "Contacts & Sync", href: "/dashboard/contacts", icon: Users },
     { name: "Campaigns", href: "/dashboard/campaigns", icon: PhoneCall },
     { name: "Phone Numbers", href: "/dashboard/phone-numbers", icon: Phone },
     { name: "Call Logs & Audio", href: "/dashboard/calls", icon: FileText },
