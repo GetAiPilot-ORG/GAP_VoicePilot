@@ -7,11 +7,12 @@ import { deleteAssistantAction, duplicateAssistantAction } from "@/app/actions/a
 import AssistantTestModal from "@/components/AssistantTestModal";
 
 interface AssistantActionMenuProps {
-  assistantId: string;
-  assistantName: string;
+  assistant: any;
 }
 
-export default function AssistantActionMenu({ assistantId, assistantName }: AssistantActionMenuProps) {
+export default function AssistantActionMenu({ assistant }: AssistantActionMenuProps) {
+  const assistantId = assistant.id;
+  const assistantName = assistant.name;
   const [isOpen, setIsOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
@@ -142,7 +143,7 @@ export default function AssistantActionMenu({ assistantId, assistantName }: Assi
             </div>
 
             <div className="p-3.5 rounded-[10px] bg-surface-soft border border-hairline text-xs leading-relaxed text-neutral-700">
-              Are you sure you want to delete <strong className="text-black font-mono font-bold">"{assistantName}"</strong>? This will permanently remove it from both <strong className="text-black">VoicePilot</strong> and <strong className="text-black">Vomyra API</strong>.
+              Are you sure you want to delete <strong className="text-black font-mono font-bold">"{assistantName}"</strong>? This will permanently remove it from <strong className="text-black">VoicePilot</strong>.
             </div>
 
             <div className="flex items-center gap-3 pt-2">
@@ -168,14 +169,10 @@ export default function AssistantActionMenu({ assistantId, assistantName }: Assi
         </div>
       )}
 
-      {/* Test Call Modal */}
       <AssistantTestModal
         isOpen={isTestModalOpen}
         onClose={() => setIsTestModalOpen(false)}
-        assistant={{
-          id: assistantId,
-          name: assistantName
-        }}
+        assistant={assistant}
       />
     </>
   );

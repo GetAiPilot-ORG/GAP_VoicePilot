@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
 import {
@@ -38,6 +38,7 @@ export interface AgentCardConfig {
   voiceGender: "female" | "male";
   accent: string;
   orbGradient: string;
+  audioUrl: string;
 }
 
 export const AGENT_CARDS: AgentCardConfig[] = [
@@ -51,6 +52,7 @@ export const AGENT_CARDS: AgentCardConfig[] = [
     voiceGender: "female",
     accent: "Hinglish / Indian English",
     orbGradient: "from-amber-400 via-orange-500 to-amber-600",
+    audioUrl: "https://ai.azure.com/speechassetscache/ttsvoice/Masterpieces/en-IN-Aarti-General-Audio.wav",
   },
   {
     id: "financial-services",
@@ -62,6 +64,7 @@ export const AGENT_CARDS: AgentCardConfig[] = [
     voiceGender: "male",
     accent: "Indian English",
     orbGradient: "from-[#ff4b2f] via-rose-500 to-red-600",
+    audioUrl: "https://ai.azure.com/speechassetscache/ttsvoice/Masterpieces/en-IN-Arjun-General-Audio.wav",
   },
   {
     id: "hospitality",
@@ -73,6 +76,7 @@ export const AGENT_CARDS: AgentCardConfig[] = [
     voiceGender: "female",
     accent: "Hindi & English",
     orbGradient: "from-emerald-400 via-teal-500 to-emerald-600",
+    audioUrl: "https://ai.azure.com/speechassetscache/ttsvoice/Masterpieces/hi-IN-Aarti-General-Audio.wav",
   },
   {
     id: "customer-support",
@@ -84,6 +88,7 @@ export const AGENT_CARDS: AgentCardConfig[] = [
     voiceGender: "female",
     accent: "Hinglish / Clear North Indian",
     orbGradient: "from-blue-500 via-indigo-500 to-sky-600",
+    audioUrl: "https://ai.azure.com/speechassetscache/ttsvoice/Masterpieces/hi-IN-Aarti-General-Audio.wav",
   },
   {
     id: "collections",
@@ -95,6 +100,7 @@ export const AGENT_CARDS: AgentCardConfig[] = [
     voiceGender: "male",
     accent: "Indian Professional",
     orbGradient: "from-slate-700 via-neutral-800 to-black",
+    audioUrl: "https://ai.azure.com/speechassetscache/ttsvoice/Masterpieces/en-IN-Aarav-General-Audio.wav",
   },
 ];
 
@@ -117,6 +123,15 @@ export function LiveAgentDemoSection({
   const [configuredId, setConfiguredId] = useState<string>(assistantId || "");
 
   const activeCard = AGENT_CARDS[activeIndex];
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!configuredId && typeof window !== "undefined") {
@@ -126,57 +141,62 @@ export function LiveAgentDemoSection({
   }, [configuredId]);
 
   const handlePrevCard = () => {
-    if (isPlayingAudio && typeof window !== "undefined") {
-      window.speechSynthesis.cancel();
+    if (isPlayingAudio) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
       setIsPlayingAudio(false);
     }
     setActiveIndex((prev) => (prev === 0 ? AGENT_CARDS.length - 1 : prev - 1));
   };
 
   const handleNextCard = () => {
-    if (isPlayingAudio && typeof window !== "undefined") {
-      window.speechSynthesis.cancel();
+    if (isPlayingAudio) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
       setIsPlayingAudio(false);
     }
     setActiveIndex((prev) => (prev === AGENT_CARDS.length - 1 ? 0 : prev + 1));
   };
 
-  // Audio voice sample preview player using Web Speech Synthesis
+  // Audio voice sample preview player using HTML5 Audio
   const togglePlayAudioSample = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      alert("Browser speech synthesis not supported on your device.");
-      return;
-    }
+    
+    if (typeof window === "undefined") return;
 
     if (isPlayingAudio) {
-      window.speechSynthesis.cancel();
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
       setIsPlayingAudio(false);
       return;
     }
 
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(activeCard.sampleText);
-    utterance.rate = 0.95;
-    utterance.pitch = activeCard.voiceGender === "female" ? 1.1 : 0.9;
-
-    const voices = window.speechSynthesis.getVoices();
-    const preferredVoice = voices.find(
-      (v) =>
-        v.lang.includes("en-IN") ||
-        v.lang.includes("hi-IN") ||
-        v.name.includes("India") ||
-        v.name.includes("Google")
-    );
-    if (preferredVoice) {
-      utterance.voice = preferredVoice;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
     }
 
-    utterance.onend = () => setIsPlayingAudio(false);
-    utterance.onerror = () => setIsPlayingAudio(false);
+    const audio = new Audio(activeCard.audioUrl);
+    audioRef.current = audio;
+
+    audio.onended = () => {
+      setIsPlayingAudio(false);
+    };
+    audio.onerror = () => {
+      setIsPlayingAudio(false);
+    };
 
     setIsPlayingAudio(true);
-    window.speechSynthesis.speak(utterance);
+    audio.play().catch((err) => {
+      console.warn("Audio playback failed or was interrupted:", err);
+      setIsPlayingAudio(false);
+    });
   };
 
   // Trigger Phone Call or Auth Gate

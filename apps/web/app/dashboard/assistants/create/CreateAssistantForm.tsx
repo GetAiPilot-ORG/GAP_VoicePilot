@@ -461,6 +461,7 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
       temperature: Number(temperature),
       voice_provider: voiceProvider,
       voice: {
+        provider: voiceProvider,
         name: voiceName,
         speed: Number(voiceSpeed),
         stability: Number(voiceStability),
@@ -469,16 +470,18 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
         tts_model: ttsModel || null,
         instructions: voiceInstructions
       },
-      transcription_provider: sttProvider,
-      transcription_language: transcriptionLanguage,
-      language_selection_mode: languageSelectionMode,
-      transcription_prompt: transcriptionPrompt,
-      deepgram: {
-        model: dgModel,
-        utterance_end_ms: Number(dgUtteranceEnd),
-        endpointing: Number(dgEndpointing),
-        vad_events: dgVadEvents,
-        diarize: dgDiarize
+      transcription: {
+        provider: sttProvider,
+        language: transcriptionLanguage,
+        mode: languageSelectionMode,
+        prompt: transcriptionPrompt || null,
+        deepgram: {
+          model: dgModel,
+          utterance_end_ms: Number(dgUtteranceEnd),
+          endpointing: Number(dgEndpointing),
+          vad_events: dgVadEvents,
+          diarize: dgDiarize
+        }
       },
       maximum_duration: Number(maximumDuration),
       silence_timeout: Number(silenceTimeout),
