@@ -3,6 +3,7 @@
 import React, { useState, useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { AlertCircle, Eye, EyeOff, Check, Loader2, ArrowRight } from "lucide-react";
 import { PrimaryButton } from "@/components/ui/primary-button";
 import { login, signup } from "@/app/actions/auth";
@@ -58,6 +59,8 @@ export interface AuthSectionOneProps {
 export default function AuthSectionOne({ mode = "signup", error }: AuthSectionOneProps) {
   const [currentMode, setCurrentMode] = useState<"login" | "signup">(mode);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams?.get("redirectTo") || searchParams?.get("returnTo") || searchParams?.get("redirect") || "/dashboard";
 
   useEffect(() => {
     setCurrentMode(mode);
@@ -147,6 +150,7 @@ export default function AuthSectionOne({ mode = "signup", error }: AuthSectionOn
             </div>
 
             <form action={isLogin ? login : signup} onSubmit={handleSubmit} className="space-y-4">
+              <input type="hidden" name="redirectTo" value={redirectTo} />
               {!isLogin && (
                 <div className="grid gap-3 sm:grid-cols-2">
                   <FieldBox label="First Name" name="firstName" placeholder="Harshit" required />

@@ -24,9 +24,10 @@ function formatAuthError(message: string): string {
 export async function login(formData: FormData) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
+  const redirectTo = (formData.get("redirectTo") as string) || (formData.get("returnTo") as string) || "/dashboard";
 
   if (!email || !password) {
-    return redirect(`/login?error=${encodeURIComponent("Please fill in both email and password fields.")}`);
+    return redirect(`/login?error=${encodeURIComponent("Please fill in both email and password fields.")}&redirectTo=${encodeURIComponent(redirectTo)}`);
   }
 
   const cookieStore = await cookies();
@@ -57,10 +58,10 @@ export async function login(formData: FormData) {
   });
 
   if (error) {
-    return redirect(`/login?error=${encodeURIComponent(formatAuthError(error.message))}`);
+    return redirect(`/login?error=${encodeURIComponent(formatAuthError(error.message))}&redirectTo=${encodeURIComponent(redirectTo)}`);
   }
 
-  return redirect("/dashboard");
+  return redirect(redirectTo);
 }
 
 export async function signup(formData: FormData) {
@@ -69,13 +70,14 @@ export async function signup(formData: FormData) {
   const firstName = (formData.get("firstName") as string) || "";
   const lastName = (formData.get("lastName") as string) || "";
   const name = `${firstName} ${lastName}`.trim() || (formData.get("name") as string) || "";
+  const redirectTo = (formData.get("redirectTo") as string) || (formData.get("returnTo") as string) || "/dashboard";
 
   if (!email || !password) {
-    return redirect(`/signup?error=${encodeURIComponent("Please provide a valid email and password to register.")}`);
+    return redirect(`/signup?error=${encodeURIComponent("Please provide a valid email and password to register.")}&redirectTo=${encodeURIComponent(redirectTo)}`);
   }
 
   if (password.length < 6) {
-    return redirect(`/signup?error=${encodeURIComponent("Password must be at least 6 characters long.")}`);
+    return redirect(`/signup?error=${encodeURIComponent("Password must be at least 6 characters long.")}&redirectTo=${encodeURIComponent(redirectTo)}`);
   }
 
   const cookieStore = await cookies();
@@ -113,10 +115,10 @@ export async function signup(formData: FormData) {
   });
 
   if (error) {
-    return redirect(`/signup?error=${encodeURIComponent(formatAuthError(error.message))}`);
+    return redirect(`/signup?error=${encodeURIComponent(formatAuthError(error.message))}&redirectTo=${encodeURIComponent(redirectTo)}`);
   }
 
-  return redirect("/dashboard");
+  return redirect(redirectTo);
 }
 
 export async function signOut() {
