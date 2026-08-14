@@ -47,7 +47,8 @@ export async function getCurrentWorkspace(): Promise<{
       }
     );
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const userRes = await supabase.auth.getUser();
+    const user = userRes?.data?.user;
     if (!user) return null;
 
     const adminClient = await getAdminClient();
