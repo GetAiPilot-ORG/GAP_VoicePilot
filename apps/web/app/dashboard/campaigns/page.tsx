@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
+import { fetchVomyraCalls } from "@/lib/vomyra";
 import { CampaignsClient, CampaignJob, AssistantOption } from "./CampaignsClient";
 
 export const dynamic = "force-dynamic";
@@ -87,16 +88,8 @@ export default async function CampaignsPage() {
 
   // 3. Fetch & Reconstruct All Vomyra Bulk Campaign Dispatches from Live Call API
   try {
-    const vomyraApiKey = process.env.VOMYRA_API_KEY || '';
-    const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || 'https://api.vomyra.com';
-
-    const res = await fetch(`${vomyraBaseUrl}/v1/calls?limit=100`, {
-      headers: { 'x-api-key': vomyraApiKey },
-      cache: 'no-store'
-    });
-
-    if (res.ok) {
-      const data = await res.json();
+      const data = await fetchVomyraCalls(100);
+      {
       const allRawCalls = data.data || data.calls || (Array.isArray(data) ? data : []);
 
       // Filter to only show calls from this user's assistants

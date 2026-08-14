@@ -1,4 +1,5 @@
 import { getAdminClient } from "@/lib/workspace";
+import { vomyraRequest } from "@/lib/vomyra";
 import { notFound } from "next/navigation";
 import { EditAssistantForm } from "../EditAssistantForm";
 
@@ -66,10 +67,7 @@ export default async function AssistantDetailPage({ params }: AssistantPageProps
   // 3. Fallback: Check Vomyra API directly if not in Supabase
   if (!assistant) {
     try {
-      const vomyraApiKey = process.env.VOMYRA_API_KEY || "";
-      const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || "https://api.vomyra.com";
-      const res = await fetch(`${vomyraBaseUrl}/v1/assistants/${assistantId}`, {
-        headers: { "x-api-key": vomyraApiKey },
+      const res = await vomyraRequest(`/v1/assistants/${assistantId}`, {
         cache: "no-store"
       });
 
@@ -120,10 +118,7 @@ export default async function AssistantDetailPage({ params }: AssistantPageProps
 
   // Also fetch Vomyra Live Tools
   try {
-    const vomyraApiKey = process.env.VOMYRA_API_KEY || "";
-    const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || "https://api.vomyra.com";
-    const toolRes = await fetch(`${vomyraBaseUrl}/v1/tools`, {
-      headers: { "x-api-key": vomyraApiKey },
+    const toolRes = await vomyraRequest('/v1/tools', {
       cache: "no-store"
     });
 

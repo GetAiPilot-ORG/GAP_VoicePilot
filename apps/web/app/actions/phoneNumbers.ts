@@ -1,66 +1,8 @@
 "use server";
 
-import { createServerClient } from "@supabase/ssr";
-import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-
-async function getAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-}
-
-async function getWorkspaceId(): Promise<string> {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: (cookiesToSet) => {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {}
-        },
-      },
-    }
-  );
-
-  const adminClient = await getAdminClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (user) {
-    const { data: member } = await adminClient
-      .from('workspace_members')
-      .select('workspace_id')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
-    if (member?.workspace_id) return member.workspace_id;
-  }
-
-  // Fallback to ANY workspace removed to prevent random assignment
-
-  const { data: newWs } = await adminClient.from('workspaces').insert({ name: `${user?.email?.split('@')[0] || 'Default'}'s Workspace`, owner_id: user?.id || '00000000-0000-0000-0000-000000000000' }).select().single();
-  
-  if (newWs?.id && user?.id) {
-    try {
-      await adminClient.from('workspace_members').insert({
-        workspace_id: newWs.id,
-        user_id: user.id,
-        role: 'owner'
-      });
-    } catch(e) {}
-  }
-  return newWs.id;
-}
+import { getAdminClient, requireCurrentWorkspace } from "@/lib/workspace";
+import { fetchVomyraNumbers, vomyraRequest } from "@/lib/vomyra";
 
 export async function assignPhoneNumberAction(numberId: string, assistantId: string | null) {
   const adminClient = await getAdminClient();
@@ -76,9 +18,6 @@ export async function assignPhoneNumberAction(numberId: string, assistantId: str
     return { success: false, error: "Phone number not found." };
   }
 
-  const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || "https://api.vomyra.com";
-  const vomyraApiKey = process.env.VOMYRA_API_KEY || "";
-
   // If assigning to an assistant, sync with Vomyra using PUT
   if (assistantId) {
     const { data: assistantData, error: assistantError } = await adminClient
@@ -91,12 +30,10 @@ export async function assignPhoneNumberAction(numberId: string, assistantId: str
       return { success: false, error: "Assistant not found or missing provider ID." };
     }
 
-    if (vomyraApiKey) {
-      try {
-        const vRes = await fetch(`${vomyraBaseUrl}/v1/numbers/assignment`, {
+    try {
+        const vRes = await vomyraRequest('/v1/numbers/assignment', {
           method: "PUT",
           headers: {
-            "x-api-key": vomyraApiKey,
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
@@ -110,19 +47,16 @@ export async function assignPhoneNumberAction(numberId: string, assistantId: str
           console.error("Vomyra assignment failed:", text);
           // Allow local assignment to succeed for test/manual numbers
         }
-      } catch (e: any) {
+    } catch (e: any) {
         console.error("Vomyra sync error:", e);
         return { success: false, error: "Error communicating with Vomyra API." };
-      }
     }
   } else {
     // If unassigning, sync with Vomyra using DELETE
-    if (vomyraApiKey) {
-      try {
-        const vRes = await fetch(`${vomyraBaseUrl}/v1/numbers/assignment`, {
+    try {
+        const vRes = await vomyraRequest('/v1/numbers/assignment', {
           method: "DELETE",
           headers: {
-            "x-api-key": vomyraApiKey,
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
@@ -135,10 +69,9 @@ export async function assignPhoneNumberAction(numberId: string, assistantId: str
           console.error("Vomyra unassignment failed:", text);
           // Allow local unassignment to succeed
         }
-      } catch (e: any) {
+    } catch (e: any) {
         console.error("Vomyra sync error:", e);
         return { success: false, error: "Error communicating with Vomyra API." };
-      }
     }
   }
 
@@ -160,24 +93,14 @@ export async function assignPhoneNumberAction(numberId: string, assistantId: str
  */
 export async function fetchAndSyncVomyraNumbersAction() {
   const adminClient = await getAdminClient();
-  const workspaceId = await getWorkspaceId();
+  const { workspaceId } = await requireCurrentWorkspace();
 
   let fetchedNumbersCount = 0;
   let errorMsg: string | null = null;
 
   try {
-    const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || "https://api.vomyra.com";
-    const vomyraApiKey = process.env.VOMYRA_API_KEY || "";
-
     // Fetch all numbers from Vomyra API directly to ensure perfect sync
-    if (vomyraApiKey) {
-      const vRes = await fetch(`${vomyraBaseUrl}/v1/numbers`, {
-        headers: { "x-api-key": vomyraApiKey }
-      });
-      
-      if (vRes.ok) {
-        const vData = await vRes.json();
-        const vomyraNumbers = Array.isArray(vData) ? vData : (vData.phone_numbers || vData.data || []);
+      const vomyraNumbers = await fetchVomyraNumbers();
         
         // 1. Fetch workspace assistants from Supabase to map them
         const { data: workspaceAssistants } = await adminClient
@@ -226,20 +149,20 @@ export async function fetchAndSyncVomyraNumbersAction() {
 
           // We also update the number if it already belongs to our workspace
           if (workspaceNumberSet.has(cleanPhone) || shouldImportToWorkspace) {
+            const providerResourceId = `vomyra_${cleanPhone.replace(/[^\d+]/g, "")}`;
+
             await adminClient.from("phone_numbers").upsert({
               workspace_id: workspaceId,
               phone_number: cleanPhone,
               provider: "vomyra",
-              provider_resource_id: `vomyra_${cleanPhone.replace(/[^\d+]/g, "")}`,
+              provider_resource_id: providerResourceId,
               assigned_assistant_id: localAssignedAssistantId,
               status: localAssignedAssistantId ? "active" : "unassigned"
-            }, { onConflict: "phone_number" });
+            }, { onConflict: "provider,provider_resource_id" });
             
             fetchedNumbersCount++;
           }
         }
-      }
-    }
   } catch (err: any) {
     errorMsg = err.message;
   }
@@ -253,55 +176,9 @@ export async function fetchAndSyncVomyraNumbersAction() {
   };
 }
 
-export async function buyPhoneNumberAction(availableNumberId: string, phoneNumber: string, provider: string) {
-  const adminClient = await getAdminClient();
-  const workspaceId = await getWorkspaceId();
-
-  const { data: existing } = await adminClient
-    .from("phone_numbers")
-    .select("id")
-    .eq("id", availableNumberId)
-    .maybeSingle();
-
-  let resultNumber: any = null;
-
-  if (existing) {
-    const { data, error } = await adminClient
-      .from("phone_numbers")
-      .update({
-        workspace_id: workspaceId,
-        status: 'active'
-      })
-      .eq("id", availableNumberId)
-      .select()
-      .single();
-
-    if (error) return { success: false, error: error.message };
-    resultNumber = data;
-  } else {
-    const { data, error } = await adminClient
-      .from("phone_numbers")
-      .insert({
-        workspace_id: workspaceId,
-        phone_number: phoneNumber,
-        provider: provider || 'vomyra',
-        provider_resource_id: `pn_${Date.now()}`,
-        status: 'active'
-      })
-      .select()
-      .single();
-
-    if (error) return { success: false, error: error.message };
-    resultNumber = data;
-  }
-
-  revalidatePath("/dashboard/phone-numbers");
-  return { success: true, newNumber: resultNumber };
-}
-
 export async function fetchPhoneNumbersAction() {
   const adminClient = await getAdminClient();
-  const workspaceId = await getWorkspaceId();
+  const { workspaceId } = await requireCurrentWorkspace();
 
   const { data: myNumbers } = await adminClient
     .from("phone_numbers")

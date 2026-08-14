@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
+import { fetchVomyraCalls } from "@/lib/vomyra";
 import {
   Activity,
   ArrowUpRight,
@@ -120,16 +121,8 @@ export default async function AnalyticsPage() {
         );
         const userAssistantNames = new Set(dbAssistants?.map((a) => a.name.trim()) || []);
 
-        const vomyraApiKey = process.env.VOMYRA_API_KEY || "";
-        const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || "https://api.vomyra.com";
-
-        const res = await fetch(`${vomyraBaseUrl}/v1/calls?limit=250`, {
-          headers: { "x-api-key": vomyraApiKey },
-          cache: "no-store",
-        });
-
-        if (res.ok) {
-          const data = await res.json();
+        const data = await fetchVomyraCalls(250);
+        {
           const rawCalls: ProviderCall[] = data.data || data.calls || (Array.isArray(data) ? data : []);
 
           const filteredCalls = rawCalls.filter((call) => {
