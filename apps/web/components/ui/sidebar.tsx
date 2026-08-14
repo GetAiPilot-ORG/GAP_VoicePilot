@@ -18,6 +18,7 @@ import {
   Webhook,
   ShieldCheck,
   X,
+  Users
 } from "lucide-react";
 
 import SidebarNavItem from "@/components/sidebar/SidebarNavItem";

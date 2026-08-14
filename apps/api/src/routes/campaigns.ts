@@ -3,6 +3,7 @@ import { Router, Request, Response } from 'express';
 import { requireFeature, requireMinCredits } from '../middleware/entitlements';
 import { supabaseAdmin as supabase } from '../config/supabase';
 import { VomyraClient } from '../services/voice/providers/vomyra/client';
+import { upsertVoiceContactForEcosystem } from '../services/ecosystemSync';
 
 export const campaignRouter = Router();
 
@@ -107,6 +108,27 @@ campaignRouter.post(
         `[Campaigns] Launching campaign "${name}" with ${contactList.length} contacts using assistant ${realVomyraAssistantId}`
       );
 
+      const localContacts = new Map<string, string>();
+      await Promise.allSettled(
+        contactList.map(async (contact) => {
+          const cleanNumber = contact.phone.startsWith('+')
+            ? contact.phone
+            : `+91${contact.phone.replace(/^0+/, '')}`;
+          const row = await upsertVoiceContactForEcosystem(supabase, {
+            workspaceId,
+            userId: createdBy,
+            name: contact.name || 'Customer',
+            phone: cleanNumber,
+            metadata: {
+              followUpDate: contact.followUpDate,
+              details: contact.details,
+              source: 'campaign_launch',
+            },
+          });
+          if (row?.id) localContacts.set(cleanNumber, row.id);
+        })
+      );
+
       const dispatchPromises = contactList.map(async (contact, index) => {
         await new Promise((resolve) => setTimeout(resolve, index * 800));
 
@@ -127,6 +149,7 @@ campaignRouter.post(
             additional_data: {
               campaign_id: campaignId,
               campaign_name: name,
+              contact_id: localContacts.get(cleanNumber),
               followUpDate: contact.followUpDate,
               details: contact.details,
               dispatched_at: new Date().toISOString(),
