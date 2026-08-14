@@ -1,6 +1,7 @@
 "use server";
 
 import { getCurrentWorkspace, getAdminClient } from "@/lib/workspace";
+import { upsertVoiceContactForEcosystem } from "@/lib/ecosystem-contact-sync";
 import { revalidatePath } from "next/cache";
 
 export interface LaunchBatchCampaignParams {
@@ -97,6 +98,29 @@ export async function launchBatchCampaignAction({ name, assistantId, phoneNumber
       }
     }
 
+    const localContacts = new Map<string, string>();
+    if (adminClient) {
+      await Promise.allSettled(
+        cleanContacts.map(async (contact) => {
+          const cleanNumber = contact.phone.startsWith("+")
+            ? contact.phone
+            : `+91${contact.phone.replace(/^0+/, "")}`;
+          const row = await upsertVoiceContactForEcosystem(adminClient, {
+            workspaceId,
+            userId,
+            name: contact.name || "Customer",
+            phone: cleanNumber,
+            metadata: {
+              followUpDate: contact.followUpDate,
+              details: contact.details,
+              source: "campaign_launch",
+            },
+          });
+          if (row?.id) localContacts.set(cleanNumber, row.id);
+        }),
+      );
+    }
+
     // 2. Dispatch calls directly to Vomyra Voice API
     const vomyraApiKey = process.env.VOMYRA_API_KEY || "0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx";
     const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || "https://api.vomyra.com";
@@ -113,12 +137,13 @@ export async function launchBatchCampaignAction({ name, assistantId, phoneNumber
         customer_number: cleanNumber,
         customer_name: contact.name || "Customer",
         customer_country_code: cleanNumber.startsWith("+91") ? "+91" : "+1",
-        additional_data: {
-          campaign_id: campaignId,
-          campaign_name: name,
-          workspaceId,
-          followUpDate: contact.followUpDate,
-          details: contact.details,
+          additional_data: {
+            campaign_id: campaignId,
+            campaign_name: name,
+            contact_id: localContacts.get(cleanNumber),
+            workspaceId,
+            followUpDate: contact.followUpDate,
+            details: contact.details,
           dispatched_at: new Date().toISOString()
         }
       };
