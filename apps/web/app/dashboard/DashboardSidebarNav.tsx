@@ -11,8 +11,7 @@ import {
   FileText, 
   BarChart3, 
   CreditCard,
-  Settings,
-  Users
+  Settings
 } from "lucide-react";
 import SidebarNavItem from "@/components/sidebar/SidebarNavItem";
 import SidebarEngineCard from "@/components/sidebar/SidebarEngineCard";
