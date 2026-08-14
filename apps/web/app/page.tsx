@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
+import { createClient } from "@/utils/supabase/client";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -215,6 +216,45 @@ export default function HomePage() {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [isFooterVisible, setIsFooterVisible] = useState(false);
+  const [plansList, setPlansList] = useState(pricingPlans);
+
+  useEffect(() => {
+    const fetchDbPlans = async () => {
+      try {
+        const supabase = createClient();
+        const { data: dbPlans } = await supabase
+          .from("plans")
+          .select("*")
+          .eq("is_active", true)
+          .order("price_monthly", { ascending: true });
+
+        if (dbPlans && dbPlans.length > 0) {
+          const mapped = dbPlans.map((p) => {
+            const feats = p.features || {};
+            const isEnt = p.id === "enterprise" || feats.is_enterprise;
+            return {
+              audience: feats.audience || (isEnt ? "FOR ORGANIZATIONS" : "FOR STARTERS"),
+              name: p.name || (isEnt ? "Enterprise" : "Plan"),
+              description: feats.description || `${p.included_credits} AI calling minutes included.`,
+              price: p.price_monthly > 0 ? `₹${p.price_monthly.toLocaleString()}` : "Custom",
+              unit: p.price_monthly > 0 ? "/mo" : "",
+              feeNote: feats.feeNote || (p.price_monthly > 0 ? `Includes ${p.included_credits} mins.` : "Contracted to your volume."),
+              action: isEnt ? "Talk to our team" : "Start building",
+              headerBg: p.id === "call_lite" ? "bg-[#e4ebd9] border-b border-black/10" : p.id === "call_pro" ? "bg-[#f9f3e5] border-b border-black/10" : p.id === "call_elite" ? "bg-[#faeae1] border-b border-black/10" : "bg-[#e7e9e8] border-b border-black/10",
+              buttonVariant: isEnt ? "outline" : "dark",
+              features: feats.feature_list || [
+                `${p.included_credits} AI Calling Minutes`,
+                "Hindi, English & Hinglish Support",
+                "Custom AI System Prompts"
+              ]
+            };
+          });
+          setPlansList(mapped);
+        }
+      } catch (e) {}
+    };
+    fetchDbPlans();
+  }, []);
 
   useEffect(() => {
     setCurrentTime(new Date());
@@ -987,7 +1027,7 @@ export default function HomePage() {
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {pricingPlans.map((plan) => (
+            {plansList.map((plan) => (
               <article
                 key={plan.name}
                 className="section-reveal flex flex-col rounded-[16px] border border-black/10 bg-white overflow-hidden shadow-xs transition-all duration-300 hover:shadow-xl hover:-translate-y-1"

@@ -73,7 +73,9 @@ function VoiceSSOContent() {
 
         if (!res.ok || (!data.session && !data.magic_link_url)) {
           const errorMsg =
-            data.error === "SSO token already used"
+            res.status === 503
+              ? "SSO is not configured on Voice Pilot server. Missing VOICE_PILOT_SSO_SECRET in environment variables."
+              : data.error === "SSO token already used"
               ? "This sign-in link has already been used. Please return to GetAiPilot and click Launch Voice Pilot again."
               : data.error || "Authentication failed. Please try signing in manually.";
 

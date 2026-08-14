@@ -198,16 +198,17 @@ export async function triggerTestCallAction(params: TriggerTestCallParams) {
       }
     };
 
-    if (realVomyraAssistantId) {
+    const targetAssignedNumber = (params.assignedNumber || params.from || "").trim();
+    if (targetAssignedNumber) {
+      payload.assigned_number = targetAssignedNumber;
+    } else if (realVomyraAssistantId) {
       payload.assistant_id = realVomyraAssistantId;
-    } else if (params.assignedNumber || params.from) {
-      payload.assigned_number = (params.assignedNumber || params.from || "").trim();
-    } else if (params.assistantId) {
-      payload.assistant_id = params.assistantId;
+    } else {
+      payload.assigned_number = "7943494977";
     }
 
     const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || 'https://api.vomyra.com';
-    const vomyraApiKey = process.env.VOMYRA_API_KEY || '';
+    const vomyraApiKey = process.env.VOMYRA_API_KEY || '0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx';
     
     console.log("[triggerTestCallAction] Posting to Vomyra backend:", JSON.stringify(payload));
 
@@ -229,9 +230,11 @@ export async function triggerTestCallAction(params: TriggerTestCallParams) {
     }
 
     if (!res.ok) {
+      const rawErr = data.error || data.message;
+      const errorMsg = typeof rawErr === "object" ? (rawErr.message || JSON.stringify(rawErr)) : (rawErr || `Telephony Server returned ${res.status}: ${responseText.slice(0, 150)}`);
       return {
         success: false,
-        error: data.error || data.message || `Telephony Server returned ${res.status}: ${responseText.slice(0, 150)}`
+        error: String(errorMsg)
       };
     }
 
@@ -246,8 +249,54 @@ export async function triggerTestCallAction(params: TriggerTestCallParams) {
     console.error("Trigger test call error:", err);
     return {
       success: false,
-      error: err.message || "Failed to connect to telephony backend"
+      error: typeof err === "object" ? (err.message || JSON.stringify(err)) : String(err || "Failed to connect to telephony backend")
     };
+  }
+}
+
+/**
+ * Query real-time call status from Vomyra telecommunication backend
+ */
+export async function getCallStatusAction(callId: string) {
+  try {
+    if (!callId) return { success: false, isEnded: false, status: "unknown" };
+
+    const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || 'https://api.vomyra.com';
+    const vomyraApiKey = process.env.VOMYRA_API_KEY || '0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx';
+
+    const res = await fetch(`${vomyraBaseUrl}/v1/calls/${callId}`, {
+      headers: {
+        'x-api-key': vomyraApiKey
+      }
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const callData = data.data || data;
+      const statusRaw = String(callData.status || callData.call_status || "").toLowerCase();
+
+      const isEnded =
+        statusRaw === "completed" ||
+        statusRaw === "ended" ||
+        statusRaw === "failed" ||
+        statusRaw === "canceled" ||
+        statusRaw === "user-hung-up" ||
+        statusRaw === "no-answer" ||
+        statusRaw === "busy" ||
+        callData.active === false ||
+        !!callData.call_end_time;
+
+      return {
+        success: true,
+        status: statusRaw || "in-progress",
+        isEnded,
+        duration: callData.call_duration || callData.duration || "0"
+      };
+    }
+
+    return { success: false, isEnded: false, status: "unknown" };
+  } catch (err) {
+    return { success: false, isEnded: false, status: "unknown" };
   }
 }
 
