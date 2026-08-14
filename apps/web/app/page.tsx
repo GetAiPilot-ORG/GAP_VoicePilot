@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
@@ -207,6 +208,7 @@ const faqs = [
 ];
 
 export default function HomePage() {
+  const router = useRouter();
   const pageRef = useRef<HTMLDivElement>(null);
   const footerRef = useRef<HTMLElement>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -307,6 +309,25 @@ export default function HomePage() {
       try {
         const { createClient } = await import("@/utils/supabase/client");
         const supabase = createClient();
+
+        // 0. Handle URL hash tokens (from Supabase Magic Link / SSO redirect)
+        if (typeof window !== "undefined" && window.location.hash.includes("access_token")) {
+          const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+          const accessToken = hashParams.get("access_token");
+          const refreshToken = hashParams.get("refresh_token");
+
+          if (accessToken && refreshToken) {
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+
+            if (data?.session) {
+              window.location.href = "/dashboard";
+              return;
+            }
+          }
+        }
 
         // 1. Instant check from local session storage
         const {

@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   LayoutDashboard,
   Bot,
+  Users,
   Megaphone,
   PhoneCall,
   Headphones,
@@ -17,7 +18,6 @@ import {
   Webhook,
   ShieldCheck,
   X,
-  Users
 } from "lucide-react";
 
 import SidebarNavItem from "@/components/sidebar/SidebarNavItem";
