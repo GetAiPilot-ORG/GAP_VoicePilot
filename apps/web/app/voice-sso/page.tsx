@@ -2,14 +2,15 @@
 
 import React, { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, AlertCircle, RefreshCw, Sparkles } from "lucide-react";
+import Image from "next/image";
+import { Loader2, AlertCircle, RefreshCw, Sparkles, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 
 function VoiceSSOContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<"processing" | "error">("processing");
-  const [message, setMessage] = useState("Signing you in from GetAiPilot…");
+  const [message, setMessage] = useState("Signing you in securely from GetAiPilot…");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -20,7 +21,6 @@ function VoiceSSOContent() {
 
       if (token) {
         try {
-          // Extract email from token payload to check if session already exists
           const payloadPart = token.split(".")[0];
           const base64 = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
           const decodedPayload = JSON.parse(atob(base64));
@@ -97,29 +97,41 @@ function VoiceSSOContent() {
   }, [searchParams, router]);
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center p-6 font-sans relative overflow-hidden">
-      {/* Background glow effects */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-purple-600/10 blur-[120px] rounded-full pointer-events-none" />
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-64 h-64 bg-indigo-500/10 blur-[100px] rounded-full pointer-events-none" />
+    <div className="min-h-screen bg-white text-neutral-900 flex flex-col items-center justify-center p-6 font-sans relative selection:bg-[#ff4b2f]/20 selection:text-black">
+      {/* Premium Light Theme Ambient Background Glows */}
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#ff4b2f]/5 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 w-[350px] h-[350px] bg-orange-400/5 blur-[100px] rounded-full pointer-events-none" />
 
-      <div className="relative z-10 bg-neutral-900/80 backdrop-blur-xl border border-neutral-800 rounded-2xl p-10 max-w-md w-full text-center shadow-2xl">
-        <div className="flex justify-center mb-6">
-          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-neutral-800/80 border border-neutral-700/60 text-xs font-medium text-purple-400">
+      {/* Brand Header */}
+      <div className="mb-8 flex items-center gap-3 relative z-10">
+        <div className="w-10 h-10 rounded-xl overflow-hidden shadow-xs border border-neutral-200/80 bg-white p-1">
+          <Image src="/logo.png" alt="GAP Logo" width={32} height={32} className="w-full h-full object-contain" />
+        </div>
+        <div className="flex flex-col leading-none">
+          <span className="font-extrabold text-base tracking-tight text-neutral-900">GAP</span>
+          <span className="text-[10px] font-mono tracking-widest text-[#ff4b2f] font-bold uppercase">VOICEPILOT</span>
+        </div>
+      </div>
+
+      {/* Main Authentication Card */}
+      <div className="relative z-10 bg-white border border-neutral-200/90 rounded-2xl p-8 max-w-md w-full text-center shadow-xl space-y-6">
+        <div className="flex justify-center">
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#ff4b2f]/10 border border-[#ff4b2f]/20 text-xs font-semibold text-[#ff4b2f]">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>GAP Voice Pilot SSO</span>
+            <span>Single Sign-On Authentication</span>
           </div>
         </div>
 
         {status === "processing" && (
           <div className="flex flex-col items-center gap-5">
-            <div className="w-16 h-16 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
-              <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
+            <div className="w-16 h-16 rounded-2xl bg-[#ff4b2f]/10 border border-[#ff4b2f]/20 flex items-center justify-center shadow-xs">
+              <Loader2 className="w-8 h-8 text-[#ff4b2f] animate-spin" />
             </div>
             <div className="space-y-2">
-              <h2 className="text-xl font-semibold tracking-tight text-white">
+              <h2 className="text-xl font-extrabold tracking-tight text-neutral-900">
                 Authenticating
               </h2>
-              <p className="text-sm text-neutral-400 leading-relaxed max-w-xs mx-auto">
+              <p className="text-xs text-neutral-500 leading-relaxed max-w-xs mx-auto">
                 {message}
               </p>
             </div>
@@ -128,27 +140,31 @@ function VoiceSSOContent() {
 
         {status === "error" && (
           <div className="flex flex-col items-center gap-5">
-            <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
-              <AlertCircle className="w-8 h-8 text-red-400" />
+            <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center shadow-xs">
+              <AlertCircle className="w-8 h-8 text-red-500" />
             </div>
             <div className="space-y-2">
-              <h2 className="text-xl font-semibold tracking-tight text-white">
-                Sign-in Failed
+              <h2 className="text-xl font-extrabold tracking-tight text-neutral-900">
+                Sign-in Issue
               </h2>
-              <p className="text-sm text-neutral-400 leading-relaxed max-w-xs mx-auto">
+              <p className="text-xs text-neutral-500 leading-relaxed max-w-xs mx-auto">
                 {message}
               </p>
             </div>
             <button
               onClick={() => router.replace("/login")}
-              className="mt-2 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-sm font-medium transition-colors border border-neutral-700/50"
+              className="mt-2 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-neutral-900 hover:bg-black text-white text-xs font-semibold transition-all shadow-xs active:scale-95"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="w-4 h-4 text-[#ff4b2f]" />
               <span>Sign in manually</span>
             </button>
           </div>
         )}
       </div>
+
+      <p className="text-[11px] font-mono text-neutral-400 mt-6 relative z-10">
+        Protected by GAP VoicePilot SSO Protocol • getaipilot.in
+      </p>
     </div>
   );
 }
@@ -157,8 +173,8 @@ export default function VoiceSSOPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-          <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
+        <div className="min-h-screen bg-white flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-[#ff4b2f] animate-spin" />
         </div>
       }
     >
