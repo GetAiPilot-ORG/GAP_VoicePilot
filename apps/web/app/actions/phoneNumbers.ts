@@ -320,3 +320,82 @@ export async function claimPhoneNumberAction() {
     return { success: false, error: err.message };
   }
 }
+
+/**
+ * Admin: Assign/Reassign a phone number to a specific workspace
+ */
+export async function adminAssignNumberAction(params: {
+  phoneNumber: string;
+  workspaceId: string;
+  provider?: string;
+}) {
+  try {
+    const { checkIsAdminAction } = await import("@/app/actions/kyc");
+    const isAdmin = await checkIsAdminAction();
+    if (!isAdmin) return { success: false, error: "Unauthorized. Admin access required." };
+
+    const adminClient = await getAdminClient();
+    const provider = params.provider || "vomyra";
+    const cleanNum = params.phoneNumber.trim();
+    const providerResourceId = `${provider}_${cleanNum.replace(/[^\d+]/g, "")}`;
+
+    const currentPeriodEnd = new Date();
+    currentPeriodEnd.setDate(currentPeriodEnd.getDate() + 30);
+
+    const { data: updated, error } = await adminClient
+      .from("phone_numbers")
+      .upsert({
+        phone_number: cleanNum,
+        provider,
+        provider_resource_id: providerResourceId,
+        workspace_id: params.workspaceId,
+        status: "unassigned",
+        current_period_start: new Date().toISOString(),
+        current_period_end: currentPeriodEnd.toISOString(),
+        deleted_at: null
+      }, { onConflict: "provider,provider_resource_id" })
+      .select()
+      .single();
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/dashboard/admin/phone-numbers");
+    revalidatePath("/dashboard/phone-numbers");
+    return { success: true, number: updated };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Admin: Release a phone number back to unassigned pool
+ */
+export async function adminReleaseNumberAction(phoneId: string) {
+  try {
+    const { checkIsAdminAction } = await import("@/app/actions/kyc");
+    const isAdmin = await checkIsAdminAction();
+    if (!isAdmin) return { success: false, error: "Unauthorized. Admin access required." };
+
+    const adminClient = await getAdminClient();
+    const { error } = await adminClient
+      .from("phone_numbers")
+      .update({
+        workspace_id: null,
+        assigned_assistant_id: null,
+        status: "unassigned"
+      })
+      .eq("id", phoneId);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/dashboard/admin/phone-numbers");
+    revalidatePath("/dashboard/phone-numbers");
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
+}

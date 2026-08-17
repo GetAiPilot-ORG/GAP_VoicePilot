@@ -75,17 +75,34 @@ export async function getAdminKycRequests() {
   await verifyAdmin();
   const adminClient = await getAdminClient();
   
-  // We'll fetch all requests with workspace info
-  const { data, error } = await adminClient
+  // Fetch all requests with workspace info
+  const { data: requests, error } = await adminClient
     .from("kyc_requests")
-    .select("*, workspaces(name)")
+    .select("*, workspaces(id, name, owner_id)")
     .order("created_at", { ascending: false });
 
-  if (error) {
-    return { success: false, error: error.message };
+  // Fetch workspace owner user accounts from auth admin
+  let userMap: Record<string, { email?: string; full_name?: string }> = {};
+  try {
+    const { data: { users } } = await adminClient.auth.admin.listUsers();
+    if (users) {
+      users.forEach(u => {
+        userMap[u.id] = {
+          email: u.email,
+          full_name: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split('@')[0]
+        };
+      });
+    }
+  } catch (authErr) {
+    console.warn("Failed to list auth users for KYC admin:", authErr);
   }
 
-  return { success: true, requests: data };
+  const enriched = (requests || []).map((r: any) => ({
+    ...r,
+    owner: r.workspaces?.owner_id ? userMap[r.workspaces.owner_id] : null
+  }));
+
+  return { success: true, requests: enriched };
 }
 
 export async function approveKycAndAssignNumber(kycId: string, workspaceId: string, phoneNumber: string) {
@@ -122,7 +139,63 @@ export async function approveKyc(kycId: string) {
   try {
     const { error } = await adminClient
       .from("kyc_requests")
-      .update({ status: "approved" })
+      .update({ 
+        status: "approved",
+        reviewed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", kycId);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/dashboard/admin/kyc");
+    revalidatePath("/dashboard/phone-numbers");
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function rejectKyc(kycId: string, rejectionReason?: string) {
+  await verifyAdmin();
+  const adminClient = await getAdminClient();
+
+  try {
+    const { error } = await adminClient
+      .from("kyc_requests")
+      .update({ 
+        status: "rejected",
+        reviewed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", kycId);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/dashboard/admin/kyc");
+    revalidatePath("/dashboard/phone-numbers");
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function resetKycStatus(kycId: string) {
+  await verifyAdmin();
+  const adminClient = await getAdminClient();
+
+  try {
+    const { error } = await adminClient
+      .from("kyc_requests")
+      .update({ 
+        status: "pending",
+        reviewed_at: null,
+        updated_at: new Date().toISOString()
+      })
       .eq("id", kycId);
 
     if (error) {

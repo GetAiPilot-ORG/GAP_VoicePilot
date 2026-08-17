@@ -110,7 +110,7 @@ export function SessionNavBar({
 
   if (userProfile.isAdmin) {
     mainNav.push({
-      name: "Admin KYC Portal",
+      name: "Admin Dashboard",
       href: "/dashboard/admin/kyc",
       icon: ShieldCheck,
       badge: "ADMIN",
