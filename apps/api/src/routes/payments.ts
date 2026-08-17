@@ -62,15 +62,19 @@ paymentRouter.post("/create-order", authenticateUser, async (req, res) => {
         .json({ success: false, error: "No workspace found for user" });
     }
 
-    if (type !== "plan_purchase" && type !== "top_up") {
+    if (type !== "plan_purchase" && type !== "top_up" && type !== "number_purchase") {
       return res
         .status(400)
         .json({ success: false, error: "Invalid purchase type" });
     }
 
     let amountPaise = 0;
+    
+    const DEDICATED_NUMBER_PRICE_PAISE = 149900;
 
-    if (type === "plan_purchase") {
+    if (type === "number_purchase") {
+      amountPaise = DEDICATED_NUMBER_PRICE_PAISE;
+    } else if (type === "plan_purchase") {
       if (!planId)
         return res
           .status(400)
@@ -240,17 +244,78 @@ paymentRouter.post("/verify-payment", authenticateUser, async (req, res) => {
     if (rpcResult.type === "plan_purchase") {
       return res.json({
         success: true,
+        type: "plan_purchase",
         message: `Plan activated successfully!`,
         creditsGranted: rpcResult.credits_granted,
       });
     }
 
-    // Return for top-up
-    res.json({
-      success: true,
-      message: `Successfully topped up wallet!`,
-      creditsGranted: rpcResult.credits_granted,
-    });
+    if (rpcResult.type === "top_up") {
+      return res.json({
+        success: true,
+        type: "top_up",
+        message: `Successfully topped up wallet!`,
+        creditsGranted: rpcResult.credits_granted,
+      });
+    }
+
+    if (rpcResult.type === "number_purchase" || rpcResult.type === "number_renewal") {
+      // Check if this workspace has an expired phone line that should be renewed
+      const { data: workspacePhones } = await supabase
+        .from("phone_numbers")
+        .select("id, current_period_end, assigned_assistant_id")
+        .eq("workspace_id", workspaceId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: true });
+
+      const targetExpired = (workspacePhones || []).find(
+        (n: any) => !n.current_period_end || new Date(n.current_period_end).getTime() <= Date.now()
+      );
+
+      if (targetExpired) {
+        // Renew the existing line
+        await supabase
+          .from("phone_numbers")
+          .update({
+            current_period_start: new Date().toISOString(),
+            current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            status: targetExpired.assigned_assistant_id ? "active" : "unassigned"
+          })
+          .eq("id", targetExpired.id);
+
+        // Deduct entitlement added by RPC so entitlements remain 0
+        const { data: currentWs } = await supabase
+          .from("workspaces")
+          .select("dedicated_number_entitlements")
+          .eq("id", workspaceId)
+          .single();
+
+        if (currentWs && (currentWs.dedicated_number_entitlements || 0) > 0) {
+          await supabase
+            .from("workspaces")
+            .update({
+              dedicated_number_entitlements: Math.max(0, currentWs.dedicated_number_entitlements - 1)
+            })
+            .eq("id", workspaceId);
+        }
+
+        return res.json({
+          success: true,
+          type: "number_renewal",
+          message: "Dedicated number renewed successfully!",
+          phoneId: targetExpired.id
+        });
+      }
+
+      return res.json({
+        success: true,
+        type: "number_purchase",
+        message: "Dedicated number purchased successfully!",
+        entitlementsGranted: rpcResult.entitlements_granted,
+      });
+    }
+
+    throw new Error(`Unsupported payment fulfillment type: ${rpcResult.type}`);
   } catch (error: any) {
     console.error("Razorpay verify-payment error:", error);
     res

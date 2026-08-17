@@ -14,26 +14,20 @@ export function AdminKycClient({ initialRequests, initialAvailableNumbers = [] }
   const completedRequests = requests.filter(r => r.status !== "pending");
 
   const handleAssign = async () => {
-    if (!phoneNumber) {
-      setToastMessage({ type: 'error', text: 'Please enter a phone number' });
-      return;
-    }
-    
     setIsAssigning(true);
     try {
       const kyc = requests.find(r => r.id === assigningId);
       if (!kyc) return;
       
-      const { approveKycAndAssignNumber } = await import("@/app/actions/kyc");
-      const res = await approveKycAndAssignNumber(kyc.id, kyc.workspace_id, phoneNumber);
+      const { approveKyc } = await import("@/app/actions/kyc");
+      const res = await approveKyc(kyc.id);
       
       if (res.success) {
-        setToastMessage({ type: 'success', text: `Number ${phoneNumber} assigned successfully!` });
-        setRequests(prev => prev.map(r => r.id === kyc.id ? { ...r, status: "approved", assigned_number: phoneNumber } : r));
+        setToastMessage({ type: 'success', text: `KYC approved successfully!` });
+        setRequests(prev => prev.map(r => r.id === kyc.id ? { ...r, status: "approved" } : r));
         setAssigningId(null);
-        setPhoneNumber("");
       } else {
-        setToastMessage({ type: 'error', text: res.error || "Failed to assign number" });
+        setToastMessage({ type: 'error', text: res.error || "Failed to approve KYC" });
       }
     } catch (e: any) {
       setToastMessage({ type: 'error', text: e.message });
@@ -105,30 +99,17 @@ export function AdminKycClient({ initialRequests, initialAvailableNumbers = [] }
                   
                   {assigningId === r.id ? (
                     <div className="flex flex-col gap-2 mt-2 border-t pt-3">
-                      <select 
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                        className="w-full px-3 py-1.5 text-sm border rounded focus:outline-none focus:border-black/30"
-                      >
-                        <option value="" disabled>Select an available number...</option>
-                        {initialAvailableNumbers.length === 0 ? (
-                          <option value="" disabled>No unassigned numbers available</option>
-                        ) : (
-                          initialAvailableNumbers.map((num: string) => (
-                            <option key={num} value={num}>{num}</option>
-                          ))
-                        )}
-                      </select>
+                      <p className="text-sm font-medium text-black">Are you sure you want to approve this KYC request?</p>
                       <div className="flex gap-2">
-                        <button onClick={handleAssign} disabled={isAssigning || !phoneNumber} className="btn-pill-primary text-xs px-3 py-1.5 font-bold flex-1">
-                          {isAssigning ? "Assigning..." : "Assign"}
+                        <button onClick={handleAssign} disabled={isAssigning} className="btn-pill-primary text-xs px-3 py-1.5 font-bold flex-1">
+                          {isAssigning ? "Approving..." : "Yes, Approve"}
                         </button>
                         <button onClick={() => setAssigningId(null)} className="text-xs px-3 py-1.5 text-neutral-500 hover:text-black border border-hairline rounded bg-white font-medium">Cancel</button>
                       </div>
                     </div>
                   ) : (
                     <button onClick={() => setAssigningId(r.id)} className="btn-pill-primary w-full justify-center flex items-center gap-2 px-3 py-2 text-xs font-bold mt-2">
-                      <ShieldCheck className="w-3.5 h-3.5" /> Approve & Assign Number
+                      <ShieldCheck className="w-3.5 h-3.5" /> Approve KYC
                     </button>
                   )}
                 </div>

@@ -86,3 +86,62 @@ webhookRouter.post('/vomyra', async (req: Request, res: Response) => {
     console.error('[Vomyra Webhook] Error processing event:', err);
   }
 });
+
+// Razorpay Webhook Handler
+// This must be mounted with express.raw() in index.ts BEFORE express.json()
+export const razorpayWebhookHandler = async (req: Request, res: Response) => {
+  try {
+    const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+    if (!secret) {
+      console.warn('[Razorpay Webhook] Secret not configured');
+      return res.status(500).send('Webhook secret not configured');
+    }
+
+    const signature = req.headers['x-razorpay-signature'] as string;
+    if (!signature) {
+      return res.status(400).send('Missing signature');
+    }
+
+    // req.body should be a Buffer because of express.raw()
+    const expectedSignature = crypto
+      .createHmac('sha256', secret)
+      .update(req.body)
+      .digest('hex');
+
+    if (expectedSignature !== signature) {
+      console.warn('[Razorpay Webhook] Invalid signature');
+      return res.status(400).send('Invalid signature');
+    }
+
+    const event = JSON.parse(req.body.toString('utf8'));
+    console.log(`[Razorpay Webhook] Received event: ${event.event}`);
+
+    // We only process payment.captured
+    if (event.event === 'payment.captured') {
+      const payment = event.payload.payment.entity;
+      
+      const { error: rpcError } = await supabase.rpc(
+        "process_payment_intent",
+        {
+          p_razorpay_order_id: payment.order_id,
+          p_razorpay_payment_id: payment.id,
+        },
+      );
+
+      if (rpcError) {
+        console.error("[Razorpay Webhook] RPC Error:", rpcError);
+        // Note: we still return 200 so Razorpay doesn't retry indefinitely if it's a permanent failure,
+        // but if it's a temporary DB issue, maybe return 500 to allow retry. We'll stick to 500 for true DB errors.
+        return res.status(500).send('Database error processing payment');
+      }
+      
+      console.log(`[Razorpay Webhook] Successfully processed payment ${payment.id} for order ${payment.order_id}`);
+    }
+
+    res.status(200).json({ status: 'ok' });
+  } catch (err: any) {
+    console.error('[Razorpay Webhook] Error:', err);
+    res.status(500).send('Webhook Error');
+  }
+};
+

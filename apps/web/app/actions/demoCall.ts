@@ -227,7 +227,7 @@ export async function triggerOneTimeDemoCallAction(params: TriggerOneTimeDemoCal
     const callResult = await triggerTestCallAction({
       customerNumber: formattedPhone,
       customerName: user?.user_metadata?.name || user?.email?.split("@")[0] || "Demo Visitor",
-      assignedNumber: "7943494977",
+      assistantId: demoAssistantId
     });
 
     // 6. Handle Call Result

@@ -55,13 +55,19 @@ export async function getBillingDataAction() {
 
   const balance = Number(balanceData || 0);
 
-  // 2. Get Active Subscription & Plan
+  const { data: wsData } = await adminClient
+    .from("workspaces")
+    .select("dedicated_number_entitlements")
+    .eq("id", workspaceId)
+    .single();
+
+  const dedicatedNumberEntitlements = wsData?.dedicated_number_entitlements || 0;
+
+  // 2. Get Subscription & Plan (including expired for renewal detection)
   const { data: sub } = await adminClient
     .from("workspace_subscriptions")
     .select("*, plans(*)")
     .eq("workspace_id", workspaceId)
-    .eq("status", "active")
-    .gt("current_period_end", new Date().toISOString())
     .maybeSingle();
 
   // 3. Get All Plans
@@ -78,12 +84,35 @@ export async function getBillingDataAction() {
     .order("created_at", { ascending: false })
     .limit(20);
 
+  // 5. Get Active Phone Numbers
+  const { data: phoneNumbers } = await adminClient
+    .from("phone_numbers")
+    .select("id, phone_number, current_period_end, assigned_assistant_id")
+    .eq("workspace_id", workspaceId)
+    .is("deleted_at", null);
+
+  const activePhoneNumbers = (phoneNumbers || []).filter(
+    (n: any) => !n.current_period_end || new Date(n.current_period_end).getTime() > Date.now()
+  );
+
+  // 6. Get Payment Invoices & Orders History
+  const { data: payments } = await adminClient
+    .from("payment_intents")
+    .select("*, plans(name)")
+    .eq("workspace_id", workspaceId)
+    .order("created_at", { ascending: false })
+    .limit(30);
+
   return {
     workspaceId,
     balance,
+    dedicatedNumberEntitlements,
+    activePhoneNumbersCount: activePhoneNumbers.length,
+    phoneNumbers: phoneNumbers || [],
     subscription: sub || null,
     plans: allPlans || [],
     ledger: ledger || [],
+    payments: payments || [],
     razorpayKeyId: getRazorpayKeyId(),
   };
 }
@@ -94,7 +123,7 @@ export async function getBillingDataAction() {
 export async function createRazorpayOrderAction(params: {
   amount?: number;
   planId?: string;
-  type: "top_up" | "plan_purchase";
+  type: "top_up" | "plan_purchase" | "number_purchase";
 }) {
   try {
     const token = await getAuthToken();

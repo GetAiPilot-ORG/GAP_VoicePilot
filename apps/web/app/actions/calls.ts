@@ -472,3 +472,31 @@ export async function simulateWebAgentResponseAction({
     };
   }
 }
+
+/**
+ * Query current status of a call by provider Call ID
+ */
+export async function getCallStatusAction(callId: string): Promise<{ success: boolean; status?: string; isEnded: boolean }> {
+  try {
+    const res = await vomyraRequest(`/v1/calls/${callId}`, {
+      cache: "no-store",
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const call = data?.data || data;
+      const status = String(call?.status || "").toLowerCase();
+      const endedStatuses = ["completed", "failed", "ended", "no-answer", "busy", "canceled", "cancelled"];
+      return {
+        success: true,
+        status,
+        isEnded: endedStatuses.includes(status),
+      };
+    }
+
+    return { success: false, isEnded: false };
+  } catch (err) {
+    return { success: false, isEnded: false };
+  }
+}
+

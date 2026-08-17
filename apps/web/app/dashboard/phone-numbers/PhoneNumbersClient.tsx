@@ -21,7 +21,8 @@ import {
   ExternalLink,
   Lock,
   Fingerprint,
-  Download
+  Download,
+  ShieldAlert
 } from "lucide-react";
 
 export interface PhoneNumberRecord {
@@ -36,6 +37,7 @@ export interface PhoneNumberRecord {
   } | null;
   status: "active" | "unassigned" | "purchased";
   created_at: string;
+  current_period_end?: string | null;
 }
 
 export interface KycRecord {
@@ -46,6 +48,9 @@ export interface KycRecord {
   status: "pending" | "approved" | "rejected";
   assigned_number?: string | null;
   created_at: string;
+  pan_verified?: boolean | null;
+  digilocker_verified?: boolean | null;
+  verified_pan_name?: string | null;
 }
 
 export interface AssistantOption {
@@ -58,20 +63,27 @@ interface PhoneNumbersClientProps {
   initialKyc: KycRecord | null;
   assistants: AssistantOption[];
   workspaceBalance: number;
+  dedicatedNumberEntitlements: number;
+  initialSubscription?: any;
 }
 
 export function PhoneNumbersClient({
   initialMyNumbers,
   initialKyc,
   assistants,
-  workspaceBalance: initialBalance
+  workspaceBalance: initialBalance,
+  dedicatedNumberEntitlements: initialEntitlements,
+  initialSubscription
 }: PhoneNumbersClientProps) {
   const [activeTab, setActiveTab] = React.useState<"my-numbers" | "buy-numbers">("my-numbers");
 
   const [myNumbers, setMyNumbers] = React.useState<PhoneNumberRecord[]>(initialMyNumbers);
   const [kycStatus, setKycStatus] = React.useState<KycRecord | null>(initialKyc);
   const [balance, setBalance] = React.useState<number>(initialBalance);
+  const [dedicatedNumberEntitlements, setDedicatedNumberEntitlements] = React.useState<number>(initialEntitlements || 0);
+  const [subscription, setSubscription] = React.useState<any>(initialSubscription);
   const [isFetching, setIsFetching] = React.useState(false);
+  const [isClaiming, setIsClaiming] = React.useState(false);
   const [copiedId, setCopiedId] = React.useState<string | null>(null);
 
   const [toastMessage, setToastMessage] = React.useState<{ type: 'success' | 'info' | 'error'; text: string } | null>(null);
@@ -117,6 +129,30 @@ export function PhoneNumbersClient({
     }
   };
 
+  const handleClaimNumber = async () => {
+    setIsClaiming(true);
+    setToastMessage(null);
+    try {
+      const { claimPhoneNumberAction } = await import("@/app/actions/phoneNumbers");
+      const res = await claimPhoneNumberAction();
+      
+      if (res.success) {
+        setToastMessage({ type: 'success', text: 'Number claimed successfully!' });
+        if (res.newNumber) {
+          setMyNumbers(prev => [res.newNumber, ...prev]);
+        }
+        // Force reload to update entitlements
+        window.location.reload();
+      } else {
+        setToastMessage({ type: 'error', text: res.error || 'Failed to claim number' });
+      }
+    } catch (e: any) {
+      setToastMessage({ type: 'error', text: 'Error claiming number: ' + e.message });
+    } finally {
+      setIsClaiming(false);
+    }
+  };
+
   // Fetch Vomyra Numbers via API
   const handleFetchVomyraNumbers = async () => {
     setIsFetching(true);
@@ -149,8 +185,26 @@ export function PhoneNumbersClient({
   };
 
   const totalMyNumbers = myNumbers.length;
-  const activeMyNumbers = myNumbers.filter((n) => n.assigned_assistant_id).length;
-  const unassignedMyNumbers = totalMyNumbers - activeMyNumbers;
+  const expiredNumbersCount = myNumbers.filter(
+    (n) => n.current_period_end && new Date(n.current_period_end).getTime() <= Date.now()
+  ).length;
+  const activeMyNumbers = myNumbers.filter(
+    (n) => n.assigned_assistant_id && (!n.current_period_end || new Date(n.current_period_end).getTime() > Date.now())
+  ).length;
+  const unassignedMyNumbers = myNumbers.filter(
+    (n) => !n.assigned_assistant_id && (!n.current_period_end || new Date(n.current_period_end).getTime() > Date.now())
+  ).length;
+
+  const isKycFullySubmitted = kycStatus && (
+    kycStatus.status === 'approved' || 
+    kycStatus.status === 'rejected' || 
+    (kycStatus.status === 'pending' && kycStatus.digilocker_verified)
+  );
+
+  const isPlanExpired = Boolean(
+    subscription &&
+    new Date(subscription.current_period_end).getTime() <= Date.now()
+  );
 
   return (
     <div className="space-y-8 animate-fadeIn max-w-7xl mx-auto pb-12">
@@ -193,19 +247,82 @@ export function PhoneNumbersClient({
 
         {/* Balance & API Fetch Button */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2.5 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 px-4 py-2.5 rounded-xl text-xs shadow-xs">
-            <div className="w-6 h-6 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-700 font-bold">
+          <div className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-xs shadow-xs border ${
+            isPlanExpired 
+              ? "bg-rose-50 border-rose-200 text-rose-950" 
+              : "bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-amber-500/20"
+          }`}>
+            <div className={`w-6 h-6 rounded-lg flex items-center justify-center font-bold ${
+              isPlanExpired ? "bg-rose-200 text-rose-700" : "bg-amber-500/15 text-amber-700"
+            }`}>
               <Wallet className="h-3.5 w-3.5" />
             </div>
             <div>
               <span className="text-neutral-500 text-[11px] block leading-none">AI Calling Balance</span>
-              <span className="font-bold text-neutral-900 font-mono text-sm leading-tight block mt-0.5">
-                {Math.floor(balance).toLocaleString()} <span className="text-xs font-sans font-medium text-neutral-500">Mins</span>
-              </span>
+              <div className="flex items-baseline gap-1 mt-0.5">
+                <span className="font-bold text-neutral-900 font-mono text-sm leading-tight block">
+                  {Math.floor(balance).toLocaleString()} <span className="text-xs font-sans font-medium text-neutral-500">Mins</span>
+                </span>
+                {isPlanExpired && (
+                  <span className="text-[10px] font-bold text-rose-600 ml-1">(Plan Expired)</span>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Expired Plan Alert Banner */}
+      {isPlanExpired && (
+        <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-950 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs font-medium animate-fadeIn">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-rose-100 flex items-center justify-center text-rose-700 shrink-0 shadow-inner">
+              <AlertCircle className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="font-bold text-rose-950 text-sm">
+                Your {subscription?.plans?.name || "Starter"} Plan has Expired
+              </p>
+              <p className="text-rose-800 text-[11px] mt-0.5">
+                Your wallet balance of <strong>{Math.floor(balance).toLocaleString()} AI Mins</strong> is preserved. Renew your 30-day plan to keep your dedicated lines and voice agents fully active.
+              </p>
+            </div>
+          </div>
+          <a
+            href="/dashboard/billing"
+            className="btn-pill-primary bg-rose-600 hover:bg-rose-700 text-white text-xs px-4 py-2 shrink-0 inline-flex items-center gap-1.5 font-bold shadow-xs"
+          >
+            <span>Renew Plan</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </a>
+        </div>
+      )}
+
+      {/* Expired Dedicated Numbers Alert Banner */}
+      {expiredNumbersCount > 0 && (
+        <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-950 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs font-medium animate-fadeIn">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-rose-100 flex items-center justify-center text-rose-700 shrink-0 shadow-inner">
+              <Phone className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="font-bold text-rose-950 text-sm">
+                {expiredNumbersCount} Dedicated Phone Line{expiredNumbersCount > 1 ? 's' : ''} Expired
+              </p>
+              <p className="text-rose-800 text-[11px] mt-0.5">
+                Your dedicated business line has reached its 30-day validity. Renew your dedicated number to maintain active inbound and outbound calls.
+              </p>
+            </div>
+          </div>
+          <a
+            href="/dashboard/billing"
+            className="btn-pill-primary bg-rose-600 hover:bg-rose-700 text-white text-xs px-4 py-2 shrink-0 inline-flex items-center gap-1.5 font-bold shadow-xs"
+          >
+            <span>Renew Number</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </a>
+        </div>
+      )}
 
       {/* Navigation Sub-Tabs */}
       <div className="inline-flex p-1 bg-surface-soft border border-hairline rounded-xl gap-1">
@@ -234,7 +351,7 @@ export function PhoneNumbersClient({
         >
           <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
           <span>Request Number (KYC)</span>
-          {kycStatus && (
+          {isKycFullySubmitted && kycStatus && (
             <span className={`px-1.5 py-0.2 rounded-md text-[10px] uppercase font-mono font-semibold ${
               kycStatus.status === 'approved' ? 'bg-emerald-100 text-emerald-800' :
               kycStatus.status === 'pending' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'
@@ -249,7 +366,7 @@ export function PhoneNumbersClient({
       {activeTab === "my-numbers" && (
         <div className="space-y-6">
           {/* Status Metrics Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className={`grid grid-cols-1 ${expiredNumbersCount > 0 ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-4`}>
             {/* Total Numbers */}
             <div className="p-5 rounded-2xl bg-white border border-hairline shadow-sm hover:border-black/20 transition-all flex flex-col justify-between group">
               <div className="flex items-center justify-between">
@@ -260,7 +377,7 @@ export function PhoneNumbersClient({
               </div>
               <div className="mt-4">
                 <span className="text-3xl font-black tracking-tight text-neutral-900">{totalMyNumbers}</span>
-                <p className="text-[11px] text-neutral-500 mt-1">Total active phone lines in pool</p>
+                <p className="text-[11px] text-neutral-500 mt-1">Total dedicated phone lines in pool</p>
               </div>
             </div>
 
@@ -286,6 +403,27 @@ export function PhoneNumbersClient({
               </div>
             </div>
 
+            {/* Expired Lines Metric (if any) */}
+            {expiredNumbersCount > 0 && (
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-rose-50/80 to-rose-100/30 border border-rose-200/80 shadow-sm hover:border-rose-300 transition-all flex flex-col justify-between group">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-rose-800">Expired Lines</span>
+                  <div className="w-8 h-8 rounded-xl bg-rose-100 group-hover:bg-rose-600 group-hover:text-white transition-colors flex items-center justify-center text-rose-700">
+                    <AlertCircle className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-black tracking-tight text-rose-950">{expiredNumbersCount}</span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-200/80 text-rose-900">
+                      Needs Renewal
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-rose-800/80 mt-1">Validity ended; renew to re-activate</p>
+                </div>
+              </div>
+            )}
+
             {/* Unassigned Pool */}
             <div className="p-5 rounded-2xl bg-gradient-to-br from-purple-50/80 to-purple-100/30 border border-purple-200/80 shadow-sm hover:border-purple-300 transition-all flex flex-col justify-between group">
               <div className="flex items-center justify-between">
@@ -301,8 +439,52 @@ export function PhoneNumbersClient({
             </div>
           </div>
 
+          {/* Paid Entitlements Ready Banner (Standalone Card) */}
+          {dedicatedNumberEntitlements > 0 && (!kycStatus || kycStatus.status !== 'approved') && (
+            <div className="p-5 rounded-2xl border border-amber-300 bg-amber-50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-200 text-amber-900 flex items-center justify-center shrink-0">
+                  <ShieldAlert className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-amber-950 text-sm">You have {dedicatedNumberEntitlements} number(s) pending</h3>
+                  <p className="text-xs text-amber-800 mt-0.5">Please complete your business KYC to provision your dedicated lines.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveTab("buy-numbers")}
+                className="btn-pill-primary bg-amber-600 hover:bg-amber-700 text-white text-xs px-4 py-2 font-bold shrink-0"
+              >
+                Go to KYC
+              </button>
+            </div>
+          )}
+
+          {dedicatedNumberEntitlements > 0 && kycStatus?.status === 'approved' && (
+            <div className="p-5 rounded-2xl border border-emerald-300 bg-emerald-50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-200 text-emerald-900 flex items-center justify-center shrink-0">
+                  <Phone className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-emerald-950 text-sm">Claim Your Dedicated Number</h3>
+                  <p className="text-xs text-emerald-800 mt-0.5">You have {dedicatedNumberEntitlements} paid entitlement(s) ready to be provisioned.</p>
+                </div>
+              </div>
+              <button
+                disabled={isClaiming}
+                onClick={handleClaimNumber}
+                className="btn-pill-primary bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-5 py-2.5 flex items-center gap-2 font-bold shadow-sm transition-all hover:scale-[1.02] shrink-0 cursor-pointer"
+              >
+                {isClaiming ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Phone className="w-3.5 h-3.5" />}
+                {isClaiming ? "Provisioning..." : "Provision New Number"}
+              </button>
+            </div>
+          )}
+
           {/* Numbers Table Card */}
           <div className="bg-white border border-hairline rounded-2xl overflow-hidden shadow-sm">
+
             {myNumbers.length === 0 ? (
               <div className="p-10 sm:p-16 text-center space-y-4">
                 {(!kycStatus || kycStatus.status !== 'approved') ? (
@@ -327,6 +509,28 @@ export function PhoneNumbersClient({
                       </button>
                     </div>
                   </div>
+                ) : dedicatedNumberEntitlements > 0 ? (
+                  <div className="max-w-md mx-auto space-y-4">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-inner">
+                      <Phone className="w-6 h-6" />
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="text-base font-bold text-neutral-900">Provision Your Dedicated Number</h3>
+                      <p className="text-xs text-neutral-500 leading-relaxed">
+                        You have {dedicatedNumberEntitlements} paid number entitlement{dedicatedNumberEntitlements > 1 ? 's' : ''} ready. Click below to provision and allocate your dedicated business line.
+                      </p>
+                    </div>
+                    <div className="pt-2 flex items-center justify-center gap-3">
+                      <button
+                        disabled={isClaiming}
+                        onClick={handleClaimNumber}
+                        className="btn-pill-primary bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-5 py-2.5 inline-flex items-center gap-2 rounded-xl shadow-md transition-all font-bold cursor-pointer"
+                      >
+                        {isClaiming ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Phone className="w-4 h-4" />}
+                        <span>{isClaiming ? "Provisioning..." : "Provision Number Now"}</span>
+                      </button>
+                    </div>
+                  </div>
                 ) : (
                   <div className="max-w-md mx-auto space-y-4">
                     <div className="w-12 h-12 rounded-2xl bg-neutral-100 text-neutral-600 flex items-center justify-center mx-auto">
@@ -335,10 +539,17 @@ export function PhoneNumbersClient({
                     <div className="space-y-1">
                       <h3 className="text-base font-bold text-neutral-900">No Phone Numbers Found</h3>
                       <p className="text-xs text-neutral-500 leading-relaxed">
-                        Your KYC is approved! Please request a new line or contact support.
+                        Your KYC is approved! Purchase a dedicated number from the Plans &amp; Billing page to get started.
                       </p>
                     </div>
                     <div className="pt-2 flex items-center justify-center gap-3">
+                      <a
+                        href="/dashboard/billing"
+                        className="btn-pill-primary bg-neutral-900 hover:bg-black text-white text-xs px-5 py-2.5 inline-flex items-center gap-2 rounded-xl shadow-md transition-all"
+                      >
+                        <Wallet className="w-4 h-4 text-emerald-400" />
+                        <span>Go to Plans &amp; Billing</span>
+                      </a>
                     </div>
                   </div>
                 )}
@@ -356,80 +567,107 @@ export function PhoneNumbersClient({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-hairline">
-                    {myNumbers.map((item) => (
-                      <tr key={item.id} className="hover:bg-neutral-50/80 transition-colors group">
-                        {/* Phone Number */}
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-lg bg-neutral-100 group-hover:bg-black group-hover:text-white text-neutral-700 transition-colors flex items-center justify-center shrink-0">
-                              <Phone className="w-3.5 h-3.5" />
+                    {myNumbers.map((item) => {
+                      const isNumberExpired = Boolean(
+                        item.current_period_end &&
+                        new Date(item.current_period_end).getTime() <= Date.now()
+                      );
+
+                      return (
+                        <tr key={item.id} className="hover:bg-neutral-50/80 transition-colors group">
+                          {/* Phone Number */}
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                                isNumberExpired 
+                                  ? "bg-rose-100 text-rose-700" 
+                                  : "bg-neutral-100 group-hover:bg-black group-hover:text-white text-neutral-700"
+                              }`}>
+                                <Phone className="w-3.5 h-3.5" />
+                              </div>
+                              <span className="font-mono font-bold text-neutral-900 text-sm tracking-tight">
+                                {item.phone_number}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyNumber(item.phone_number, item.id)}
+                                title="Copy Phone Number"
+                                className="p-1 rounded-md text-neutral-400 hover:text-black hover:bg-neutral-200/50 transition-colors ml-1"
+                              >
+                                {copiedId === item.id ? (
+                                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                ) : (
+                                  <Copy className="w-3.5 h-3.5" />
+                                )}
+                              </button>
                             </div>
-                            <span className="font-mono font-bold text-neutral-900 text-sm tracking-tight">
-                              {item.phone_number}
+                          </td>
+
+                          {/* Provider */}
+                          <td className="px-6 py-4">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold uppercase bg-surface-soft border border-hairline text-neutral-800">
+                              <Globe className="w-3 h-3 text-neutral-400" />
+                              {item.provider}
                             </span>
-                            <button
-                              type="button"
-                              onClick={() => handleCopyNumber(item.phone_number, item.id)}
-                              title="Copy Phone Number"
-                              className="p-1 rounded-md text-neutral-400 hover:text-black hover:bg-neutral-200/50 transition-colors ml-1"
-                            >
-                              {copiedId === item.id ? (
-                                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                              ) : (
-                                <Copy className="w-3.5 h-3.5" />
+                          </td>
+
+                          {/* Assigned Assistant Dropdown */}
+                          <td className="px-6 py-4">
+                            <AssistantSelect
+                              value={item.assigned_assistant_id || "none"}
+                              assistants={assistants}
+                              onSelect={(assistantId) => handleAssignAssistant(item.id, assistantId)}
+                            />
+                          </td>
+
+                          {/* Status Tag */}
+                          <td className="px-6 py-4">
+                            {isNumberExpired ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-rose-100 text-rose-800 border border-rose-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
+                                Expired ({new Date(item.current_period_end!).toLocaleDateString("en-IN", { day: "numeric", month: "short" })})
+                              </span>
+                            ) : item.assigned_assistant_id ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-emerald-100/80 text-emerald-800 border border-emerald-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                                Active
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-neutral-100 text-neutral-600 border border-hairline">
+                                <span className="w-1.5 h-1.5 rounded-full bg-neutral-400"></span>
+                                Unassigned
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Action */}
+                          <td className="px-6 py-4 text-right">
+                            <div className="inline-flex items-center justify-end gap-2">
+                              {isNumberExpired && (
+                                <a
+                                  href="/dashboard/billing"
+                                  className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-all inline-flex items-center gap-1 shadow-2xs font-bold"
+                                >
+                                  <Wallet className="w-3.5 h-3.5" />
+                                  <span>Renew Line</span>
+                                </a>
                               )}
-                            </button>
-                          </div>
-                        </td>
-
-                        {/* Provider */}
-                        <td className="px-6 py-4">
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold uppercase bg-surface-soft border border-hairline text-neutral-800">
-                            <Globe className="w-3 h-3 text-neutral-400" />
-                            {item.provider}
-                          </span>
-                        </td>
-
-                        {/* Assigned Assistant Dropdown */}
-                        <td className="px-6 py-4">
-                          <AssistantSelect
-                            value={item.assigned_assistant_id || "none"}
-                            assistants={assistants}
-                            onSelect={(assistantId) => handleAssignAssistant(item.id, assistantId)}
-                          />
-                        </td>
-
-                        {/* Status Tag */}
-                        <td className="px-6 py-4">
-                          {item.assigned_assistant_id ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-emerald-100/80 text-emerald-800 border border-emerald-200">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
-                              Active
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-neutral-100 text-neutral-600 border border-hairline">
-                              <span className="w-1.5 h-1.5 rounded-full bg-neutral-400"></span>
-                              Unassigned
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Action */}
-                        <td className="px-6 py-4 text-right">
-                          {item.assigned_assistant_id ? (
-                            <button
-                              onClick={() => handleAssignAssistant(item.id, "none")}
-                              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-all inline-flex items-center gap-1"
-                            >
-                              <UserX className="w-3.5 h-3.5" />
-                              <span>Unassign</span>
-                            </button>
-                          ) : (
-                            <span className="text-[11px] text-neutral-400 font-medium">No actions</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                              {item.assigned_assistant_id ? (
+                                <button
+                                  onClick={() => handleAssignAssistant(item.id, "none")}
+                                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-all inline-flex items-center gap-1"
+                                >
+                                  <UserX className="w-3.5 h-3.5" />
+                                  <span>Unassign</span>
+                                </button>
+                              ) : !isNumberExpired ? (
+                                <span className="text-[11px] text-neutral-400 font-medium">No actions</span>
+                              ) : null}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -441,7 +679,7 @@ export function PhoneNumbersClient({
       {/* TAB 2: REQUEST NUMBER KYC */}
       {activeTab === "buy-numbers" && (
         <div className="max-w-2xl">
-          {kycStatus ? (
+          {isKycFullySubmitted && kycStatus ? (
             <div className="p-8 bg-white border border-hairline rounded-2xl text-center space-y-5 shadow-sm">
               {kycStatus.status === 'pending' && (
                 <div className="space-y-4">
@@ -495,7 +733,7 @@ export function PhoneNumbersClient({
               )}
             </div>
           ) : (
-            <KycDigiLockerPanel />
+            <KycDigiLockerPanel existingKyc={kycStatus} />
           )}
         </div>
       )}
@@ -504,14 +742,14 @@ export function PhoneNumbersClient({
 }
 
 // ─── KYC Verification Panel (PAN + DigiLocker) ───────────────────────────────
-function KycDigiLockerPanel() {
-  const [step, setStep] = React.useState<1 | 2>(1);
+function KycDigiLockerPanel({ existingKyc }: { existingKyc: KycRecord | null }) {
+  const [step, setStep] = React.useState<1 | 2>(existingKyc?.pan_verified ? 2 : 1);
   const [pan, setPan] = React.useState("");
-  const [businessName, setBusinessName] = React.useState("");
+  const [businessName, setBusinessName] = React.useState(existingKyc?.business_name || "");
   const [isVerifyingPan, setIsVerifyingPan] = React.useState(false);
   const [isRedirecting, setIsRedirecting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [verifiedPanName, setVerifiedPanName] = React.useState<string | null>(null);
+  const [verifiedPanName, setVerifiedPanName] = React.useState<string | null>(existingKyc?.verified_pan_name || null);
 
   const handleVerifyPan = async () => {
     if (!pan || pan.length !== 10 || !businessName) {

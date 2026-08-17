@@ -50,75 +50,116 @@ phoneNumberRouter.get('/available', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/v1/phone-numbers/buy - Buy / Claim a Phone Number with workspace balance
+// POST /api/v1/phone-numbers/buy - Claim a Dedicated Phone Number with Entitlements
 phoneNumberRouter.post('/buy', async (req: Request, res: Response) => {
   try {
-    const { numberId, phoneNumber, workspaceId = DEFAULT_WORKSPACE_ID, price = 2.00 } = req.body;
+    const { phoneNumber, workspaceId = DEFAULT_WORKSPACE_ID } = req.body;
 
     if (!workspaceId) {
       return res.status(400).json({ error: 'workspaceId is required' });
     }
-
     if (!phoneNumber) {
       return res.status(400).json({ error: 'phoneNumber is required' });
     }
 
-    // 1. Check workspace balance
-    const { data: ws } = await supabase
-      .from('workspaces')
-      .select('id, balance')
-      .eq('id', workspaceId)
-      .single();
+    // 1. Atomically reserve entitlement
+    const { data: reserveResult, error: reserveError } = await supabase.rpc(
+      'reserve_number_entitlement',
+      { p_workspace_id: workspaceId }
+    );
 
-    const currentBalance = typeof ws?.balance === 'number' ? ws.balance : 0.00;
-
-    if (currentBalance < price) {
-      return res.status(400).json({ error: `Insufficient workspace credit balance ($${currentBalance.toFixed(2)}). Price is $${price.toFixed(2)}` });
-    }
-
-    // 2. Deduct balance
-    const newBalance = Math.max(0, currentBalance - price);
-    await supabase
-      .from('workspaces')
-      .update({ balance: newBalance })
-      .eq('id', workspaceId);
-
-    // 3. Claim ownership in database
-    const cleanNum = phoneNumber.replace(/[^\d+]/g, "");
-    const { data: purchasedNum, error: insertErr } = await supabase
-      .from('phone_numbers')
-      .insert({
-        workspace_id: workspaceId,
-        provider: 'vomyra',
-        provider_resource_id: `pn_${cleanNum}`,
-        phone_number: phoneNumber,
-        status: 'unassigned'
-      })
-      .select('*, assistants(id, name)')
-      .single();
-
-    if (insertErr && insertErr.code === '23505') {
-      const { data: updatedNum } = await supabase
-        .from('phone_numbers')
-        .update({ workspace_id: workspaceId, status: 'unassigned' })
-        .eq('phone_number', phoneNumber)
-        .select('*, assistants(id, name)')
-        .single();
-
-      return res.status(200).json({
-        success: true,
-        phone_number: updatedNum,
-        new_balance: newBalance,
-        message: `Successfully purchased ${phoneNumber}!`
+    if (reserveError || !reserveResult?.success) {
+      return res.status(400).json({ 
+        error: reserveError?.message || reserveResult?.error || 'No dedicated number entitlements available.' 
       });
     }
 
-    res.status(200).json({
-      success: true,
-      phone_number: purchasedNum,
-      new_balance: newBalance,
-      message: `Successfully purchased ${phoneNumber}!`
-    });
+    const claimId = reserveResult.claim_id;
+
+    // 2. Mark as provisioning
+    await supabase
+      .from('number_claims')
+      .update({ status: 'provisioning', phone_number: phoneNumber })
+      .eq('id', claimId);
+
+    // 3. Provision via Provider (Vomyra)
+    try {
+      const cleanNum = phoneNumber.replace(/[^\d+]/g, "");
+      const providerResourceId = `pn_${cleanNum}`;
+      
+      const current_period_start = new Date().toISOString();
+      const current_period_end = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+      const { data: purchasedNum, error: insertErr } = await supabase
+        .from('phone_numbers')
+        .insert({
+          workspace_id: workspaceId,
+          provider: 'vomyra',
+          provider_resource_id: providerResourceId,
+          phone_number: phoneNumber,
+          status: 'unassigned',
+          current_period_start,
+          current_period_end
+        })
+        .select('*, assistants(id, name)')
+        .single();
+
+      if (insertErr) {
+        if (insertErr.code === '23505') {
+          // Already exists in DB - handle as specific failure or success depending on ownership
+          throw new Error('Number already claimed');
+        }
+        throw insertErr; // Throw to trigger timeout/unknown logic
+      }
+
+      // SUCCESS
+      await supabase.from('number_claims').update({ 
+        status: 'claimed', 
+        provider_number_id: purchasedNum.id,
+        claimed_at: new Date().toISOString()
+      }).eq('id', claimId);
+
+      return res.status(200).json({
+        success: true,
+        phone_number: purchasedNum,
+        message: `Successfully claimed ${phoneNumber}!`
+      });
+
+    } catch (provisioningError: any) {
+      console.error("Provisioning Error:", provisioningError);
+      
+      const isDefiniteFailure = provisioningError.message === 'Number already claimed';
+
+      if (isDefiniteFailure) {
+        // DEFINITE FAILURE -> Refund entitlement
+        await supabase.from('number_claims').update({ 
+          status: 'failed',
+          error_message: provisioningError.message 
+        }).eq('id', claimId);
+
+        await supabase.rpc('refund_number_entitlement', { p_workspace_id: workspaceId });
+        
+        // Let's do a direct REST update for the refund (simplified for this plan, though RPC is safer)
+        const { data: ws } = await supabase.from('workspaces').select('dedicated_number_entitlements').eq('id', workspaceId).single();
+        if (ws) {
+          await supabase.from('workspaces').update({ dedicated_number_entitlements: ws.dedicated_number_entitlements + 1 }).eq('id', workspaceId);
+        }
+
+        return res.status(400).json({ success: false, error: 'Provisioning failed definitively: ' + provisioningError.message });
+      } else {
+        // UNKNOWN / TIMEOUT -> Needs reconciliation, DO NOT refund
+        await supabase.from('number_claims').update({ 
+          status: 'needs_reconciliation',
+          error_message: provisioningError.message || 'Unknown network/timeout error'
+        }).eq('id', claimId);
+
+        return res.status(500).json({ 
+          success: false, 
+          error: 'We encountered a timeout while provisioning your number. Please contact support. Do not attempt to claim again.' 
+        });
+      }
+    }
+
   } catch (error: any) {
     console.error("Failed to buy phone number:", error);
     res.status(500).json({ success: false, error: error.message });

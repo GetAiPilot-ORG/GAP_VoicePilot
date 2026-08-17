@@ -202,7 +202,8 @@ export async function fetchPhoneNumbersAction() {
       assigned_assistant_id: n.assigned_assistant_id,
       assistants: n.assistants ? { id: n.assistants.id, name: n.assistants.name } : null,
       status: (n.assigned_assistant_id ? "active" : "unassigned") as "active" | "unassigned" | "purchased",
-      created_at: n.created_at
+      created_at: n.created_at,
+      current_period_end: n.current_period_end || null
     })),
     availableNumbers: (availableNumbers || []).map((n: any) => ({
       id: n.id,
@@ -213,4 +214,109 @@ export async function fetchPhoneNumbersAction() {
       monthly_price: 2.00
     }))
   };
+}
+
+export async function claimPhoneNumberAction() {
+  const adminClient = await getAdminClient();
+  const { workspaceId } = await requireCurrentWorkspace();
+
+  try {
+    // 1. Verify KYC is approved
+    const { getWorkspaceKycStatus } = await import("@/app/actions/kyc");
+    const kycRes = await getWorkspaceKycStatus();
+    if (!kycRes.success || !kycRes.kyc || kycRes.kyc.status !== "approved") {
+      return { success: false, error: "You must complete business KYC before claiming a number." };
+    }
+
+    // 2. Atomically reserve entitlement
+    const { data: claimData, error: claimError } = await adminClient.rpc("reserve_number_entitlement", {
+      p_workspace_id: workspaceId
+    });
+
+    if (claimError || !claimData) {
+      return { success: false, error: claimError?.message || "No available dedicated number entitlements." };
+    }
+
+    const claimId = claimData;
+
+    // 3. Fetch all unassigned Vomyra numbers locally
+    const { data: availableDbNumbers, error: dbNumError } = await adminClient
+      .from("phone_numbers")
+      .select("*")
+      .is("workspace_id", null)
+      .is("deleted_at", null)
+      .limit(10);
+
+    let numberToAssign = null;
+    let provider = "vomyra";
+    let providerResourceId = "";
+
+    // 4. Try to pick from local DB unassigned pool first
+    if (availableDbNumbers && availableDbNumbers.length > 0) {
+      numberToAssign = availableDbNumbers[0].phone_number;
+      providerResourceId = availableDbNumbers[0].provider_resource_id;
+    } else {
+      // 5. Fallback: Fetch directly from Vomyra API
+      try {
+        const vomyraNumbers = await fetchVomyraNumbers();
+        // find one that isn't in our system
+        const { data: allAssigned } = await adminClient.from("phone_numbers").select("phone_number").is("deleted_at", null);
+        const assignedSet = new Set(allAssigned?.map(n => n.phone_number) || []);
+        
+        const unassignedVomyra = vomyraNumbers.filter((n: any) => {
+          const cleanPhone = String(n.phone_number || n.number).trim();
+          return !assignedSet.has(cleanPhone);
+        });
+
+        if (unassignedVomyra.length > 0) {
+          numberToAssign = String(unassignedVomyra[0].phone_number || unassignedVomyra[0].number).trim();
+          providerResourceId = `vomyra_${numberToAssign.replace(/[^\d+]/g, "")}`;
+        }
+      } catch (e: any) {
+        console.warn("Failed to fetch from Vomyra API during claim:", e.message);
+      }
+    }
+
+    if (!numberToAssign) {
+      // Provisioning failed - Refund entitlement
+      await adminClient.rpc("refund_number_entitlement", {
+        p_claim_id: claimId
+      });
+      return { success: false, error: "No available numbers in the pool right now. Please try again later or contact support." };
+    }
+
+    // 6. Assign it to the user's workspace
+    const currentPeriodEnd = new Date();
+    currentPeriodEnd.setDate(currentPeriodEnd.getDate() + 30); // 30 day validity
+
+    const { data: newNumber, error: assignError } = await adminClient.from("phone_numbers").upsert({
+      workspace_id: workspaceId,
+      phone_number: numberToAssign,
+      provider: provider,
+      provider_resource_id: providerResourceId,
+      status: "unassigned",
+      current_period_start: new Date().toISOString(),
+      current_period_end: currentPeriodEnd.toISOString()
+    }, { onConflict: "provider,provider_resource_id" }).select().single();
+
+    if (assignError) {
+      // Provisioning failed - Refund entitlement
+      await adminClient.rpc("refund_number_entitlement", {
+        p_claim_id: claimId
+      });
+      return { success: false, error: "Failed to allocate number to your workspace." };
+    }
+
+    // 7. Update claim status
+    await adminClient.from("number_claims").update({
+      status: "claimed",
+      provider_number_id: providerResourceId,
+      phone_number: numberToAssign
+    }).eq("id", claimId);
+
+    revalidatePath("/dashboard/phone-numbers");
+    return { success: true, newNumber };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
 }

@@ -115,6 +115,28 @@ export async function approveKycAndAssignNumber(kycId: string, workspaceId: stri
   }
 }
 
+export async function approveKyc(kycId: string) {
+  await verifyAdmin();
+  const adminClient = await getAdminClient();
+
+  try {
+    const { error } = await adminClient
+      .from("kyc_requests")
+      .update({ status: "approved" })
+      .eq("id", kycId);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/dashboard/admin/kyc");
+    revalidatePath("/dashboard/phone-numbers");
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
 export async function getAvailableVomyraNumbers() {
   await verifyAdmin();
   const adminClient = await getAdminClient();

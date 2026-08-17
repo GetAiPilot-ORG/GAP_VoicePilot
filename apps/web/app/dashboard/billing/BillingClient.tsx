@@ -27,12 +27,17 @@ interface BillingClientProps {
     subscription: any;
     plans: any[];
     ledger: any[];
+    payments?: any[];
     razorpayKeyId: string;
+    dedicatedNumberEntitlements?: number;
+    activePhoneNumbersCount?: number;
+    phoneNumbers?: any[];
   };
 }
 
 export default function BillingClient({ initialData }: BillingClientProps) {
   const [data, setData] = useState(initialData);
+  const [historyTab, setHistoryTab] = useState<"payments" | "ledger">("payments");
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
   const [topUpAmount, setTopUpAmount] = useState(1000);
   const [isPending, startTransition] = useTransition();
@@ -66,78 +71,48 @@ export default function BillingClient({ initialData }: BillingClientProps) {
     fetchUser();
   }, []);
 
-  const hasActiveSub = data.subscription &&
+  const hasActiveSub = Boolean(
+    data.subscription &&
     data.subscription.status === 'active' &&
-    new Date(data.subscription.current_period_end).getTime() > Date.now();
+    new Date(data.subscription.current_period_end).getTime() > Date.now()
+  );
+  const isExpiredSub = Boolean(
+    data.subscription &&
+    new Date(data.subscription.current_period_end).getTime() <= Date.now()
+  );
   const activePlanId = hasActiveSub ? (data.subscription?.plans?.id || data.subscription?.plan_id) : null;
+  const expiredPlanId = isExpiredSub ? (data.subscription?.plans?.id || data.subscription?.plan_id) : null;
 
-  const pricingTiers = [
-    {
-      id: "call_lite",
-      name: "CALL LITE",
-      priceNum: 1499,
-      price: "₹1,499",
-      period: "/30 days",
-      extraRate: "₹5/min",
-      features: [
-        "1 Dedicated Business Number",
-        "1 Calling Channel",
-        "100 AI Calling Minutes Included",
-        "Hindi and English Voice Agent",
-        "Custom AI Voice Prompt",
-        "Basic Lead Capture",
-        "Call History",
-        "Email Reporting",
-        "Extra Calling Minutes @ ₹5/min"
-      ],
-      isPopular: false,
-      btnText: "Get Started"
-    },
-    {
-      id: "call_pro",
-      name: "CALL PRO",
-      priceNum: 2999,
-      price: "₹2,999",
-      period: "/30 days",
-      extraRate: "₹4/min",
-      features: [
-        "1 Dedicated Business Number",
-        "1 Calling Channel",
-        "500 AI Calling Minutes Included",
-        "Hindi and English Voice Agent",
-        "CRM Auto-Updating",
-        "Live Call Transfer",
-        "Call Recording",
-        "Real-Time Dashboard",
-        "Advanced AI Personalization",
-        "Extra Calling Minutes @ ₹4/min"
-      ],
-      isPopular: true,
-      btnText: "Get Started"
-    },
-    {
-      id: "call_elite",
-      name: "CALL ELITE",
-      priceNum: 7999,
-      price: "₹7,999",
-      period: "/30 days",
-      extraRate: "₹3/min",
-      features: [
-        "1 Dedicated Business Number",
-        "1 Dedicated Calling Channel",
-        "2000 AI Calling Minutes Included",
-        "Multiple AI Agent Workflows",
-        "Advanced CRM Integration",
-        "Custom Workflow Triggers",
-        "Call Recording and Analytics",
-        "Priority Support",
-        "Account Manager",
-        "Extra Calling Minutes @ ₹3/min"
-      ],
-      isPopular: false,
-      btnText: "Contact Sales"
-    }
-  ];
+  const expiredPhoneNumbers = (data.phoneNumbers || []).filter(
+    (n: any) => n.current_period_end && new Date(n.current_period_end).getTime() <= Date.now()
+  );
+  const expiredPhoneNumbersCount = expiredPhoneNumbers.length;
+
+  const pricingTiers = (data.plans && data.plans.length > 0)
+    ? data.plans.map((dbPlan) => {
+        const feats = dbPlan.features || {};
+        const isEnterprise = dbPlan.id === "enterprise" || feats.is_enterprise;
+        return {
+          id: dbPlan.id,
+          audience: feats.audience || (isEnterprise ? "FOR ORGANIZATIONS" : "FOR STARTERS"),
+          name: dbPlan.name || (isEnterprise ? "Enterprise" : "Plan"),
+          description: feats.description || `${dbPlan.included_credits} AI calling minutes included.`,
+          priceNum: dbPlan.price_monthly,
+          price: dbPlan.price_monthly > 0 ? `₹${dbPlan.price_monthly.toLocaleString()}` : "Custom",
+          period: dbPlan.price_monthly > 0 ? "/mo" : "",
+          extraRate: feats.extra_min_rate ? `₹${feats.extra_min_rate}.00 / min` : "Custom",
+          feeNote: feats.feeNote || (dbPlan.price_monthly > 0 ? `Includes ${dbPlan.included_credits} mins.` : "Contracted to your volume."),
+          features: feats.feature_list || [
+            `${dbPlan.included_credits} AI Calling Minutes`,
+            `Hindi & English Support`,
+            `Dedicated Business Number`
+          ],
+          isPopular: feats.is_popular || false,
+          isEnterprise,
+          btnText: isEnterprise ? "Talk to our team" : "Get Started"
+        };
+      })
+    : [];
 
   // Open Razorpay Modal for Wallet Recharge
   const handleRazorpayTopUp = () => {
@@ -274,6 +249,67 @@ export default function BillingClient({ initialData }: BillingClientProps) {
     });
   };
 
+  // Open Razorpay Checkout for Dedicated Number Purchase
+  const handleRazorpayBuyNumber = () => {
+    setMessage(null);
+    setLoadingPlanId('number_purchase');
+
+    startTransition(async () => {
+      const orderRes = await createRazorpayOrderAction({
+        type: 'number_purchase'
+      });
+
+      if (!orderRes.success || !orderRes.orderId) {
+        setLoadingPlanId(null);
+        setMessage({ type: 'error', text: orderRes.error || 'Failed to initialize payment' });
+        return;
+      }
+
+      const options = {
+        key: orderRes.keyId || initialData.razorpayKeyId,
+        amount: orderRes.amount,
+        currency: orderRes.currency || 'INR',
+        name: 'VoicePilot AI',
+        description: `Dedicated Phone Number (30 Days)`,
+        order_id: orderRes.orderId,
+        handler: async function (response: any) {
+          const verifyRes = await verifyRazorpayPaymentAction({
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature
+          });
+
+          setLoadingPlanId(null);
+          if (verifyRes.success) {
+            setMessage({ type: 'success', text: verifyRes.message || 'Payment successful! You can now claim your number.' });
+            setData(prev => ({
+              ...prev,
+              dedicatedNumberEntitlements: (prev.dedicatedNumberEntitlements || 0) + 1
+            }));
+          } else {
+            setMessage({ type: 'error', text: verifyRes.error || 'Payment verification failed' });
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            setLoadingPlanId(null);
+          }
+        },
+        prefill: {
+          name: userProfile.name,
+          email: userProfile.email,
+          contact: ''
+        },
+        theme: {
+          color: '#7c3aed'
+        }
+      };
+
+      const razorpayWindow = new (window as any).Razorpay(options);
+      razorpayWindow.open();
+    });
+  };
+
   return (
     <div className="space-y-8 w-full pb-16">
       {/* Top Section Header */}
@@ -303,8 +339,27 @@ export default function BillingClient({ initialData }: BillingClientProps) {
         </div>
       </div>
 
-      {/* No Active Subscription Banner */}
-      {!hasActiveSub && (
+      {/* Expired Subscription Warning Banner */}
+      {isExpiredSub && (
+        <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-950 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-rose-100 flex items-center justify-center text-rose-700 shrink-0 shadow-inner">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="font-bold text-rose-950 text-sm">
+                Your {data.subscription?.plans?.name || "Starter"} Plan has Expired
+              </p>
+              <p className="text-rose-800 text-xs mt-0.5">
+                Your remaining wallet balance of <strong>{Math.floor(data.balance)} AI Mins</strong> is preserved. Renew your 30-day plan below to continue active calling.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* No Active Subscription Banner (First-time / No Prior Plan) */}
+      {!hasActiveSub && !isExpiredSub && (
         <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-900 flex items-center justify-between gap-4 text-xs font-medium">
           <div className="flex items-center gap-2.5">
             <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
@@ -344,7 +399,7 @@ export default function BillingClient({ initialData }: BillingClientProps) {
         </div>
 
         {/* Pricing Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch">
           {pricingTiers.map((plan, idx) => {
             const isCurrent = activePlanId !== null && plan.id === activePlanId;
             const isDark = plan.isPopular;
@@ -355,35 +410,54 @@ export default function BillingClient({ initialData }: BillingClientProps) {
             return (
               <div 
                 key={plan.id}
-                className={`rounded-2xl p-6 md:p-8 flex flex-col justify-between transition-all ${
+                className={`rounded-2xl p-6 flex flex-col justify-between transition-all ${
                   isDark 
-                    ? "bg-black text-white shadow-2xl scale-[1.02] ring-2 ring-black" 
+                    ? "bg-black text-white shadow-2xl ring-2 ring-black" 
                     : "bg-white text-black shadow-sm"
                 }`}
               >
                 <div>
-                  {/* Card Title & Price */}
-                  <div className="mb-6">
-                    <p className={`text-[10px] font-mono tracking-widest uppercase mb-2 ${isDark ? "text-neutral-400 font-semibold" : "text-neutral-500 font-semibold"}`}>
-                      {plan.name}
+                  {/* Audience & Name */}
+                  <div className="mb-4 text-left">
+                    <p className={`text-[10px] font-mono tracking-widest uppercase mb-1 font-bold ${isDark ? "text-amber-400" : "text-black/50"}`}>
+                      {plan.audience}
                     </p>
+                    <h3 className="text-xl font-extrabold tracking-tight">
+                      {plan.name}
+                    </h3>
+                    {plan.description && (
+                      <p className={`text-[11px] mt-1 font-normal ${isDark ? "text-neutral-300" : "text-black/60"}`}>
+                        {plan.description}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Price */}
+                  <div className="mb-3 text-left">
                     <div className="flex items-baseline gap-1">
-                      <span className="text-3xl md:text-4xl font-extrabold tracking-tight">
+                      <span className="text-3xl font-extrabold tracking-tight">
                         {plan.price}
                       </span>
-                      <span className={`text-xs font-semibold ${isDark ? "text-neutral-400" : "text-neutral-600"}`}>
-                        {plan.period}
-                      </span>
+                      {plan.period && (
+                        <span className={`text-xs font-semibold ${isDark ? "text-neutral-400" : "text-black/60"}`}>
+                          {plan.period}
+                        </span>
+                      )}
                     </div>
+                    {plan.feeNote && (
+                      <p className={`text-[10px] font-medium mt-1 ${isDark ? "text-neutral-400" : "text-black/50"}`}>
+                        {plan.feeNote}
+                      </p>
+                    )}
                   </div>
 
                   <hr className={`my-4 ${isDark ? "border-neutral-800" : "border-hairline"}`} />
 
                   {/* Feature Checklist */}
-                  <div className="space-y-3 mb-8">
-                    {plan.features.map((feat, fidx) => (
-                      <div key={fidx} className="flex items-start gap-2.5 text-xs font-medium">
-                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
+                  <div className="space-y-2.5 mb-6 text-left">
+                    {plan.features.map((feat: string, fidx: number) => (
+                      <div key={fidx} className="flex items-start gap-2 text-[11px] font-medium">
+                        <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
                           isDark ? "border-white/40 text-white" : "border-black/30 text-black"
                         }`}>
                           <Check className="w-2.5 h-2.5 stroke-[3]" />
@@ -398,9 +472,15 @@ export default function BillingClient({ initialData }: BillingClientProps) {
 
                 {/* CTA Button with Razorpay Integration */}
                 <button
-                  disabled={isCurrent || isDowngrade || (isPending && isLoading)}
-                  onClick={() => handleRazorpaySubscribe(plan.id, plan.priceNum, plan.name)}
-                  className={`w-full py-3 px-4 rounded-full font-bold text-xs transition-all shadow-md flex items-center justify-center gap-2 ${
+                  disabled={!plan.isEnterprise && (isCurrent || isDowngrade || (isPending && isLoading))}
+                  onClick={() => {
+                    if (plan.isEnterprise) {
+                      window.location.href = "/demo";
+                      return;
+                    }
+                    handleRazorpaySubscribe(plan.id, plan.priceNum, plan.name);
+                  }}
+                  className={`w-full py-2.5 px-4 rounded-full font-bold text-xs transition-all shadow-md flex items-center justify-center gap-2 ${
                     isCurrent
                       ? "bg-emerald-600 text-white cursor-default"
                       : isDowngrade
@@ -419,6 +499,8 @@ export default function BillingClient({ initialData }: BillingClientProps) {
                     "Active Plan"
                   ) : isDowngrade ? (
                     "Included in Plan"
+                  ) : isExpiredSub && plan.id === expiredPlanId ? (
+                    `Renew ${plan.name}`
                   ) : (
                     plan.btnText
                   )}
@@ -427,70 +509,281 @@ export default function BillingClient({ initialData }: BillingClientProps) {
             );
           })}
         </div>
-      </div>
 
-      {/* Credit Wallet History & Usage Section */}
-      <div className="space-y-4 pt-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-bold text-base text-black flex items-center gap-2">
-            <History className="w-4 h-4 text-purple-600" />
-            AI Calling Wallet Ledger History
-          </h3>
-          <span className="text-xs text-neutral-500 font-mono">
-            Current Rate: ~₹5/min
-          </span>
-        </div>
+        {/* Dedicated Phone Number & Calling Channel Card */}
+        <div className="mt-8 rounded-2xl border border-black/15 bg-white p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-sm">
+          <div className="space-y-2 max-w-2xl text-left">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-100 border border-purple-300 text-[10px] font-bold text-purple-900 uppercase tracking-wider">
+              <PhoneCall className="h-3 w-3 text-purple-700" />
+              <span>DEDICATED TELEPHONY INFRASTRUCTURE</span>
+            </div>
+            <h3 className="text-xl font-extrabold text-black">
+              Dedicated Phone Number & Concurrent Calling Channel Plan
+            </h3>
+            <p className="text-xs text-black/70 leading-relaxed font-normal">
+              Add dedicated virtual business numbers (080, 022, 011, or 1800 Toll-Free) and dedicated multi-channel call concurrency for inbound call answering & outbound AI campaigns.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 text-xs font-semibold text-black/80">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                <span>1 Dedicated Business Virtual Number</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                <span>Dedicated Calling Concurrency Channel</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                <span>TRAI & DLT Compliant SIP Trunking</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                <span>Instant Setup & Number Activation</span>
+              </div>
+            </div>
+          </div>
 
-        <div className="bg-white border border-hairline rounded-2xl overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs min-w-[550px]">
-              <thead className="bg-surface-soft text-neutral-600 border-b border-hairline font-semibold uppercase tracking-wider">
-                <tr>
-                  <th className="p-3.5">Date & Time</th>
-                  <th className="p-3.5">Transaction Type</th>
-                  <th className="p-3.5">Description</th>
-                  <th className="p-3.5 text-right">Minutes</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-hairline">
-                {data.ledger.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="p-8 text-center text-neutral-400 font-medium">
-                      No wallet transactions logged yet.
-                    </td>
-                  </tr>
+          <div className="flex flex-col items-start md:items-end gap-3 shrink-0 w-full sm:w-auto text-left md:text-right">
+            <div>
+              <span className="text-3xl font-extrabold text-black">₹1,499</span>
+              <span className="text-xs font-semibold text-black/60"> /month</span>
+              <p className="text-[11px] text-black/50 font-medium mt-0.5">Per dedicated channel & number</p>
+            </div>
+            
+            {(data.activePhoneNumbersCount ?? 0) > 0 ? (
+              <div className="flex flex-col items-start md:items-end gap-2 w-full sm:w-auto text-left md:text-right">
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
+                  <span>Dedicated Line Active</span>
+                </div>
+                <a
+                  href="/dashboard/phone-numbers"
+                  className="w-full sm:w-auto inline-flex h-11 items-center justify-center rounded-full bg-emerald-600 hover:bg-emerald-700 text-white px-6 text-xs font-bold shadow-sm transition-all hover:scale-[1.02] cursor-pointer"
+                >
+                  <PhoneCall className="w-3.5 h-3.5 mr-2" />
+                  Manage Active Line
+                </a>
+              </div>
+            ) : (data.dedicatedNumberEntitlements ?? 0) > 0 ? (
+              <div className="w-full sm:w-auto text-center md:text-right">
+                <p className="text-[11px] font-bold text-emerald-600 mb-1">
+                  You have {data.dedicatedNumberEntitlements} purchased number{data.dedicatedNumberEntitlements !== 1 ? 's' : ''} ready to claim.
+                </p>
+                <a
+                  href="/dashboard/phone-numbers"
+                  className="w-full sm:w-auto inline-flex h-11 items-center justify-center rounded-full bg-emerald-600 hover:bg-emerald-500 text-white px-6 text-xs font-bold shadow-sm transition-all hover:scale-[1.02]"
+                >
+                  Claim Your Number
+                </a>
+              </div>
+            ) : expiredPhoneNumbersCount > 0 ? (
+              <div className="flex flex-col items-start md:items-end gap-2 w-full sm:w-auto text-left md:text-right">
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                  <span className="w-2 h-2 rounded-full bg-rose-600"></span>
+                  <span>{expiredPhoneNumbersCount} Dedicated Line{expiredPhoneNumbersCount > 1 ? 's' : ''} Expired</span>
+                </div>
+                <button
+                  disabled={isPending && loadingPlanId === 'number_purchase'}
+                  onClick={handleRazorpayBuyNumber}
+                  className="w-full sm:w-auto inline-flex h-11 items-center justify-center rounded-full bg-rose-600 hover:bg-rose-700 disabled:bg-neutral-300 disabled:text-neutral-500 text-white px-6 text-xs font-bold shadow-sm transition-all hover:scale-[1.02] cursor-pointer"
+                >
+                  {(isPending && loadingPlanId === 'number_purchase') ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processing...</>
+                  ) : (
+                    "Renew Dedicated Number (₹1,499)"
+                  )}
+                </button>
+              </div>
+            ) : (
+              <button
+                disabled={isPending && loadingPlanId === 'number_purchase'}
+                onClick={handleRazorpayBuyNumber}
+                className="w-full sm:w-auto inline-flex h-11 items-center justify-center rounded-full bg-[#ff4b2f] hover:bg-[#e63e24] disabled:bg-neutral-300 disabled:text-neutral-500 text-white px-6 text-xs font-bold shadow-sm transition-all hover:scale-[1.02]"
+              >
+                {(isPending && loadingPlanId === 'number_purchase') ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processing...</>
                 ) : (
-                  data.ledger.map((item) => {
-                    const isPositive = Number(item.amount) > 0;
-                    return (
-                      <tr key={item.id} className="hover:bg-surface-soft/50 transition-colors">
-                        <td className="p-3.5 text-neutral-500 font-mono">
-                          {new Date(item.created_at).toLocaleString()}
-                        </td>
-                        <td className="p-3.5">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                            isPositive 
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200" 
-                              : "bg-neutral-100 text-neutral-700 border border-neutral-200"
-                          }`}>
-                            {isPositive ? <ArrowDownLeft className="w-3 h-3" /> : <ArrowUpRight className="w-3 h-3" />}
-                            {item.type.replace('_', ' ')}
-                          </span>
-                        </td>
-                        <td className="p-3.5 text-black font-medium">
-                          {item.description || 'System voice call usage'}
-                        </td>
-                        <td className={`p-3.5 text-right font-mono font-bold ${isPositive ? "text-emerald-600" : "text-black"}`}>
-                          {isPositive ? `+${item.amount}` : `${item.amount}`} Mins
-                        </td>
-                      </tr>
-                    );
-                  })
+                  "Get Dedicated Number"
                 )}
-              </tbody>
-            </table>
+              </button>
+            )}
           </div>
         </div>
+      </div>
+
+      {/* Billing & Wallet History Section */}
+      <div className="space-y-4 pt-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <History className="w-4 h-4 text-purple-600" />
+            <h3 className="font-bold text-base text-black">Billing &amp; Transaction History</h3>
+          </div>
+
+          <div className="inline-flex p-1 bg-surface-soft border border-hairline rounded-xl gap-1">
+            <button
+              onClick={() => setHistoryTab("payments")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                historyTab === "payments"
+                  ? "bg-white text-black shadow-xs border border-black/5"
+                  : "text-neutral-600 hover:text-black"
+              }`}
+            >
+              <CreditCard className="w-3.5 h-3.5" />
+              <span>Payments &amp; Number Orders</span>
+              <span className={`px-1.5 py-0.2 rounded-md text-[10px] ${historyTab === 'payments' ? 'bg-neutral-900 text-white' : 'bg-neutral-200 text-neutral-700'}`}>
+                {data.payments?.length || 0}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setHistoryTab("ledger")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                historyTab === "ledger"
+                  ? "bg-white text-black shadow-xs border border-black/5"
+                  : "text-neutral-600 hover:text-black"
+              }`}
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>AI Minutes Ledger</span>
+              <span className={`px-1.5 py-0.2 rounded-md text-[10px] ${historyTab === 'ledger' ? 'bg-neutral-900 text-white' : 'bg-neutral-200 text-neutral-700'}`}>
+                {data.ledger?.length || 0}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {historyTab === "payments" ? (
+          <div className="bg-white border border-hairline rounded-2xl overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs min-w-[650px]">
+                <thead className="bg-surface-soft text-neutral-600 border-b border-hairline font-semibold uppercase tracking-wider">
+                  <tr>
+                    <th className="p-3.5">Date &amp; Time</th>
+                    <th className="p-3.5">Order Type</th>
+                    <th className="p-3.5">Description</th>
+                    <th className="p-3.5">Payment Reference</th>
+                    <th className="p-3.5">Amount</th>
+                    <th className="p-3.5 text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-hairline">
+                  {(!data.payments || data.payments.length === 0) ? (
+                    <tr>
+                      <td colSpan={6} className="p-8 text-center text-neutral-400 font-medium">
+                        No payment transactions logged yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    data.payments.map((item: any) => {
+                      const isNumber = item.purchase_type === 'number_purchase';
+                      const isPlan = item.purchase_type === 'plan_purchase';
+                      const isPaid = item.status === 'completed';
+                      const amt = (item.amount_paise / 100).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
+
+                      return (
+                        <tr key={item.id} className="hover:bg-surface-soft/50 transition-colors">
+                          <td className="p-3.5 text-neutral-500 font-mono">
+                            {new Date(item.paid_at || item.created_at).toLocaleString()}
+                          </td>
+                          <td className="p-3.5">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                              isNumber 
+                                ? "bg-purple-100 text-purple-800 border border-purple-200" 
+                                : isPlan 
+                                ? "bg-blue-100 text-blue-800 border border-blue-200"
+                                : "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                            }`}>
+                              {isNumber ? "Dedicated Number" : isPlan ? "Plan Subscription" : "Wallet Top-up"}
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-black font-medium">
+                            {isNumber ? (
+                              <span className="flex items-center gap-1.5 font-semibold text-purple-900">
+                                <PhoneCall className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                                Dedicated Telephony Line (30 Days)
+                              </span>
+                            ) : isPlan ? (
+                              <span>{item.plans?.name || 'VoicePilot Plan'} Subscription</span>
+                            ) : (
+                              <span>AI Calling Minutes Top-up</span>
+                            )}
+                          </td>
+                          <td className="p-3.5 font-mono text-[11px] text-neutral-600">
+                            {item.razorpay_payment_id || item.razorpay_order_id || '—'}
+                          </td>
+                          <td className="p-3.5 font-mono font-bold text-neutral-900">
+                            {amt}
+                          </td>
+                          <td className="p-3.5 text-right">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                              isPaid
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                : "bg-amber-50 text-amber-700 border border-amber-200"
+                            }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${isPaid ? 'bg-emerald-600' : 'bg-amber-600'}`}></span>
+                              {isPaid ? "Paid" : "Pending"}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white border border-hairline rounded-2xl overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs min-w-[550px]">
+                <thead className="bg-surface-soft text-neutral-600 border-b border-hairline font-semibold uppercase tracking-wider">
+                  <tr>
+                    <th className="p-3.5">Date &amp; Time</th>
+                    <th className="p-3.5">Transaction Type</th>
+                    <th className="p-3.5">Description</th>
+                    <th className="p-3.5 text-right">Minutes</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-hairline">
+                  {data.ledger.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="p-8 text-center text-neutral-400 font-medium">
+                        No wallet transactions logged yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    data.ledger.map((item) => {
+                      const isPositive = Number(item.amount) > 0;
+                      return (
+                        <tr key={item.id} className="hover:bg-surface-soft/50 transition-colors">
+                          <td className="p-3.5 text-neutral-500 font-mono">
+                            {new Date(item.created_at).toLocaleString()}
+                          </td>
+                          <td className="p-3.5">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                              isPositive 
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200" 
+                                : "bg-neutral-100 text-neutral-700 border border-neutral-200"
+                            }`}>
+                              {isPositive ? <ArrowDownLeft className="w-3 h-3" /> : <ArrowUpRight className="w-3 h-3" />}
+                              {item.type.replace('_', ' ')}
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-black font-medium">
+                            {item.description || 'System voice call usage'}
+                          </td>
+                          <td className={`p-3.5 text-right font-mono font-bold ${isPositive ? "text-emerald-600" : "text-black"}`}>
+                            {isPositive ? `+${item.amount}` : `${item.amount}`} Mins
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Top Up Modal */}
