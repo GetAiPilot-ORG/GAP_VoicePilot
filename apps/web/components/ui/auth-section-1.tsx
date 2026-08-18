@@ -64,7 +64,25 @@ export default function AuthSectionOne({ mode = "signup", error }: AuthSectionOn
 
   useEffect(() => {
     setCurrentMode(mode);
-  }, [mode]);
+    if (typeof window !== "undefined" && window.location.hash.includes("access_token")) {
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const accessToken = hashParams.get("access_token");
+      const refreshToken = hashParams.get("refresh_token");
+
+      if (accessToken && refreshToken) {
+        import("@/utils/supabase/client").then(async ({ createClient }) => {
+          const supabase = createClient();
+          const { data } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          if (data?.session) {
+            window.location.href = redirectTo || "/dashboard";
+          }
+        });
+      }
+    }
+  }, [mode, redirectTo]);
 
   const isLogin = currentMode === "login";
 
