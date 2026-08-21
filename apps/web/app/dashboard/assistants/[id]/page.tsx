@@ -47,7 +47,10 @@ export default async function AssistantDetailPage({ params }: AssistantPageProps
     }
   }
 
-  // 2. Fetch assigned tools for this assistant
+  // 2. Fetch assigned tools & detailed assignments for this assistant
+  let detailedAssignments: any[] = [];
+  let workspaceConnectors: any[] = [];
+
   if (assistant && adminClient) {
     try {
       const { data: assignedTools } = await adminClient
@@ -55,10 +58,30 @@ export default async function AssistantDetailPage({ params }: AssistantPageProps
         .select("tool_id")
         .eq("assistant_id", assistant.id);
 
+      const { data: assignments } = await adminClient
+        .from("assistant_tool_assignments")
+        .select("*")
+        .eq("assistant_id", assistant.id);
+
+      detailedAssignments = assignments || [];
+
+      // Unconditionally fetch workspace connectors so assistant always gets active OAuth connections
+      const { data: connectors } = await adminClient
+        .from("workspace_connectors")
+        .select("id, connector_definition_id, connected_account_name, connected_account_email, status, connector_definitions(slug)");
+      
+      workspaceConnectors = connectors || [];
+
+      const assignedIds = new Set<string>();
+      if (assignedTools) assignedTools.forEach((t: any) => assignedIds.add(t.tool_id));
+      if (assignments) assignments.forEach((a: any) => assignedIds.add(a.tool_name));
+
       assistant = {
         ...assistant,
         config: assistant.config_snapshot || {},
-        assigned_tool_ids: assignedTools ? assignedTools.map((t: any) => t.tool_id) : []
+        assigned_tool_ids: Array.from(assignedIds),
+        tool_assignments: detailedAssignments,
+        workspace_connectors: workspaceConnectors
       };
     } catch (e) {}
   }
@@ -104,9 +127,52 @@ export default async function AssistantDetailPage({ params }: AssistantPageProps
     return notFound();
   }
 
-  // 5. Fetch Workspace Tools & Vomyra Tools
+  // 5. Fetch Workspace Tools & Filter by Connector Definitions
+  const disabledConnectorSlugs = new Set(["salesforce", "hubspot", "make", "n8n", "zapier", "notion", "linear", "mcp"]);
+
   if (adminClient) {
     try {
+      // Sync connector definitions directly from database
+      const { data: dbDefs } = await adminClient
+        .from("connector_definitions")
+        .select("id, slug, name, availability_status, is_visible");
+
+      const dbDefMap = new Map<string, string>();
+      if (dbDefs && dbDefs.length > 0) {
+        for (const d of dbDefs) {
+          if (d.id && d.slug) dbDefMap.set(d.id, d.slug);
+          if (d.availability_status !== "enabled" || d.is_visible === false) {
+            disabledConnectorSlugs.add(d.slug.toLowerCase());
+            if (d.slug === "gmail") {
+              disabledConnectorSlugs.add("google_workspace");
+              disabledConnectorSlugs.add("google_calendar");
+              disabledConnectorSlugs.add("google_sheets");
+              disabledConnectorSlugs.add("google_contacts");
+              disabledConnectorSlugs.add("google_drive");
+              disabledConnectorSlugs.add("google_meet");
+            }
+          } else {
+            disabledConnectorSlugs.delete(d.slug.toLowerCase());
+          }
+        }
+      }
+
+      // Re-hydrate workspaceConnectors with explicit provider_slug
+      if (workspaceConnectors.length > 0) {
+        workspaceConnectors = workspaceConnectors.map((c: any) => {
+          const matchedSlug = dbDefMap.get(c.connector_definition_id) || c.connector_definitions?.slug || c.provider_slug || (c.connected_account_email ? 'gmail' : '');
+          return {
+            ...c,
+            provider_slug: matchedSlug,
+            slug: matchedSlug
+          };
+        });
+
+        if (assistant) {
+          assistant.workspace_connectors = workspaceConnectors;
+        }
+      }
+
       const { data: dbTools } = await adminClient
         .from("tools")
         .select("*")
@@ -117,6 +183,65 @@ export default async function AssistantDetailPage({ params }: AssistantPageProps
       }
     } catch (e) {}
   }
+
+  // Fetch Connector Registry Tools from backend API
+  try {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    const wsId = assistant?.workspace_id || "default";
+    const connectorRes = await fetch(`${apiUrl}/api/v1/connectors?workspaceId=${wsId}`, { cache: "no-store" });
+    if (connectorRes.ok) {
+      const cData = await connectorRes.json();
+      const definitions = cData.definitions || [];
+      const connectedAccounts = cData.connectedAccounts || [];
+      const toolIds = new Set(tools.map((x) => x.id));
+
+      if (connectedAccounts && Array.isArray(connectedAccounts)) {
+        const mappedAccounts = connectedAccounts.map((acc: any) => ({
+          id: acc.id,
+          provider_slug: acc.provider,
+          slug: acc.provider,
+          status: acc.status || "connected",
+          connected_account_name: acc.connectedAccountName || acc.connected_account_name,
+          connected_account_email: acc.connectedAccountEmail || acc.connected_account_email
+        }));
+
+        workspaceConnectors = [...workspaceConnectors, ...mappedAccounts];
+        if (assistant) {
+          assistant.workspace_connectors = workspaceConnectors;
+        }
+      }
+
+      for (const def of definitions) {
+        if (def.availabilityStatus !== "enabled" || def.isVisible === false) {
+          disabledConnectorSlugs.add(def.slug.toLowerCase());
+          continue;
+        }
+
+        disabledConnectorSlugs.delete(def.slug.toLowerCase());
+
+        if (def.tools && Array.isArray(def.tools)) {
+          for (const t of def.tools) {
+            const toolId = t.name;
+            if (!toolIds.has(toolId)) {
+              tools.push({
+                id: toolId,
+                name: t.name,
+                type: def.slug === "gmail" || def.slug === "google_workspace" ? "google_workspace" : "connector",
+                description: t.description || `${def.name} Tool`,
+                config: {
+                  provider: def.slug,
+                  permission_category: t.permissionCategory || "read",
+                  request_url: `${apiUrl}/api/v1/tools/execute`,
+                  request_http_method: "POST"
+                }
+              });
+              toolIds.add(toolId);
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {}
 
   // Also fetch Vomyra Live Tools
   try {
@@ -150,6 +275,15 @@ export default async function AssistantDetailPage({ params }: AssistantPageProps
       }
     }
   } catch (e) {}
+
+  // Strictly filter out any tools belonging to disabled or coming_soon connectors
+  tools = tools.filter((t: any) => {
+    const provider = String(t.config?.provider || t.name.split(".")[0]).toLowerCase();
+    if (disabledConnectorSlugs.has(provider)) {
+      return false;
+    }
+    return true;
+  });
 
   return (
     <div className="max-w-6xl space-y-6">
