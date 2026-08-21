@@ -114,6 +114,23 @@ export class VomyraClient implements VoiceProvider {
     });
   }
 
+  async getToolTypes(): Promise<any[]> {
+    const res = await this.request<any>('/v1/tool-types', { method: 'GET' });
+    return Array.isArray(res) ? res : res.data || [];
+  }
+
+  async listTools(): Promise<any[]> {
+    const res = await this.request<any>('/v1/tools', { method: 'GET' });
+    return Array.isArray(res) ? res : res.data || [];
+  }
+
+  async createTool(payload: any): Promise<any> {
+    return await this.request<any>('/v1/tools', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
   async initiateCall(input: InitiateCallInput): Promise<ProviderCall> {
     const payload: any = {
       customer_number: String(input.customer_number).trim(),

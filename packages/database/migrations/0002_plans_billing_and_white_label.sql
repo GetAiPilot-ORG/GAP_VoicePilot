@@ -104,6 +104,7 @@ create table if not exists white_label_settings (
   custom_domain text unique,
   support_email text,
   smtp_config jsonb default '{}'::jsonb,
+  
   created_at timestamptz default now()
 );
 
