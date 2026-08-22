@@ -14,17 +14,15 @@ async function verifyAdmin() {
   );
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
-  
-  if (process.env.NODE_ENV === 'development') {
-    return;
-  }
 
   const adminClient = await getAdminClient();
+  if (!adminClient) throw new Error("Database configuration error");
+
   const { data: profile } = await adminClient
     .from('profiles')
     .select('is_super_admin')
     .eq('id', user.id)
-    .single();
+    .maybeSingle();
 
   if (!profile?.is_super_admin) {
     throw new Error("Unauthorized: Admins only");
@@ -42,22 +40,17 @@ export async function checkIsAdminAction() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return false;
 
-    if (process.env.NODE_ENV === 'development') {
-      return true;
-    }
-
     const adminClient = await getAdminClient();
+    if (!adminClient) return false;
+
     const { data: profile } = await adminClient
       .from('profiles')
       .select('is_super_admin')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     return profile?.is_super_admin === true;
   } catch (e) {
-    if (process.env.NODE_ENV === 'development') {
-      return true;
-    }
     return false;
   }
 }

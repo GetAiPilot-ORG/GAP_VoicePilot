@@ -146,12 +146,12 @@ const DEFAULT_CONNECTOR_DEFINITIONS: ConnectorDefinition[] = [
   },
   {
     slug: "zapier",
-    name: "Zapier Native App",
-    description: "Connect GAP VoicePilot to 6,000+ apps on Zapier via OAuth 2.0 Authorization Server",
-    authType: "oauth2_provider",
+    name: "Zapier",
+    description: "Connect VoicePilot with Zapier to automate workflows between VoicePilot and thousands of supported apps.",
+    authType: "platform",
     executionType: "platform",
-    availabilityStatus: "disabled",
-    isVisible: false,
+    availabilityStatus: "enabled",
+    isVisible: true,
     tools: [
       { name: "zapier.triggers", description: "Receive real-time call & contact events in Zapier", permissionCategory: "read" },
       { name: "zapier.actions", description: "Trigger VoicePilot AI outbound calls & actions from Zapier", permissionCategory: "write" },
@@ -281,13 +281,13 @@ const DEFAULT_CONNECTOR_DEFINITIONS: ConnectorDefinition[] = [
 
 export default function ConnectorsClient() {
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [connectingSlug, setConnectingSlug] = useState<string | null>(null);
   const [definitions, setDefinitions] = useState<ConnectorDefinition[]>(DEFAULT_CONNECTOR_DEFINITIONS);
   const [connectedAccounts, setConnectedAccounts] = useState<ConnectedAccount[]>([]);
   const [workspaceAssistants, setWorkspaceAssistants] = useState<any[]>([]);
   const [workflows, setWorkflows] = useState<WorkflowUI[]>([]);
   
-  const [showZapierSetupModal, setShowZapierSetupModal] = useState(false);
   const [selectedManageConnector, setSelectedManageConnector] = useState<{
     definition: ConnectorDefinition;
     account: ConnectedAccount;
@@ -376,6 +376,12 @@ export default function ConnectorsClient() {
       if (wfRes.success) {
         setWorkflows(wfRes.workflows || []);
       }
+
+      try {
+        const { checkIsAdminAction } = await import("@/app/actions/kyc");
+        const isAdm = await checkIsAdminAction();
+        setIsAdmin(Boolean(isAdm));
+      } catch {}
     } catch (e: any) {
       console.error("Failed to load connectors:", e);
     } finally {
@@ -520,17 +526,19 @@ export default function ConnectorsClient() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Link href="/dashboard/admin/integrations">
-            <Button
-              type="button"
-              variant="default"
-              size="sm"
-              className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full text-xs font-bold gap-1.5 px-3.5 shadow-sm"
-            >
-              <Shield className="w-3.5 h-3.5 text-indigo-200" />
-              <span>Admin Integration Control</span>
-            </Button>
-          </Link>
+          {isAdmin && (
+            <Link href="/dashboard/admin/integrations">
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full text-xs font-bold gap-1.5 px-3.5 shadow-sm"
+              >
+                <Shield className="w-3.5 h-3.5 text-indigo-200" />
+                <span>Admin Integration Control</span>
+              </Button>
+            </Link>
+          )}
           <Button
             type="button"
             onClick={loadData}
@@ -634,7 +642,7 @@ export default function ConnectorsClient() {
                           <div>
                             <span className="font-bold text-black text-sm block">{def.name}</span>
                             <span className="text-[10px] font-mono uppercase text-neutral-400">
-                              {def.authType} • {def.executionType}
+                              {def.slug === "zapier" ? "PLATFORM" : `${def.authType} • ${def.executionType}`}
                             </span>
                           </div>
                         </div>
@@ -642,46 +650,44 @@ export default function ConnectorsClient() {
 
                       {/* STATUS */}
                       <td className="py-3.5 px-4">
-                        {isComingSoon && (
+                        {def.slug === "zapier" ? (
+                          <Badge className="bg-emerald-500/10 text-emerald-700 border-emerald-200 text-[11px] font-semibold flex items-center gap-1 w-fit">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            <span>Available</span>
+                          </Badge>
+                        ) : isComingSoon ? (
                           <Badge className="bg-amber-500/10 text-amber-700 border-amber-200 text-[11px] font-semibold flex items-center gap-1 w-fit">
                             <Clock className="w-3 h-3 text-amber-600" />
                             <span>Coming Soon</span>
                           </Badge>
-                        )}
-                        {!isComingSoon && isDisabled && (
+                        ) : isDisabled ? (
                           <Badge className="bg-rose-500/10 text-rose-700 border-rose-200 text-[11px] font-semibold flex items-center gap-1 w-fit">
                             <Lock className="w-3 h-3 text-rose-600" />
                             <span>Unavailable</span>
                           </Badge>
-                        )}
-                        {!isComingSoon && !isDisabled && statusState === "connected" && (
+                        ) : statusState === "connected" ? (
                           <Badge className="bg-emerald-500/10 text-emerald-700 border-emerald-200 text-[11px] font-semibold flex items-center gap-1 w-fit">
                             <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                             <span>Connected</span>
                           </Badge>
-                        )}
-                        {!isComingSoon && !isDisabled && statusState === "reauth_required" && (
+                        ) : statusState === "reauth_required" ? (
                           <Badge className="bg-amber-500/10 text-amber-700 border-amber-200 text-[11px] font-semibold flex items-center gap-1 w-fit">
                             <AlertTriangle className="w-3 h-3 text-amber-600" />
                             <span>Re-auth Required</span>
                           </Badge>
-                        )}
-                        {!isComingSoon && !isDisabled && statusState === "error" && (
+                        ) : statusState === "error" ? (
                           <Badge className="bg-red-500/10 text-red-700 border-red-200 text-[11px] font-semibold w-fit">
                             Error
                           </Badge>
-                        )}
-                        {!isComingSoon && !isDisabled && statusState === "connecting" && (
+                        ) : statusState === "connecting" ? (
                           <Badge className="bg-blue-500/10 text-blue-700 border-blue-200 text-[11px] font-semibold animate-pulse w-fit">
                             Authorizing...
                           </Badge>
-                        )}
-                        {!isComingSoon && !isDisabled && statusState === "not_connected" && def.available === false && (
+                        ) : statusState === "not_connected" && def.available === false ? (
                           <Badge className="bg-amber-500/10 text-amber-700 border-amber-200 text-[11px] font-semibold w-fit">
                             Setup Required
                           </Badge>
-                        )}
-                        {!isComingSoon && !isDisabled && statusState === "not_connected" && def.available !== false && (
+                        ) : (
                           <Badge variant="outline" className="text-neutral-400 border-hairline text-[11px] w-fit">
                             Not Connected
                           </Badge>
@@ -690,7 +696,9 @@ export default function ConnectorsClient() {
 
                       {/* CONNECTED ACCOUNT */}
                       <td className="py-3.5 px-4 font-mono text-xs text-neutral-700">
-                        {connectedAccount ? (
+                        {def.slug === "zapier" ? (
+                          <span className="text-neutral-300">—</span>
+                        ) : connectedAccount ? (
                           <span className="font-semibold text-black">
                             {connectedAccount.connected_account_email || connectedAccount.connected_account_name || "Active Account"}
                           </span>
@@ -701,13 +709,29 @@ export default function ConnectorsClient() {
 
                       {/* AUTHORIZED */}
                       <td className="py-3.5 px-4 font-mono text-xs text-neutral-500">
-                        {authDate}
+                        {def.slug === "zapier" ? "—" : authDate}
                       </td>
 
                       {/* ACTION */}
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          {isComingSoon && (
+                          {def.slug === "zapier" ? (
+                            <a
+                              href={
+                                process.env.NEXT_PUBLIC_ZAPIER_INTEGRATION_URL ||
+                                process.env.NEXT_PUBLIC_ZAPIER_APP_INVITE_URL ||
+                                process.env.NEXT_PUBLIC_ZAPIER_APP_PUBLIC_URL ||
+                                "https://zapier.com/app/zaps"
+                              }
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center justify-center gap-1.5 bg-black hover:bg-neutral-800 text-white font-bold rounded-lg text-xs px-3.5 h-8 shadow-xs transition-colors"
+                            >
+                              <Zap className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                              <span>Open Zapier</span>
+                              <ExternalLink className="w-3 h-3 ml-0.5" />
+                            </a>
+                          ) : isComingSoon ? (
                             <Button
                               type="button"
                               disabled={true}
@@ -718,9 +742,7 @@ export default function ConnectorsClient() {
                               <Clock className="w-3.5 h-3.5 mr-1" />
                               <span>Coming Soon</span>
                             </Button>
-                          )}
-
-                          {!isComingSoon && isDisabled && (
+                          ) : isDisabled ? (
                             <Button
                               type="button"
                               disabled={true}
@@ -731,9 +753,7 @@ export default function ConnectorsClient() {
                               <Lock className="w-3.5 h-3.5 mr-1" />
                               <span>Unavailable</span>
                             </Button>
-                          )}
-
-                          {!isComingSoon && !isDisabled && statusState === "connected" && connectedAccount && (
+                          ) : statusState === "connected" && connectedAccount ? (
                             <>
                               <Button
                                 type="button"
@@ -757,9 +777,7 @@ export default function ConnectorsClient() {
                                 <Trash2 className="w-3.5 h-3.5" />
                               </Button>
                             </>
-                          )}
-
-                          {!isComingSoon && !isDisabled && statusState === "reauth_required" && (
+                          ) : statusState === "reauth_required" ? (
                             <Button
                               type="button"
                               onClick={() => handleConnect(def.slug)}
@@ -770,53 +788,38 @@ export default function ConnectorsClient() {
                               <RefreshCw className="w-3.5 h-3.5 mr-1" />
                               <span>Reconnect</span>
                             </Button>
-                          )}
-
-                          {!isComingSoon && !isDisabled && (statusState === "not_connected" || statusState === "error") && (
-                            def.slug === "zapier" ? (
-                              <Button
-                                type="button"
-                                onClick={() => setShowZapierSetupModal(true)}
-                                variant="default"
-                                size="sm"
-                                className="bg-black hover:bg-neutral-800 text-white transition-all text-xs font-bold rounded-lg px-3.5 h-8"
-                              >
-                                <Zap className="w-3.5 h-3.5 mr-1.5 text-amber-400 fill-amber-400" />
-                                <span>Setup Zapier</span>
-                              </Button>
-                            ) : def.available === false ? (
-                              <Button
-                                type="button"
-                                disabled={true}
-                                variant="outline"
-                                size="sm"
-                                className="border-amber-200 bg-amber-50 text-amber-700 opacity-80 text-xs font-bold rounded-lg px-3.5 h-8 cursor-not-allowed"
-                                title="VoicePilot Platform OAuth App credentials missing in backend .env"
-                              >
-                                <Lock className="w-3.5 h-3.5 mr-1.5 text-amber-600" />
-                                <span>Setup Required</span>
-                              </Button>
-                            ) : (
-                              <Button
-                                type="button"
-                                onClick={() => handleConnect(def.slug)}
-                                disabled={isConnecting}
-                                variant="outline"
-                                size="sm"
-                                className="border-hairline hover:bg-black hover:text-white transition-all text-xs font-bold rounded-lg px-3.5 h-8"
-                              >
-                                <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-                                <span>
-                                  {isConnecting
-                                    ? "Authorizing..."
-                                    : def.slug === "zapier_webhook"
-                                    ? "Configure"
-                                    : def.slug === "mcp"
-                                    ? "Connect"
-                                    : "Authorize"}
-                                </span>
-                              </Button>
-                            )
+                          ) : def.available === false ? (
+                            <Button
+                              type="button"
+                              disabled={true}
+                              variant="outline"
+                              size="sm"
+                              className="border-amber-200 bg-amber-50 text-amber-700 opacity-80 text-xs font-bold rounded-lg px-3.5 h-8 cursor-not-allowed"
+                              title="VoicePilot Platform OAuth App credentials missing in backend .env"
+                            >
+                              <Lock className="w-3.5 h-3.5 mr-1.5 text-amber-600" />
+                              <span>Setup Required</span>
+                            </Button>
+                          ) : (
+                            <Button
+                              type="button"
+                              onClick={() => handleConnect(def.slug)}
+                              disabled={isConnecting}
+                              variant="outline"
+                              size="sm"
+                              className="border-hairline hover:bg-black hover:text-white transition-all text-xs font-bold rounded-lg px-3.5 h-8"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                              <span>
+                                {isConnecting
+                                  ? "Authorizing..."
+                                  : def.slug === "zapier_webhook"
+                                  ? "Configure"
+                                  : def.slug === "mcp"
+                                  ? "Connect"
+                                  : "Authorize"}
+                              </span>
+                            </Button>
                           )}
                         </div>
                       </td>
@@ -1123,80 +1126,6 @@ export default function ConnectorsClient() {
               >
                 <span>Save Settings</span>
               </Button>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* ZAPIER NATIVE PLATFORM SETUP MODAL */}
-      {showZapierSetupModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-hairline rounded-3xl max-w-xl w-full p-6 space-y-6 shadow-2xl animate-scaleUp">
-            <div className="flex items-center justify-between border-b border-hairline pb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-200 flex items-center justify-center text-amber-600">
-                  <Zap className="w-5 h-5 fill-amber-500" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-black">Native Zapier Platform App</h3>
-                  <p className="text-neutral-500 text-xs">VoicePilot acts as an OAuth 2.0 Provider for Zapier</p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setShowZapierSetupModal(false)}
-                className="w-8 h-8 rounded-full border border-hairline flex items-center justify-center text-neutral-400 hover:text-black hover:bg-neutral-100 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-4 text-xs">
-              <div className="bg-surface-soft p-4 rounded-2xl border border-hairline space-y-2">
-                <h4 className="font-bold text-black text-sm flex items-center gap-2">
-                  <span>How Connection Works</span>
-                </h4>
-                <p className="text-neutral-600 leading-relaxed">
-                  Zapier initiates connection to VoicePilot using OAuth 2.0. VoicePilot does <strong>not</strong> initiate this flow from the dashboard.
-                </p>
-                <ol className="list-decimal list-inside space-y-1.5 text-neutral-700 font-medium pt-1">
-                  <li>Open <strong>Zapier Platform</strong> or your Zap editor.</li>
-                  <li>Search for <strong>GAP VoicePilot</strong> and click <strong>Connect an Account</strong>.</li>
-                  <li>Log in to VoicePilot and click <strong>Allow Access</strong> on the consent screen.</li>
-                  <li>Zapier automatically exchanges tokens and completes setup.</li>
-                </ol>
-              </div>
-
-              <div className="space-y-2 font-mono text-[11px]">
-                <div className="font-sans font-bold text-neutral-800 text-xs">OAuth Server Configuration Endpoints</div>
-                <div className="bg-neutral-900 text-neutral-200 p-3 rounded-xl space-y-1.5 overflow-x-auto">
-                  <div><span className="text-amber-400">Authorization URL:</span> https://apivoice.getaipilot.online/oauth/authorize</div>
-                  <div><span className="text-amber-400">Access Token URL:</span> https://apivoice.getaipilot.online/oauth/token</div>
-                  <div><span className="text-amber-400">Client ID:</span> vp_client_zapier_app245289_cli</div>
-                  <div><span className="text-amber-400">Redirect URI:</span> https://zapier.com/dashboard/auth/oauth/return/App245289CLIAPI/</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-4 border-t border-hairline">
-              <Button
-                type="button"
-                onClick={() => setShowZapierSetupModal(false)}
-                variant="outline"
-                size="sm"
-                className="rounded-lg text-xs"
-              >
-                Close
-              </Button>
-
-              <a
-                href="https://zapier.com/apps"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center justify-center gap-2 bg-black hover:bg-neutral-800 text-white font-bold rounded-lg text-xs px-4 h-9 shadow-sm"
-              >
-                <span>Open Zapier Platform</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
             </div>
           </div>
         </div>

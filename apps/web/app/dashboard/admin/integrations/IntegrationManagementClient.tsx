@@ -338,6 +338,19 @@ function IntegrationCard({
           />
         </div>
 
+        {/* Zapier Admin-Only Developer Details */}
+        {item.slug === "zapier" && (
+          <div className="p-3 bg-neutral-900 text-neutral-200 rounded-xl space-y-1.5 font-mono text-[11px]">
+            <div className="text-[10px] uppercase font-bold text-amber-400">Developer Platform Config (Admin Only)</div>
+            <div className="truncate"><span className="text-neutral-400">Client ID:</span> vp_client_zapier_app245289_cli</div>
+            <div className="truncate"><span className="text-neutral-400">Integration URL:</span> {process.env.NEXT_PUBLIC_ZAPIER_INTEGRATION_URL || process.env.NEXT_PUBLIC_ZAPIER_APP_INVITE_URL || process.env.NEXT_PUBLIC_ZAPIER_APP_PUBLIC_URL || "https://zapier.com/app/zaps"}</div>
+            <div className="truncate"><span className="text-neutral-400">Developer App URL:</span> {process.env.NEXT_PUBLIC_ZAPIER_DEVELOPER_APP_URL || "https://zapier.com/app/developer"}</div>
+            <div className="text-emerald-400 text-[10px] pt-1 font-semibold flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3" /> OAuth 2.0 Server Active
+            </div>
+          </div>
+        )}
+
         {/* Last Updated Timestamp */}
         <div className="flex items-center justify-between text-[10px] font-mono text-neutral-400 pt-2 border-t border-neutral-100 dark:border-neutral-800/60">
           <span>Updated: {new Date(item.updated_at).toLocaleDateString()}</span>

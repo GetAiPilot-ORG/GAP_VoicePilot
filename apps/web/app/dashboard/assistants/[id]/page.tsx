@@ -65,10 +65,15 @@ export default async function AssistantDetailPage({ params }: AssistantPageProps
 
       detailedAssignments = assignments || [];
 
-      // Unconditionally fetch workspace connectors so assistant always gets active OAuth connections
-      const { data: connectors } = await adminClient
+      // Fetch workspace connectors strictly for this assistant's workspace
+      let connQuery = adminClient
         .from("workspace_connectors")
         .select("id, connector_definition_id, connected_account_name, connected_account_email, status, connector_definitions(slug)");
+      
+      if (assistant.workspace_id) {
+        connQuery = connQuery.eq("workspace_id", assistant.workspace_id);
+      }
+      const { data: connectors } = await connQuery;
       
       workspaceConnectors = connectors || [];
 

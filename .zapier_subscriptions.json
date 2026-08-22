@@ -1,0 +1,12 @@
+[
+  {
+    "id": "zap_sub_7fbbd95458561e5cb7e265eb94ee56f8",
+    "workspace_id": "1ecef1bf-6fcb-4538-8ae1-c48469f2031c",
+    "user_id": "519f482f-0927-45a0-985e-b1d80a7819ab",
+    "hook_url": "https://hooks.zapier.com/hooks/standard/28596246/6c9a960c20fc4a1faf71ab75267f01a3/",
+    "event_type": "call.completed",
+    "status": "active",
+    "created_at": "2026-08-21T10:11:30.257Z",
+    "updated_at": "2026-08-21T10:11:30.257Z"
+  }
+]
