@@ -9,6 +9,8 @@ import { Separator } from "@/components/ui/separator";
 import {
   LayoutDashboard,
   Bot,
+  GitBranch,
+  Share2,
   Users,
   Megaphone,
   PhoneCall,
@@ -17,6 +19,7 @@ import {
   CreditCard,
   Webhook,
   ShieldCheck,
+  Shield,
   X,
 } from "lucide-react";
 
@@ -100,6 +103,8 @@ export function SessionNavBar({
   const mainNav = [
     { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
     { name: "Assistants", href: "/dashboard/assistants", icon: Bot },
+    { name: "Connectors & Tools", href: "/dashboard/connectors", icon: Share2 },
+    { name: "Workflows & Automation", href: "/dashboard/workflows", icon: GitBranch },
     { name: "Contacts & Sync", href: "/dashboard/contacts", icon: Users },
     { name: "Campaigns", href: "/dashboard/campaigns", icon: Megaphone },
     { name: "Phone Numbers", href: "/dashboard/phone-numbers", icon: PhoneCall },
@@ -113,6 +118,13 @@ export function SessionNavBar({
       name: "Admin KYC Portal",
       href: "/dashboard/admin/kyc",
       icon: ShieldCheck,
+      badge: "ADMIN",
+      badgeVariant: "new",
+    } as any);
+    mainNav.push({
+      name: "Integration Admin",
+      href: "/dashboard/admin/integrations",
+      icon: Shield,
       badge: "ADMIN",
       badgeVariant: "new",
     } as any);

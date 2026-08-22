@@ -14,13 +14,15 @@ async function verifyAdmin() {
   );
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
-  
+
   const adminClient = await getAdminClient();
+  if (!adminClient) throw new Error("Database configuration error");
+
   const { data: profile } = await adminClient
     .from('profiles')
     .select('is_super_admin')
     .eq('id', user.id)
-    .single();
+    .maybeSingle();
 
   if (!profile?.is_super_admin) {
     throw new Error("Unauthorized: Admins only");
@@ -39,11 +41,13 @@ export async function checkIsAdminAction() {
     if (!user) return false;
 
     const adminClient = await getAdminClient();
+    if (!adminClient) return false;
+
     const { data: profile } = await adminClient
       .from('profiles')
       .select('is_super_admin')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     return profile?.is_super_admin === true;
   } catch (e) {

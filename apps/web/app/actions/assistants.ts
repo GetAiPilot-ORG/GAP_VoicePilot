@@ -277,16 +277,24 @@ export async function updateAssistantAction(id: string, payload: any) {
       return { success: false, error: `Database update failed: ${dbErr.message}`, code: 'DATABASE_ERROR' };
     }
 
-    // Sync tools if selected_tools array present
+    // Sync tools ONLY IF selected_tools array is explicitly provided (Requirement 3)
     if (Array.isArray(payload.selected_tools)) {
       try {
-        await adminClient.from('assistant_tools').delete().eq('assistant_id', realDbId);
-        if (payload.selected_tools.length > 0) {
-          const toolRows = payload.selected_tools.map((tId: string) => ({
-            assistant_id: realDbId,
-            tool_id: tId
-          }));
-          await adminClient.from('assistant_tools').insert(toolRows);
+        if (payload.selected_tools.length === 0) {
+          // Explicit remove all
+          await adminClient.from('assistant_tool_assignments').delete().eq('assistant_id', realDbId);
+          await adminClient.from('assistant_tools').delete().eq('assistant_id', realDbId);
+        } else {
+          // Explicit update/replacement
+          const targetToolIds = payload.selected_tools;
+          for (const tId of targetToolIds) {
+            await adminClient.from('assistant_tool_assignments').upsert({
+              assistant_id: realDbId,
+              tool_id: tId,
+              enabled: true,
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'assistant_id,tool_id' });
+          }
         }
       } catch (tErr: any) {
         console.warn(`[updateAssistantAction] Tool assignment sync error:`, tErr.message);
@@ -426,6 +434,61 @@ export async function toggleAssistantToolAction(assistantId: string, toolId: str
   if (!res.ok) {
     const err = await res.json();
     throw new Error(err.error || 'Failed to update tool assignment');
+  }
+
+  return await res.json();
+}
+
+export async function configureAssistantToolAction(assistantId: string, configData: any) {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
+  );
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+  const res = await fetch(`${apiUrl}/api/v1/assistants/${assistantId}/tools/configure`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(configData)
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Failed to configure tool');
+  }
+
+  revalidatePath(`/dashboard/assistants/${assistantId}`);
+  return await res.json();
+}
+
+export async function testAssistantToolAction(assistantId: string, toolName: string, testParams: any = {}) {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
+  );
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+  const res = await fetch(`${apiUrl}/api/v1/assistants/${assistantId}/tools/${encodeURIComponent(toolName)}/test`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(testParams)
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Failed to execute test');
   }
 
   return await res.json();

@@ -7,6 +7,7 @@ const port = process.env.PORT || 8000;
 
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 import { callRouter } from './routes/calls';
 import { campaignRouter } from './routes/campaigns';
@@ -14,6 +15,26 @@ import { assistantRouter } from './routes/assistants';
 import { phoneNumberRouter } from './routes/phoneNumbers';
 import { paymentRouter } from './routes/payments';
 import { webhookRouter } from './routes/webhooks';
+import { connectorRouter } from './routes/connectors';
+import { workflowRouter } from './routes/workflows';
+import { vomyraToolsRouter } from './routes/vomyraTools';
+import { oauthServerRouter, handleOAuthAuthorize, handleOAuthApprove, handleOAuthToken } from './routes/oauthServer';
+import { zapierAuthRouter } from './routes/zapierAuth';
+import { WorkflowEngine } from './services/workflows/WorkflowEngine';
+
+// Direct top-level OAuth 2.0 Provider routes
+app.get('/oauth/authorize', handleOAuthAuthorize);
+app.get('/api/v1/oauth/authorize', handleOAuthAuthorize);
+
+app.post('/oauth/approve', handleOAuthApprove);
+app.post('/api/v1/oauth/approve', handleOAuthApprove);
+
+app.post('/oauth/token', handleOAuthToken);
+app.post('/api/v1/oauth/token', handleOAuthToken);
+
+app.use('/oauth', oauthServerRouter);
+app.use('/api/v1/oauth', oauthServerRouter);
+app.use('/api/v1/zapier', zapierAuthRouter);
 
 app.use('/api/v1/calls', callRouter);
 app.use('/api/v1/campaigns', campaignRouter);
@@ -21,6 +42,17 @@ app.use('/api/v1/assistants', assistantRouter);
 app.use('/api/v1/phone-numbers', phoneNumberRouter);
 app.use('/api/v1/payments', paymentRouter);
 app.use('/api/v1/webhooks', webhookRouter);
+app.use('/api/v1/connectors', connectorRouter);
+app.use('/api/v1/workflows', workflowRouter);
+app.use('/api/v1/vomyra-tools', vomyraToolsRouter);
+
+import { ZapierSubscriptionManager } from './services/zapier/ZapierSubscriptionManager';
+
+// Initialize WorkflowEngine and Zapier event bus listeners
+WorkflowEngine.getInstance();
+ZapierSubscriptionManager.getInstance();
+
+
 
 app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', provider: 'vomyra' });

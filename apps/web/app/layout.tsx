@@ -65,7 +65,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${geist.className} ${geistMono.variable} ${arrayFont.variable} font-sans font-normal text-black antialiased`} suppressHydrationWarning>
+      <body className={`${geist.className} ${geistMono.variable} ${arrayFont.variable} font-sans font-normal bg-white text-black min-h-screen antialiased`} suppressHydrationWarning>
         <DemoModalProvider>
           {children}
         </DemoModalProvider>

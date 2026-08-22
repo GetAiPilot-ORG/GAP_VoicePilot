@@ -1,0 +1,140 @@
+{
+  "accessTokens": {
+    "131517aa7c674da85bfdcd9a0a58b9603c6d2b93f2923358ea022914941197a3": {
+      "token_id": "a4cffb0f-43e6-4199-b5d4-131dddff8296",
+      "client_id": "vp_client_zapier_app245289_cli",
+      "user_id": "519f482f-0927-45a0-985e-b1d80a7819ab",
+      "workspace_id": "1ecef1bf-6fcb-4538-8ae1-c48469f2031c",
+      "scope": "profile:read assistants:read calls:read calls:write contacts:read contacts:write zapier:subscribe",
+      "expires_at": "2026-08-20T06:48:35.254Z"
+    },
+    "22cf071e0eac2befa46c625328dc80180a5493102742d93451af630ff8582ffc": {
+      "token_id": "d5028ac7-51fa-43b4-97d7-22edfbe48d4f",
+      "client_id": "vpiornvknovernovhoe804hiffrcv",
+      "user_id": "519f482f-0927-45a0-985e-b1d80a7819ab",
+      "workspace_id": "1ecef1bf-6fcb-4538-8ae1-c48469f2031c",
+      "scope": "profile:read assistants:read calls:read calls:write contacts:read contacts:write zapier:subscribe",
+      "expires_at": "2026-08-20T06:51:16.080Z"
+    },
+    "8c88afc6465013040c38a27a2c80f4bc85193f49864d35340dd7600763dd871a": {
+      "token_id": "4099d517-0b15-44fd-b985-1be054e8de90",
+      "client_id": "vpiornvknovernovhoe804hiffrcv",
+      "user_id": "519f482f-0927-45a0-985e-b1d80a7819ab",
+      "workspace_id": "1ecef1bf-6fcb-4538-8ae1-c48469f2031c",
+      "scope": "profile:read assistants:read calls:read calls:write contacts:read contacts:write zapier:subscribe",
+      "expires_at": "2026-08-20T06:51:35.621Z"
+    },
+    "d95f2cbc7f51d9cf66e162ced5b523283643994fcbb9f27b406815d3d66bed3c": {
+      "token_id": "c009538f-c3bb-4672-8fc5-0c308b65a244",
+      "client_id": "vpiornvknovernovhoe804hiffrcv",
+      "user_id": "519f482f-0927-45a0-985e-b1d80a7819ab",
+      "workspace_id": "1ecef1bf-6fcb-4538-8ae1-c48469f2031c",
+      "scope": "profile:read assistants:read calls:read calls:write contacts:read contacts:write zapier:subscribe",
+      "expires_at": "2026-08-20T06:58:09.766Z"
+    },
+    "f51c3a28f2f39c522ada53f5d574624d817c5b25d4aa601a01a308250bd3eb8d": {
+      "token_id": "ec3cc37e-0cc8-4933-bb33-3c9476738007",
+      "client_id": "vpiornvknovernovhoe804hiffrcv",
+      "user_id": "519f482f-0927-45a0-985e-b1d80a7819ab",
+      "workspace_id": "1ecef1bf-6fcb-4538-8ae1-c48469f2031c",
+      "scope": "profile:read assistants:read calls:read calls:write contacts:read contacts:write zapier:subscribe",
+      "expires_at": "2026-08-20T07:00:13.686Z"
+    },
+    "0dce6430609d6ec0a32f303226d6ef27564801891ec41c8010bff4131d1773b5": {
+      "token_id": "88138c35-557a-49c8-b802-bd8c2eaaa1c7",
+      "client_id": "vp_client_zapier_app245289_cli",
+      "user_id": "519f482f-0927-45a0-985e-b1d80a7819ab",
+      "workspace_id": "1ecef1bf-6fcb-4538-8ae1-c48469f2031c",
+      "scope": "profile:read assistants:read calls:read calls:write contacts:read contacts:write zapier:subscribe",
+      "expires_at": "2026-08-20T07:03:16.998Z"
+    },
+    "20642d89700d48550438654ada36f450f5ae68b5375f4c6dcb3f5dbc6ab6ec43": {
+      "token_id": "bb3d8905-cda1-467f-ab9a-f185dfa99cea",
+      "client_id": "vpiornvknovernovhoe804hiffrcv",
+      "user_id": "519f482f-0927-45a0-985e-b1d80a7819ab",
+      "workspace_id": "1ecef1bf-6fcb-4538-8ae1-c48469f2031c",
+      "scope": "profile:read assistants:read calls:read calls:write contacts:read contacts:write zapier:subscribe",
+      "expires_at": "2026-08-20T07:04:05.415Z"
+    },
+    "6834de8db681060ba072e4c47104efa317c21b37643f9434a177fe9e91202b85": {
+      "token_id": "03b2b5fc-83db-44a2-b075-c0dbefe923cb",
+      "client_id": "vpiornvknovernovhoe804hiffrcv",
+      "user_id": "519f482f-0927-45a0-985e-b1d80a7819ab",
+      "workspace_id": "1ecef1bf-6fcb-4538-8ae1-c48469f2031c",
+      "scope": "profile:read assistants:read calls:read calls:write contacts:read contacts:write zapier:subscribe",
+      "expires_at": "2026-08-21T08:26:09.638Z"
+    },
+    "f8ebfa00ef9239f04330ab9ec65d83d79fe9916aca730d2b03023950e8b92582": {
+      "token_id": "ca97ff4d-ccf3-4f0a-bd49-6b78e129f736",
+      "client_id": "vp_client_zapier_test_001",
+      "user_id": "11111111-1111-4111-8111-111111111111",
+      "workspace_id": "99999999-9999-4999-8999-999999999999",
+      "scope": "calls:read calls:write zapier:subscribe",
+      "expires_at": "2026-08-21T08:27:02.657Z"
+    },
+    "eb9c2fe8e8dae4226f17d8f9f45d81d87ac7d41b7a1b12bb8c70526dc1e70261": {
+      "token_id": "c6677e1b-43b9-402e-9065-04a1280d90a2",
+      "client_id": "vp_client_zapier_test_001",
+      "user_id": "11111111-1111-4111-8111-111111111111",
+      "workspace_id": "99999999-9999-4999-8999-999999999999",
+      "scope": "calls:read calls:write zapier:subscribe",
+      "expires_at": "2026-08-21T08:27:03.102Z"
+    },
+    "912eb3535d53fa2ec77759ba0dad27e9d32104779cb2f452166e3feb4ceb1e55": {
+      "token_id": "28829567-ae84-4fcd-99af-c4b57437186f",
+      "client_id": "vp_client_zapier_test_001",
+      "user_id": "11111111-1111-4111-8111-111111111111",
+      "workspace_id": "99999999-9999-4999-8999-999999999999",
+      "scope": "calls:read calls:write zapier:subscribe",
+      "expires_at": "2026-08-21T08:28:18.244Z"
+    },
+    "727235b4f8f9bad4b96f51766dc22262150e561631ac48faf6c6e1e9cd8ee944": {
+      "token_id": "09de9708-a223-445b-a34d-14ecaba0b64a",
+      "client_id": "vp_client_zapier_test_001",
+      "user_id": "11111111-1111-4111-8111-111111111111",
+      "workspace_id": "99999999-9999-4999-8999-999999999999",
+      "scope": "calls:read calls:write zapier:subscribe",
+      "expires_at": "2026-08-21T08:28:18.699Z"
+    },
+    "e9a3c0a297d596f4c51e7b6f2a8f305bb323767e3b9bfb76c1c2721807d27285": {
+      "token_id": "a4fcc173-42e1-4777-aa67-609b8b9d43d7",
+      "client_id": "vp_client_zapier_test_001",
+      "user_id": "11111111-1111-4111-8111-111111111111",
+      "workspace_id": "99999999-9999-4999-8999-999999999999",
+      "scope": "calls:read calls:write zapier:subscribe",
+      "expires_at": "2026-08-21T08:46:48.079Z"
+    },
+    "b1be3e01f13eb716520cce02b2e79865fb930dbb3aa101eded68fd5428b32362": {
+      "token_id": "05c27730-f311-478d-be29-551e029f287f",
+      "client_id": "vp_client_zapier_test_001",
+      "user_id": "11111111-1111-4111-8111-111111111111",
+      "workspace_id": "99999999-9999-4999-8999-999999999999",
+      "scope": "calls:read calls:write zapier:subscribe",
+      "expires_at": "2026-08-21T08:46:48.862Z"
+    },
+    "c2d04afc07d8a726c7ab8dc01e813f0a249542b813c216d327c5895489bbe1a2": {
+      "token_id": "e40a9ccc-07c5-4cda-99ac-8c2f61d9eaea",
+      "client_id": "vpiornvknovernovhoe804hiffrcv",
+      "user_id": "519f482f-0927-45a0-985e-b1d80a7819ab",
+      "workspace_id": "1ecef1bf-6fcb-4538-8ae1-c48469f2031c",
+      "scope": "profile:read assistants:read calls:read calls:write contacts:read contacts:write zapier:subscribe",
+      "expires_at": "2026-08-21T10:36:44.606Z"
+    },
+    "b903d7cb1887238432e9eacc9699bf80cfa4aa55486693fbeffc7fb8ab06d0af": {
+      "token_id": "b4ca73a8-4e5e-4261-873e-ce6dcf16d67b",
+      "client_id": "vpiornvknovernovhoe804hiffrcv",
+      "user_id": "519f482f-0927-45a0-985e-b1d80a7819ab",
+      "workspace_id": "1ecef1bf-6fcb-4538-8ae1-c48469f2031c",
+      "scope": "profile:read assistants:read calls:read calls:write contacts:read contacts:write zapier:subscribe",
+      "expires_at": "2026-08-21T10:37:17.347Z"
+    },
+    "ae3bed040c19656a8fad090053f1b77dfb4cd45b26af3eb4af423a4b92cc280c": {
+      "token_id": "0c217cb9-db9f-4fb4-aed2-7d6a2918aa71",
+      "client_id": "vpiornvknovernovhoe804hiffrcv",
+      "user_id": "519f482f-0927-45a0-985e-b1d80a7819ab",
+      "workspace_id": "1ecef1bf-6fcb-4538-8ae1-c48469f2031c",
+      "scope": "profile:read assistants:read calls:read calls:write contacts:read contacts:write zapier:subscribe",
+      "expires_at": "2026-08-21T10:41:04.317Z"
+    }
+  }
+}

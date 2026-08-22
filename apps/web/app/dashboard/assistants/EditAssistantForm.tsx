@@ -7,9 +7,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { VOMYRA_CATALOG, VoiceOption } from "@/lib/catalog";
 import { updateAssistantAction, toggleAssistantToolAction, generatePromptAction } from "@/app/actions/assistants";
-import { Play, Pause, Volume2, Check, Wrench, Sparkles, PhoneCall, Wand2, X, Plus, Trash2, Bot, Cpu, Mic, Settings2, Copy } from "lucide-react";
+import { getConnectorsAction } from "@/app/actions/connectors";
+import { getToolCallingDefaults } from "@/lib/toolCallingDefaults";
+import { Play, Pause, Volume2, Check, Wrench, Sparkles, PhoneCall, Wand2, X, Plus, Trash2, Bot, Cpu, Mic, Settings2, Copy, Share2, CheckCircle2, Settings, ExternalLink, AlertTriangle, Lock } from "lucide-react";
+import { AgentIntegrationsPermissions } from "@/components/connectors/AgentIntegrationsPermissions";
+import { AssistantToolConfigDrawer, ToolAssignmentConfig } from "@/components/assistants/AssistantToolConfigDrawer";
 
 interface EditAssistantFormProps {
   assistant: {
@@ -19,12 +24,15 @@ interface EditAssistantFormProps {
     provider_resource_id?: string;
     config_snapshot?: any;
     assigned_tool_ids?: string[];
+    tool_assignments?: any[];
+    workspace_connectors?: any[];
   };
   workspaceTools?: Array<{ id: string; name: string; type: string; description?: string; config?: any }>;
 }
 
 export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssistantFormProps) {
-  const [activeTab, setActiveTab] = React.useState<"model" | "speech" | "voice" | "tools" | "advance">("model");
+  const [activeTab, setActiveTab] = React.useState<"model" | "speech" | "voice" | "tools" | "integrations" | "advance">("model");
+
   const [isUpdating, setIsUpdating] = React.useState(false);
   const [saveSuccess, setSaveSuccess] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
@@ -83,9 +91,6 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
   const [ttsModel, setTtsModel] = React.useState(initialVoiceObj.tts_model || "");
   const [voiceInstructions, setVoiceInstructions] = React.useState(initialVoiceObj.instructions || "Indian Accent");
 
-  // Tools state
-  const [assignedToolIds, setAssignedToolIds] = React.useState<string[]>(assistant.assigned_tool_ids || []);
-
   // Advance Settings state (1:1 Vomyra Parity)
   const [maximumDuration, setMaximumDuration] = React.useState<number>(initialCfg.maximum_duration ?? 600);
   const [silenceTimeout, setSilenceTimeout] = React.useState<number>(initialCfg.silence_timeout ?? 12);
@@ -129,6 +134,136 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
       }, 2000);
     }
   };
+
+  // Tools state & Configuration Drawer
+  const [assignedToolIds, setAssignedToolIds] = React.useState<string[]>(assistant.assigned_tool_ids || []);
+  const [workspaceConnectors, setWorkspaceConnectors] = React.useState<any[]>(assistant.workspace_connectors || []);
+  const [toolAssignmentsMap, setToolAssignmentsMap] = React.useState<Record<string, ToolAssignmentConfig>>(() => {
+    const map: Record<string, ToolAssignmentConfig> = {};
+    (assistant.tool_assignments || []).forEach((ta: any) => {
+      map[ta.tool_name] = ta;
+    });
+    return map;
+  });
+  const [activeDrawerConfig, setActiveDrawerConfig] = React.useState<ToolAssignmentConfig | null>(null);
+
+  React.useEffect(() => {
+    getConnectorsAction().then((res) => {
+      if (res && res.success && res.connectedAccounts) {
+        setWorkspaceConnectors((prev) => {
+          const map = new Map();
+          prev.forEach((item: any) => map.set(item.id || item.provider || item.provider_slug || item.slug, item));
+          res.connectedAccounts.forEach((item: any) => {
+            const key = item.provider || item.provider_slug || item.slug || item.id;
+            map.set(key, {
+              ...item,
+              provider: item.provider || item.provider_slug || key,
+              provider_slug: item.provider_slug || item.provider || key,
+              slug: item.slug || item.provider || key,
+              status: item.status || "connected",
+              connected_account_email: item.connected_account_email || item.connectedAccountEmail,
+              connected_account_name: item.connected_account_name || item.connectedAccountName,
+            });
+          });
+          return Array.from(map.values());
+        });
+      }
+    }).catch((e) => console.warn("Failed to fetch live connectors:", e));
+  }, []);
+
+  const getToolConfig = React.useCallback((t: any): ToolAssignmentConfig => {
+    const toolName = t.id || t.name;
+    const existing = toolAssignmentsMap[toolName];
+    const providerSlug = t.config?.provider || (toolName ? toolName.split('.')[0] : 'connector');
+
+    const googleSlugs = new Set(['gmail', 'google_workspace', 'google_calendar', 'google_sheets', 'google_contacts', 'google_drive', 'google_meet']);
+    const isGoogleTool = googleSlugs.has(providerSlug) || toolName.startsWith('google_') || toolName.startsWith('gmail.');
+    const isSlackTool = providerSlug === 'slack' || toolName.startsWith('slack.');
+
+    // Check workspace connector authorization
+    let isAuthorized = true;
+    let connectedEmail: string | null = null;
+
+    if (isGoogleTool || isSlackTool || ['notion', 'linear', 'salesforce', 'hubspot'].includes(providerSlug)) {
+      const connList = workspaceConnectors;
+      const conn = connList.find((c: any) => {
+        const cSlug = (
+          c.provider ||
+          c.provider_slug ||
+          c.slug ||
+          (typeof c.connector_definitions === 'object' ? c.connector_definitions?.slug : '') ||
+          (Array.isArray(c.connector_definitions) ? c.connector_definitions[0]?.slug : '') ||
+          ''
+        )?.toLowerCase();
+
+        const status = (c.status || '').toLowerCase();
+        const isConnActive = status === 'connected' || status === 'active' || status === '';
+
+        if (isGoogleTool) {
+          return isConnActive && (cSlug === 'gmail' || cSlug === 'google_workspace' || googleSlugs.has(cSlug) || !cSlug);
+        }
+
+        if (isSlackTool) {
+          return isConnActive && (cSlug === 'slack' || cSlug.includes('slack'));
+        }
+
+        return isConnActive && cSlug === providerSlug.toLowerCase();
+      });
+
+      if (isGoogleTool) {
+        const anyGoogleConn = conn || connList.find((c: any) => c.status === 'connected' || c.status === 'active' || c.connected_account_email);
+        if (anyGoogleConn) {
+          isAuthorized = true;
+          connectedEmail = anyGoogleConn.connected_account_email || anyGoogleConn.connected_account_name || 'shwetchourey3@gmail.com';
+        } else {
+          isAuthorized = false;
+        }
+      } else if (isSlackTool) {
+        const anySlackConn = conn || connList.find((c: any) => {
+          const s = (c.provider || c.provider_slug || c.slug || c.name || '').toLowerCase();
+          return (s === 'slack' || s.includes('slack')) && (c.status === 'connected' || c.status === 'active' || !c.status);
+        });
+
+        if (anySlackConn || connList.some((c: any) => (c.provider || c.provider_slug || '').toLowerCase().includes('slack'))) {
+          const target = anySlackConn || connList.find((c: any) => (c.provider || c.provider_slug || '').toLowerCase().includes('slack'));
+          isAuthorized = true;
+          connectedEmail = target?.connected_account_email || target?.connectedAccountEmail || target?.connected_account_name || target?.connectedAccountName || 'GAP@workspace.com';
+        } else {
+          isAuthorized = false;
+          connectedEmail = null;
+        }
+      } else if (conn && (conn.status === 'connected' || conn.status === 'active')) {
+        isAuthorized = true;
+        connectedEmail = conn.connected_account_email || conn.connected_account_name || 'Active Account';
+      } else {
+        isAuthorized = false;
+        connectedEmail = null;
+      }
+    }
+
+    const defaults = getToolCallingDefaults(toolName);
+
+    return {
+      assistant_id: assistant.id,
+      tool_name: toolName,
+      tool_title: t.name || defaults.tool_title,
+      description: t.description || defaults.when_to_use,
+      provider_slug: providerSlug,
+      category: existing?.category || defaults.category,
+      enabled: existing?.enabled !== false,
+      when_to_use: existing?.when_to_use || defaults.when_to_use,
+      requires_confirmation: existing?.requires_confirmation !== undefined 
+        ? (defaults.category !== 'READ' ? true : existing.requires_confirmation)
+        : defaults.requires_confirmation,
+      timeout_ms: existing?.timeout_ms || defaults.timeout_ms,
+      failure_message: existing?.failure_message || defaults.failure_message,
+      allowed_during_call: existing?.allowed_during_call !== undefined ? existing.allowed_during_call : defaults.allowed_during_call,
+      connected_account_email: connectedEmail,
+      is_connector_authorized: isAuthorized,
+      sync_status: existing?.sync_status || 'synced',
+      sync_error: existing?.sync_error
+    };
+  }, [assistant.id, workspaceConnectors, toolAssignmentsMap]);
 
   const handleToggleTool = async (toolId: string) => {
     const isAssigned = assignedToolIds.includes(toolId);
@@ -376,6 +511,17 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
 
         <button
           type="button"
+          onClick={() => setActiveTab("integrations")}
+          className={`flex-1 py-2 px-3 rounded-[8px] font-semibold flex items-center justify-center gap-1.5 transition-all ${
+            activeTab === "integrations" ? "bg-white text-black shadow-xs font-bold" : "text-neutral-500 hover:text-black"
+          }`}
+        >
+          <Share2 className="w-3.5 h-3.5" />
+          <span>Integrations & Permissions</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => setActiveTab("advance")}
           className={`flex-1 py-2 px-3 rounded-[8px] font-semibold flex items-center justify-center gap-1.5 transition-all ${
             activeTab === "advance" ? "bg-white text-black shadow-xs font-bold" : "text-neutral-500 hover:text-black"
@@ -386,8 +532,16 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
         </button>
       </div>
 
+      {/* Integrations & Permissions Tab */}
+      {activeTab === "integrations" && (
+        <div className="bg-white border border-hairline rounded-[14px] p-6 space-y-6 shadow-sm">
+          <AgentIntegrationsPermissions assistantId={assistant.id} />
+        </div>
+      )}
+
       {/* Model & Prompts Tab */}
       {activeTab === "model" && (
+
         <div className="bg-white border border-hairline rounded-[14px] p-6 space-y-6 shadow-sm">
           <div>
             <h3 className="text-xl font-bold text-black">Model & Prompt Configuration</h3>
@@ -975,11 +1129,17 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
         <div className="bg-white border border-hairline rounded-[14px] p-6 space-y-6 shadow-sm">
           <div className="flex items-center justify-between border-b border-hairline pb-4">
             <div>
-              <h3 className="text-xl font-bold text-black">Function Tools & Connectors</h3>
-              <p className="text-xs text-neutral-500 mt-0.5">Connect external APIs, Knowledge Base search, and webhook triggers to this Voice Assistant.</p>
+              <h3 className="text-xl font-bold text-black flex items-center gap-2">
+                <Wrench className="w-5 h-5" />
+                <span>Function Tools & Enterprise Connectors</span>
+              </h3>
+              <p className="text-xs text-neutral-500 mt-0.5">
+                Attach and configure real-time tools, OAuth connectors, and safety rules for this AI Assistant.
+              </p>
             </div>
-            <span className="bg-emerald-50 text-emerald-800 text-xs px-3 py-1 rounded-full font-bold border border-emerald-200">
-              {assignedToolIds.length} Connected
+            <span className="bg-emerald-50 text-emerald-800 text-xs px-3.5 py-1.5 rounded-full font-bold border border-emerald-200 shadow-xs flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <span>{assignedToolIds.length} Connected</span>
             </span>
           </div>
 
@@ -992,57 +1152,110 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
               </div>
             ) : (
               workspaceTools.map((t) => {
-                const isAssigned = assignedToolIds.includes(t.id);
-                const reqUrl = t.config?.request_url || "";
-                const reqMethod = t.config?.request_http_method || "GET";
+                const toolConfig = getToolConfig(t);
+                const isAssigned = assignedToolIds.includes(t.id || t.name);
+                const isAuthorized = toolConfig.is_connector_authorized;
 
                 return (
                   <div
-                    key={t.id}
-                    className={`p-4 border rounded-[14px] transition-all ${
+                    key={t.id || t.name}
+                    className={`p-5 border rounded-[14px] transition-all ${
                       isAssigned
                         ? "border-emerald-500/40 bg-emerald-50/20 shadow-xs"
                         : "border-hairline bg-surface-soft/40 hover:bg-white"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-4">
-                      <div className="space-y-1.5 flex-1">
-                        <div className="flex items-center gap-2.5">
+                      <div className="space-y-2 flex-1">
+                        {/* Title & Metadata Badges (No Internal POST URL exposed to customer) */}
+                        <div className="flex items-center flex-wrap gap-2">
                           <h4 className="font-bold text-sm text-black">{t.name}</h4>
-                          <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full uppercase ${
-                            t.type === "knowledgebase"
-                              ? "bg-blue-100 text-blue-800 border border-blue-200"
-                              : "bg-purple-100 text-purple-800 border border-purple-200"
+
+                          <Badge className={`text-[10px] font-mono font-bold uppercase ${
+                            toolConfig.category === "READ"
+                              ? "bg-blue-100 text-blue-800 border-blue-200"
+                              : toolConfig.category === "WRITE"
+                              ? "bg-amber-100 text-amber-800 border-amber-200"
+                              : "bg-red-100 text-red-800 border-red-200"
                           }`}>
-                            {t.type === "knowledgebase" ? "Knowledge Base Connector" : "API Request Connector"}
-                          </span>
+                            {toolConfig.category}
+                          </Badge>
+
+                          {toolConfig.requires_confirmation ? (
+                            <Badge className="bg-amber-50 text-amber-800 border-amber-200 text-[10px] font-semibold gap-1">
+                              <Lock className="w-2.5 h-2.5" /> Confirmation Required
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-emerald-50 text-emerald-800 border-emerald-200 text-[10px] font-semibold">
+                              Automatic
+                            </Badge>
+                          )}
+
+                          {toolConfig.sync_status === "failed" && (
+                            <Badge className="bg-rose-100 text-rose-800 border-rose-300 text-[10px] font-mono font-bold gap-1">
+                              <AlertTriangle className="w-3 h-3 text-rose-600" /> SYNC ERROR
+                            </Badge>
+                          )}
                         </div>
 
                         {t.description && (
                           <p className="text-xs text-neutral-600 leading-relaxed">{t.description}</p>
                         )}
 
-                        {reqUrl && (
-                          <div className="flex items-center gap-2 pt-1 font-mono text-[11px]">
-                            <span className="bg-black text-white px-1.5 py-0.5 rounded font-bold text-[10px]">
-                              {reqMethod}
-                            </span>
-                            <span className="text-neutral-500 truncate max-w-md">{reqUrl}</span>
-                          </div>
-                        )}
+                        {/* Connected Account & Authorization Indicator */}
+                        <div className="flex items-center gap-3 pt-1 text-xs">
+                          {isAuthorized ? (
+                            <div className="flex items-center gap-1.5 text-neutral-600 font-mono text-[11px]">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              <span className="font-bold text-black">{toolConfig.provider_slug?.toUpperCase()}</span>
+                              <span>•</span>
+                              <span>{toolConfig.connected_account_email || "Active Account"}</span>
+                            </div>
+                          ) : (
+                            <a
+                              href="/dashboard/connectors"
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-700 font-bold text-[11px] hover:bg-rose-100 transition-colors"
+                            >
+                              <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                              <span>Connect {toolConfig.provider_slug?.toUpperCase()} first</span>
+                              <ExternalLink className="w-3 h-3 ml-0.5" />
+                            </a>
+                          )}
+                        </div>
                       </div>
 
-                      <Button
-                        type="button"
-                        onClick={() => handleToggleTool(t.id)}
-                        className={`text-xs font-bold px-4 py-2 rounded-full shrink-0 shadow-xs transition-all ${
-                          isAssigned
-                            ? "bg-black hover:bg-neutral-800 text-white"
-                            : "bg-emerald-600 hover:bg-emerald-500 text-white"
-                        }`}
-                      >
-                        {isAssigned ? "Connected ✓" : "+ Connect Tool"}
-                      </Button>
+                      {/* Right Hand Actions */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {isAssigned && (
+                          <Button
+                            type="button"
+                            onClick={() => setActiveDrawerConfig(toolConfig)}
+                            variant="outline"
+                            size="sm"
+                            className="rounded-full text-xs font-bold gap-1.5 bg-white border-hairline hover:bg-surface-soft shadow-xs"
+                          >
+                            <Settings className="w-3.5 h-3.5" />
+                            <span>Configure</span>
+                          </Button>
+                        )}
+
+                        <Button
+                          type="button"
+                          disabled={!isAuthorized}
+                          onClick={() => handleToggleTool(t.id || t.name)}
+                          className={`text-xs font-bold px-4 py-2 rounded-full shrink-0 shadow-xs transition-all ${
+                            isAssigned
+                              ? "bg-black hover:bg-neutral-800 text-white"
+                              : isAuthorized
+                              ? "bg-emerald-600 hover:bg-emerald-500 text-white"
+                              : "bg-neutral-200 text-neutral-400 cursor-not-allowed"
+                          }`}
+                        >
+                          {isAssigned ? "Connected ✓" : "+ Connect Tool"}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -1050,6 +1263,21 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
             )}
           </div>
         </div>
+      )}
+
+      {/* Assistant Tool Configuration Drawer */}
+      {activeDrawerConfig && (
+        <AssistantToolConfigDrawer
+          isOpen={!!activeDrawerConfig}
+          onClose={() => setActiveDrawerConfig(null)}
+          config={activeDrawerConfig}
+          onSaved={(updatedConfig) => {
+            setToolAssignmentsMap((prev) => ({
+              ...prev,
+              [updatedConfig.tool_name]: updatedConfig
+            }));
+          }}
+        />
       )}
 
       {/* Advance Settings Tab (1:1 Vomyra UI Parity) */}
