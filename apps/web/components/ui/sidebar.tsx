@@ -128,15 +128,6 @@ export function SessionNavBar({
       badge: "ADMIN",
       badgeVariant: "new",
     } as any);
-  } else {
-    // Show Integration Admin link as accessible section for dashboard admins
-    mainNav.push({
-      name: "Integration Admin",
-      href: "/dashboard/admin/integrations",
-      icon: Shield,
-      badge: "ADMIN",
-      badgeVariant: "new",
-    } as any);
   }
 
   return (

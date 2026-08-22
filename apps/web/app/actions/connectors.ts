@@ -5,58 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 
-async function getAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) return null;
-  return createClient(url, serviceKey);
-}
-
-async function getCurrentWorkspace(): Promise<{ workspaceId: string; userId: string } | null> {
-  const cookieStore = await cookies();
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) return null;
-
-  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll();
-      },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value, options }) => {
-          cookieStore.set(name, value, options);
-        });
-      },
-    },
-  });
-
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  const { data: member } = await supabase
-    .from("workspace_members")
-    .select("workspace_id")
-    .eq("user_id", user.id)
-    .limit(1)
-    .maybeSingle();
-
-  if (member?.workspace_id) {
-    return { workspaceId: member.workspace_id, userId: user.id };
-  }
-
-  // Fallback to default or any workspace
-  const adminClient = await getAdminClient();
-  if (adminClient) {
-    const { data: anyWs } = await adminClient.from("workspaces").select("id").limit(1).maybeSingle();
-    if (anyWs) {
-      return { workspaceId: anyWs.id, userId: user.id };
-    }
-  }
-
-  return null;
-}
+import { getCurrentWorkspace, getAdminClient } from "@/lib/workspace";
 
 export async function getConnectorsAction() {
   try {

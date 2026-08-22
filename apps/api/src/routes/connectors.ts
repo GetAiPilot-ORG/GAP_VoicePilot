@@ -242,23 +242,24 @@ connectorRouter.get('/', async (req: Request, res: Response) => {
     }
 
     let connectedAccounts: any[] = [];
-    let connQuery = supabase.from('workspace_connectors').select('*, connector_definitions(slug)');
     if (workspaceId && workspaceId !== 'default') {
-      connQuery = connQuery.eq('workspace_id', workspaceId);
-    }
+      const { data: connData } = await supabase
+        .from('workspace_connectors')
+        .select('*, connector_definitions(slug)')
+        .eq('workspace_id', workspaceId);
 
-    const { data: connData } = await connQuery;
-    if (connData && connData.length > 0) {
-      connectedAccounts = connData.map((item: any) => {
-        const meta = CredentialVault.toPublicMetadata(item);
-        const resolvedSlug = item.connector_definitions?.slug || item.metadata?.provider || item.connector_definition_id || '';
-        return {
-          ...meta,
-          provider_slug: resolvedSlug,
-          provider: resolvedSlug,
-          slug: resolvedSlug,
-        };
-      });
+      if (connData && connData.length > 0) {
+        connectedAccounts = connData.map((item: any) => {
+          const meta = CredentialVault.toPublicMetadata(item);
+          const resolvedSlug = item.connector_definitions?.slug || item.metadata?.provider || item.connector_definition_id || '';
+          return {
+            ...meta,
+            provider_slug: resolvedSlug,
+            provider: resolvedSlug,
+            slug: resolvedSlug,
+          };
+        });
+      }
     }
 
     console.log(`[OAuth Diagnostic] connector_status_lookup_found: ${Boolean(connectedAccounts.length > 0)} | count: ${connectedAccounts.length}`);

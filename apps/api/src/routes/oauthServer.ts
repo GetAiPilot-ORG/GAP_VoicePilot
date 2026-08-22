@@ -14,12 +14,6 @@ const oauthService = OAuthServerService.getInstance();
  */
 export async function handleOAuthAuthorize(req: Request, res: Response) {
   try {
-    if (!availabilityManager.isAllowedToAuthorize('zapier')) {
-      return res.status(403).json({
-        success: false,
-        error: 'This integration is currently unavailable.',
-      });
-    }
     const {
       response_type,
       client_id,
@@ -195,13 +189,6 @@ export async function handleOAuthToken(req: Request, res: Response) {
     const body = req.body || {};
     const grantType = body.grant_type;
 
-    if (!availabilityManager.isAllowedToAuthorize('zapier')) {
-      return res.status(403).json({
-        success: false,
-        error: 'This integration is currently unavailable.',
-      });
-    }
-
     console.log(`[REAL ZAPIER TRACE] timestamp=${new Date().toISOString()} | method=${req.method} | path=${req.path} | user_agent="${userAgent}" | content_type="${contentType}" | auth_header_present=${!!authHeader} | auth_scheme=${authScheme} | grant_type=${grantType || 'none'} | client_id=${body.client_id || 'none'} | redirect_uri=${body.redirect_uri || 'none'}`);
 
     if (!grantType) {
@@ -239,10 +226,24 @@ export async function handleOAuthToken(req: Request, res: Response) {
       console.log(`[REAL ZAPIER TRACE] POST /oauth/token SUCCESS | status=200 | response_shape_keys=${Object.keys(tokens).join(',')}`);
       res.setHeader('Content-Type', 'application/json');
       return res.json(tokens);
+    } else if (grantType === 'refresh_token') {
+      const refresh_token = body.refresh_token;
+      if (!refresh_token) {
+        return res.status(400).json({ error: 'invalid_request', error_description: 'refresh_token is required' });
+      }
+
+      const tokens = await oauthService.refreshAccessToken({
+        clientId,
+        clientSecret,
+        refreshToken: refresh_token,
+      });
+
+      res.setHeader('Content-Type', 'application/json');
+      return res.json(tokens);
     } else {
       return res.status(400).json({
         error: 'unsupported_grant_type',
-        error_description: `grant_type '${grantType}' is not supported in access-token-only mode`,
+        error_description: `grant_type '${grantType}' is not supported`,
       });
     }
   } catch (error: any) {

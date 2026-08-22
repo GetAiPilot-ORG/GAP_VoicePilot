@@ -46,8 +46,11 @@ app.use('/api/v1/connectors', connectorRouter);
 app.use('/api/v1/workflows', workflowRouter);
 app.use('/api/v1/vomyra-tools', vomyraToolsRouter);
 
-// Initialize WorkflowEngine event bus listener
+import { ZapierSubscriptionManager } from './services/zapier/ZapierSubscriptionManager';
+
+// Initialize WorkflowEngine and Zapier event bus listeners
 WorkflowEngine.getInstance();
+ZapierSubscriptionManager.getInstance();
 
 
 

@@ -19,6 +19,7 @@ export interface IssuedTokenPayload {
   access_token: string;
   token_type: 'Bearer';
   expires_in: number;
+  refresh_token: string;
   scope: string;
 }
 
@@ -61,6 +62,14 @@ export class OAuthServerService {
       ...zapierRecord,
       client_id: 'vpiornvknovernovhoe804hiffrcv',
     });
+
+    if (process.env.ZAPIER_OAUTH_CLIENT_ID) {
+      this.memoryClients.set(process.env.ZAPIER_OAUTH_CLIENT_ID, {
+        ...zapierRecord,
+        client_id: process.env.ZAPIER_OAUTH_CLIENT_ID,
+        redirect_uris: process.env.ZAPIER_OAUTH_REDIRECT_URI ? [process.env.ZAPIER_OAUTH_REDIRECT_URI, ...zapierRecord.redirect_uris] : zapierRecord.redirect_uris,
+      });
+    }
   }
 
   public static getInstance(): OAuthServerService {
@@ -72,12 +81,13 @@ export class OAuthServerService {
 
   private saveTokenToDisk(tokenHash: string, tokenContext: ValidatedTokenContext) {
     try {
-      let store: Record<string, ValidatedTokenContext> = {};
+      let store: { accessTokens: Record<string, ValidatedTokenContext>; refreshTokens?: Record<string, any> } = { accessTokens: {} };
       if (fs.existsSync(this.diskStorePath)) {
         const content = fs.readFileSync(this.diskStorePath, 'utf-8');
         store = JSON.parse(content || '{}');
+        if (!store.accessTokens) store = { accessTokens: (store as any) };
       }
-      store[tokenHash] = tokenContext;
+      store.accessTokens[tokenHash] = tokenContext;
       fs.writeFileSync(this.diskStorePath, JSON.stringify(store, null, 2), 'utf-8');
     } catch (e) {
       // Ignore disk write error
@@ -88,8 +98,9 @@ export class OAuthServerService {
     try {
       if (fs.existsSync(this.diskStorePath)) {
         const content = fs.readFileSync(this.diskStorePath, 'utf-8');
-        const store: Record<string, ValidatedTokenContext> = JSON.parse(content || '{}');
-        return store[tokenHash] || null;
+        const store = JSON.parse(content || '{}');
+        const map = store.accessTokens || store;
+        return map[tokenHash] || null;
       }
     } catch (e) {
       // Ignore disk read error
@@ -143,11 +154,8 @@ export class OAuthServerService {
     redirectUri?: string
   ): Promise<OAuthClientRecord> {
     if (!clientId) {
-      console.log('[OAuth Diagnostic] client_id presence: false');
       throw new ConnectorError('invalid_request', 'client_id is required', 400);
     }
-
-    console.log('[OAuth Diagnostic] client_id presence: true');
 
     let clientRecord: OAuthClientRecord | null = null;
 
@@ -175,7 +183,9 @@ export class OAuthServerService {
 
     if (redirectUri) {
       const allowedUris: string[] = Array.isArray(clientRecord.redirect_uris) ? clientRecord.redirect_uris : [];
-      const isAllowed = allowedUris.includes(redirectUri);
+      // Normalize URLs to ignore trailing slashes for comparison
+      const cleanRedirect = redirectUri.replace(/\/$/, '');
+      const isAllowed = allowedUris.some((u) => u.replace(/\/$/, '') === cleanRedirect);
       if (!isAllowed) {
         throw new ConnectorError('invalid_grant', `redirect_uri '${redirectUri}' is not registered for client '${clientId}'`, 400);
       }
@@ -235,7 +245,7 @@ export class OAuthServerService {
   }
 
   /**
-   * Exchange single-use Authorization Code for Access Token (ACCESS-TOKEN-ONLY MODE)
+   * Exchange single-use Authorization Code for Access Token and Refresh Token
    */
   public async exchangeCodeForTokens(params: {
     clientId: string;
@@ -284,7 +294,7 @@ export class OAuthServerService {
     if (codeRecord.client_id !== clientId) {
       throw new ConnectorError('invalid_grant', 'authorization_code client_id mismatch', 400);
     }
-    if (codeRecord.redirect_uri !== redirectUri) {
+    if (codeRecord.redirect_uri.replace(/\/$/, '') !== redirectUri.replace(/\/$/, '')) {
       throw new ConnectorError('invalid_grant', 'authorization_code redirect_uri mismatch', 400);
     }
 
@@ -303,6 +313,9 @@ export class OAuthServerService {
     const accessTokenHash = this.hashSecret(rawAccessToken);
     const accessTokenExpiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
 
+    const rawRefreshToken = `vp_rt_${crypto.randomBytes(32).toString('hex')}`;
+    const refreshTokenHash = this.hashSecret(rawRefreshToken);
+
     const tokenContext: ValidatedTokenContext = {
       token_id: crypto.randomUUID(),
       client_id: clientId,
@@ -312,14 +325,16 @@ export class OAuthServerService {
       expires_at: accessTokenExpiresAt,
     };
 
-    // Save in memory & durable disk store
+    // Save access token & refresh token in memory & durable store
     this.memoryAccessTokens.set(accessTokenHash, tokenContext);
+    this.memoryRefreshTokens.set(refreshTokenHash, tokenContext);
     this.saveTokenToDisk(accessTokenHash, tokenContext);
 
     try {
       await supabase.from('oauth_access_tokens').insert({
         id: tokenContext.token_id,
         token_hash: accessTokenHash,
+        refresh_token_hash: refreshTokenHash,
         client_id: clientId,
         user_id: resolved.userId,
         workspace_id: resolved.workspaceId,
@@ -327,19 +342,106 @@ export class OAuthServerService {
         expires_at: accessTokenExpiresAt,
         revoked: false,
       });
+
+      // Upsert workspace_connectors record for Zapier
+      const { data: zapDef } = await supabase.from('connector_definitions').select('id').eq('slug', 'zapier').maybeSingle();
+      await supabase.from('workspace_connectors').upsert({
+        workspace_id: resolved.workspaceId,
+        connector_definition_id: zapDef?.id || 'def_zapier',
+        name: 'Zapier',
+        status: 'connected',
+        connected_account_email: 'Zapier App Connection',
+        metadata: {
+          provider: 'zapier',
+          authorized_at: new Date().toISOString(),
+        },
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'workspace_id,connector_definition_id' });
     } catch (e) {
       // Ignore DB schema error
     }
 
-    console.log(`[OAuth Diagnostic] token issued timestamp: ${Date.now()}`);
-    console.log(`[OAuth Diagnostic] expires_in: 3600`);
-
-    // Top-level ACCESS-TOKEN-ONLY response for diagnosis
     return {
       access_token: rawAccessToken,
       token_type: 'Bearer',
       expires_in: 3600,
+      refresh_token: rawRefreshToken,
       scope: codeRecord.scope,
+    };
+  }
+
+  /**
+   * Exchange Refresh Token for a New Access Token
+   */
+  public async refreshAccessToken(params: {
+    clientId: string;
+    clientSecret?: string;
+    refreshToken: string;
+  }): Promise<IssuedTokenPayload> {
+    const { clientId, clientSecret, refreshToken } = params;
+
+    await this.validateClient(clientId, clientSecret);
+
+    if (!refreshToken) {
+      throw new ConnectorError('invalid_request', 'refresh_token is required', 400);
+    }
+
+    const refreshTokenHash = this.hashSecret(refreshToken);
+    let tokenContext = this.memoryRefreshTokens.get(refreshTokenHash);
+
+    if (!tokenContext) {
+      try {
+        const { data: dbToken } = await supabase
+          .from('oauth_access_tokens')
+          .select('*')
+          .eq('refresh_token_hash', refreshTokenHash)
+          .eq('client_id', clientId)
+          .eq('revoked', false)
+          .maybeSingle();
+
+        if (dbToken) {
+          tokenContext = {
+            token_id: dbToken.id,
+            client_id: dbToken.client_id,
+            user_id: dbToken.user_id,
+            workspace_id: dbToken.workspace_id,
+            scope: dbToken.scope,
+            expires_at: dbToken.expires_at,
+          };
+        }
+      } catch (e) {}
+    }
+
+    if (!tokenContext) {
+      throw new ConnectorError('invalid_grant', 'Invalid or revoked refresh_token', 400);
+    }
+
+    const rawNewAccessToken = `vp_at_${crypto.randomBytes(32).toString('hex')}`;
+    const newAccessTokenHash = this.hashSecret(rawNewAccessToken);
+    const newExpiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
+
+    const rawNewRefreshToken = `vp_rt_${crypto.randomBytes(32).toString('hex')}`;
+    const newRefreshTokenHash = this.hashSecret(rawNewRefreshToken);
+
+    const updatedContext: ValidatedTokenContext = {
+      token_id: crypto.randomUUID(),
+      client_id: clientId,
+      user_id: tokenContext.user_id,
+      workspace_id: tokenContext.workspace_id,
+      scope: tokenContext.scope,
+      expires_at: newExpiresAt,
+    };
+
+    this.memoryAccessTokens.set(newAccessTokenHash, updatedContext);
+    this.memoryRefreshTokens.set(newRefreshTokenHash, updatedContext);
+    this.saveTokenToDisk(newAccessTokenHash, updatedContext);
+
+    return {
+      access_token: rawNewAccessToken,
+      token_type: 'Bearer',
+      expires_in: 3600,
+      refresh_token: rawNewRefreshToken,
+      scope: tokenContext.scope,
     };
   }
 

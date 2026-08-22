@@ -43,8 +43,7 @@ export class IntegrationAvailabilityManager {
       { slug: 'linear', name: 'Linear Issue Tracker', availability_status: 'enabled', is_visible: true, internal_note: 'Linear OAuth 2.0 Issue Tracker Integration' },
       { slug: 'mcp', name: 'Custom MCP Server', availability_status: 'disabled', is_visible: true, internal_note: 'Custom MCP Server Integration' },
       
-      // Disabled Connectors
-      { slug: 'zapier', name: 'Zapier Native App', availability_status: 'disabled', is_visible: false, internal_note: 'Zapier Native OAuth App - Disabled for customers' },
+      { slug: 'zapier', name: 'Zapier', availability_status: 'enabled', is_visible: true, internal_note: 'Zapier Native OAuth 2.0 Integration' },
       
       // Coming Soon Connectors
       { slug: 'make', name: 'Make (Integromat)', availability_status: 'coming_soon', is_visible: true, internal_note: 'Make Automation - Coming Soon' },
