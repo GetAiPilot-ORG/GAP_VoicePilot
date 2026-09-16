@@ -5,7 +5,10 @@ import { CampaignsClient, CampaignJob, AssistantOption } from "./CampaignsClient
 
 export const dynamic = "force-dynamic";
 
+import { verifyRouteAccess } from "@/app/actions/adminSidebarPermissions";
+
 export default async function CampaignsPage() {
+  await verifyRouteAccess("/dashboard/campaigns");
   const cookieStore = await cookies();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -104,6 +107,10 @@ export default async function CampaignsPage() {
       const userAssistantNames = new Set(assistantOptions.map(a => a.name));
       
       const rawCalls = allRawCalls.filter((c: any) => {
+        // Exclude web simulator calls and manual quick test calls from campaign reconstruction
+        if (c.call_type === "web") return false;
+        if (c.additional_data?.source === "GAP_VoicePilot_WebConsole") return false;
+
         const astId = c.assistant?.id || "";
         const astName = c.assistant?.name || (c.additional_data?.campaign_name || "");
         return userAssistantIds.has(astId) || userAssistantNames.has(astName);
