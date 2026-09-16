@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { GAP_CATALOG, VoiceOption } from "@/lib/catalog";
 import { createAssistantAction, generatePromptAction } from "@/app/actions/assistants";
-import { Play, Volume2, Check, Sparkles, Bot, Mic, Cpu, Settings2, Wand2, X, Plus, Trash2, Phone, MessageSquare, PhoneCall, Copy, ExternalLink, CheckCircle2, AlertTriangle } from "lucide-react";
+import { playVoiceSample, stopAllVoiceAudio } from "@/lib/voicePreview";
+import { Play, Pause, Volume2, Check, Sparkles, Bot, Mic, Cpu, Settings2, Wand2, X, Plus, Trash2, Phone, MessageSquare, PhoneCall, Copy, ExternalLink, CheckCircle2, AlertTriangle } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export function CreateAssistantForm() {
@@ -302,22 +303,52 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
 
   const sttProviderOptions = GAP_CATALOG.stt.providers;
 
-  const handlePreviewVoice = (e: React.MouseEvent, language: string) => {
+  const cancelVoiceRef = React.useRef<(() => void) | null>(null);
+
+  const handlePreviewVoice = (e: React.MouseEvent, voiceOptionOrLang: any) => {
     e.preventDefault();
-    if (typeof window === 'undefined' || !window.speechSynthesis) return;
-    
-    window.speechSynthesis.cancel();
-    const msg = new SpeechSynthesisUtterance();
-    msg.text = language.includes('hi') ? "नमस्ते, मैं आपकी वॉइस असिस्टेंट हूँ।" : "Hello, I am your voice assistant.";
-    msg.lang = language;
-    
-    const voices = window.speechSynthesis.getVoices();
-    const match = voices.find(v => v.lang.includes(language.substring(0, 2)));
-    if (match) {
-      msg.voice = match;
+    const voiceObj: VoiceOption = typeof voiceOptionOrLang === "object"
+      ? voiceOptionOrLang
+      : {
+          name: voiceName,
+          title: voiceName,
+          provider: voiceProvider,
+          language: typeof voiceOptionOrLang === "string" ? voiceOptionOrLang : voiceLanguage,
+          gender: "female",
+          locale: "IN • standard",
+          tags: []
+        };
+
+    if (playingVoice === voiceObj.name) {
+      if (cancelVoiceRef.current) {
+        cancelVoiceRef.current();
+        cancelVoiceRef.current = null;
+      }
+      stopAllVoiceAudio(audioRef);
+      setPlayingVoice(null);
+      return;
     }
-    
-    window.speechSynthesis.speak(msg);
+
+    if (cancelVoiceRef.current) {
+      cancelVoiceRef.current();
+      cancelVoiceRef.current = null;
+    }
+
+    setPlayingVoice(voiceObj.name);
+    const cancel = playVoiceSample({
+      voice: voiceObj,
+      audioRef,
+      onStart: () => setPlayingVoice(voiceObj.name),
+      onEnd: () => {
+        setPlayingVoice((curr) => (curr === voiceObj.name ? null : curr));
+        cancelVoiceRef.current = null;
+      },
+      onError: () => {
+        setPlayingVoice((curr) => (curr === voiceObj.name ? null : curr));
+        cancelVoiceRef.current = null;
+      }
+    });
+    cancelVoiceRef.current = cancel;
   };
 
   // Call timer simulation for Web Call modal
@@ -464,12 +495,15 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
 
     setIsPending(true);
 
+    const effectiveWelcome = dynamicWelcomeEnabled && dynamicWelcomeMessage ? dynamicWelcomeMessage : welcomeMessage;
+
     const payload = {
       name,
       system_prompt: systemPrompt,
       welcome_message: welcomeMessage,
       dynamic_welcome_enabled: dynamicWelcomeEnabled,
       dynamic_welcome_message: dynamicWelcomeMessage,
+      first_message: effectiveWelcome,
       whatsapp_summary_prompt: whatsappSummaryPrompt,
       whatsapp_summary_phone: whatsappSummaryPhone,
       outcome_prompt: outcomePrompt,
@@ -988,9 +1022,9 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
                     onChange={(e) => setVoiceLanguage(e.target.value)}
                     className="w-full bg-surface-soft border border-hairline rounded-[8px] px-4 py-3 text-sm font-semibold text-black appearance-none"
                   >
-                    <option value="hi-IN">Hindi (India)</option>
-                    <option value="en-IN">English (India)</option>
-                    <option value="en-US">English (US)</option>
+                    {(GAP_CATALOG.voice.languages || []).map((lang) => (
+                      <option key={lang.id} value={lang.id}>{lang.label}</option>
+                    ))}
                   </select>
                 </div>
 

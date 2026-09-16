@@ -352,7 +352,7 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
         customerNumber: fullRecipientNumber,
         customerName: customerName.trim() || "Test User",
         countryCode: countryCode,
-        assistantId: assistant.id,
+        assistantId: assistant.provider_resource_id || assistant.id,
         assignedNumber: selectedCallerNumber || undefined
       });
 
