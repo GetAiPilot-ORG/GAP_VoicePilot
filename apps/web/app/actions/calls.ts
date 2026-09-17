@@ -199,10 +199,10 @@ export async function triggerTestCallAction(params: TriggerTestCallParams) {
     };
 
     const targetAssignedNumber = (params.assignedNumber || params.from || "").trim();
-    if (realVomyraAssistantId) {
-      payload.assistant_id = realVomyraAssistantId;
-    } else if (targetAssignedNumber) {
+    if (targetAssignedNumber) {
       payload.assigned_number = targetAssignedNumber;
+    } else if (realVomyraAssistantId) {
+      payload.assistant_id = realVomyraAssistantId;
     } else {
       payload.assigned_number = "7943494977";
     }

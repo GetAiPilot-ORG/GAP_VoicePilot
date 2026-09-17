@@ -125,7 +125,7 @@ const featureComparison = [
     items: [
       { feature: "AI Calling Minutes Included", lite: "250 Mins", pro: "1,000 Mins", elite: "2,000 Mins" },
       { feature: "Effective Per Minute Rate", lite: "₹6.00/min", pro: "₹5.00/min", elite: "₹5.00/min" },
-      { feature: "Cartesia & Azure Neural Pipeline", lite: true, pro: true, elite: true },
+      { feature: "Cartesia & ElevenLabs Neural Pipeline", lite: true, pro: true, elite: true },
       { feature: "Regional Languages (Hindi, English, Hinglish)", lite: true, pro: true, elite: true },
       { feature: "Custom Voice Cloning", lite: false, pro: false, elite: true },
     ],

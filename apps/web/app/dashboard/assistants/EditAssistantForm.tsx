@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import AssistantTestModal from "@/components/AssistantTestModal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,6 @@ import { VOMYRA_CATALOG, VoiceOption } from "@/lib/catalog";
 import { updateAssistantAction, toggleAssistantToolAction, generatePromptAction } from "@/app/actions/assistants";
 import { getConnectorsAction } from "@/app/actions/connectors";
 import { getToolCallingDefaults } from "@/lib/toolCallingDefaults";
-import { playVoiceSample, stopAllVoiceAudio } from "@/lib/voicePreview";
 import { Play, Pause, Volume2, Check, Wrench, Sparkles, PhoneCall, Wand2, X, Plus, Trash2, Bot, Cpu, Mic, Settings2, Copy, Share2, CheckCircle2, Settings, ExternalLink, AlertTriangle, Lock } from "lucide-react";
 import { AgentIntegrationsPermissions } from "@/components/connectors/AgentIntegrationsPermissions";
 import { AssistantToolConfigDrawer, ToolAssignmentConfig } from "@/components/assistants/AssistantToolConfigDrawer";
@@ -36,6 +36,7 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
   const [isUpdating, setIsUpdating] = React.useState(false);
   const [saveSuccess, setSaveSuccess] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [isTestModalOpen, setIsTestModalOpen] = React.useState(false);
 
   // Validation Errors
   const [nameError, setNameError] = React.useState<string | null>(null);
@@ -108,39 +109,34 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
   // Audio Preview State
   const [playingVoiceId, setPlayingVoiceId] = React.useState<string | null>(null);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
-  const cancelVoiceRef = React.useRef<(() => void) | null>(null);
 
   const handlePlayVoice = (voice: VoiceOption) => {
     if (playingVoiceId === voice.name) {
-      if (cancelVoiceRef.current) {
-        cancelVoiceRef.current();
-        cancelVoiceRef.current = null;
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
       }
-      stopAllVoiceAudio(audioRef);
       setPlayingVoiceId(null);
       return;
     }
 
-    if (cancelVoiceRef.current) {
-      cancelVoiceRef.current();
-      cancelVoiceRef.current = null;
-    }
-
-    setPlayingVoiceId(voice.name);
-    const cancel = playVoiceSample({
-      voice,
-      audioRef,
-      onStart: () => setPlayingVoiceId(voice.name),
-      onEnd: () => {
-        setPlayingVoiceId((curr) => (curr === voice.name ? null : curr));
-        cancelVoiceRef.current = null;
-      },
-      onError: () => {
-        setPlayingVoiceId((curr) => (curr === voice.name ? null : curr));
-        cancelVoiceRef.current = null;
+    if (voice.preview_url) {
+      if (audioRef.current) {
+        audioRef.current.src = voice.preview_url;
+        audioRef.current.play().catch((err) => console.warn("Failed to play preview audio:", err));
       }
-    });
-    cancelVoiceRef.current = cancel;
+      setPlayingVoiceId(voice.name);
+      if (audioRef.current) {
+        audioRef.current.onended = () => {
+          setPlayingVoiceId(null);
+        };
+      }
+    } else {
+      setPlayingVoiceId(voice.name);
+      setTimeout(() => {
+        setPlayingVoiceId(null);
+      }, 2000);
+    }
   };
 
   // Tools state & Configuration Drawer
@@ -367,8 +363,6 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
     setIsUpdating(true);
     setErrorMessage(null);
 
-    const effectiveWelcome = dynamicWelcomeEnabled && dynamicWelcomeMessage ? dynamicWelcomeMessage : welcomeMessage;
-
     const payload = {
       name,
       ai_provider: aiProvider,
@@ -378,7 +372,6 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
       welcome_message: welcomeMessage,
       dynamic_welcome_enabled: dynamicWelcomeEnabled,
       dynamic_welcome_message: dynamicWelcomeMessage,
-      first_message: effectiveWelcome,
       system_prompt: systemPrompt,
       whatsapp_summary_prompt: whatsappSummaryPrompt,
       whatsapp_summary_phone: whatsappSummaryPhone,
@@ -395,7 +388,7 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
         speed: Number(voiceSpeed),
         stability: Number(voiceStability),
         similarity_boost: Number(voiceSimilarityBoost),
-        tts_model: ttsModel || undefined,
+        tts_model: ttsModel,
         instructions: voiceInstructions
       },
       transcription: {
@@ -440,8 +433,7 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
   const aiProviders = Object.keys(VOMYRA_CATALOG.ai.models);
   const currentModels = VOMYRA_CATALOG.ai.models[aiProvider as keyof typeof VOMYRA_CATALOG.ai.models] || [];
   const voiceProviderOptions = VOMYRA_CATALOG.voice.providers;
-  const allVoicesForProvider: VoiceOption[] = (VOMYRA_CATALOG.voice.voices as any)?.[voiceProvider] || VOMYRA_CATALOG.voice.featured_voices.filter(v => v.provider === voiceProvider);
-  const currentVoices: VoiceOption[] = allVoicesForProvider.length > 0 ? allVoicesForProvider : VOMYRA_CATALOG.voice.featured_voices.filter(v => v.provider === voiceProvider);
+  const currentVoices: VoiceOption[] = VOMYRA_CATALOG.voice.featured_voices.filter(v => v.provider === voiceProvider);
 
   return (
     <form onSubmit={handleUpdate} className="space-y-6 animate-fadeIn pb-12">
@@ -475,6 +467,15 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
         </div>
 
         <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            onClick={() => setIsTestModalOpen(true)}
+            className="btn-pill-primary rounded-[10px] text-xs px-4 py-2 flex items-center gap-2 shadow-sm"
+          >
+            <PhoneCall className="w-3.5 h-3.5" />
+            <span>Test Voice & Phone</span>
+          </Button>
+
           <Button
             type="submit"
             disabled={isUpdating}
@@ -873,9 +874,9 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
                 onChange={(e) => setVoiceLanguage(e.target.value)}
                 className="w-full bg-surface-soft border border-hairline rounded-[8px] px-4 py-3 text-sm font-semibold text-black appearance-none"
               >
-                {(VOMYRA_CATALOG.voice.languages || []).map((lang) => (
-                  <option key={lang.id} value={lang.id}>{lang.label}</option>
-                ))}
+                <option value="hi-IN">Hindi (India)</option>
+                <option value="en-IN">English (India)</option>
+                <option value="en-US">English (US)</option>
               </select>
             </div>
 
@@ -1114,11 +1115,9 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
 
           {/* Voice Sample List */}
           <div className="space-y-3 pt-4 border-t border-hairline">
-            <div className="flex items-center justify-between">
-              <Label className="eyebrow text-neutral-500">AVAILABLE VOICES FOR {voiceProvider.toUpperCase()} ({currentVoices.length} Total)</Label>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-[480px] overflow-y-auto p-1">
-              {currentVoices.slice(0, 60).map((voice) => {
+            <Label className="eyebrow text-neutral-500">AVAILABLE VOICES FOR {voiceProvider.toUpperCase()}</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {currentVoices.map((voice) => {
                 const isSelected = voiceName === voice.name;
                 const isPlaying = playingVoiceId === voice.name;
 
@@ -1127,7 +1126,7 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
                     key={voice.name}
                     onClick={() => {
                       setVoiceName(voice.name);
-                      setVoiceLanguage(voice.locale || voice.language);
+                      setVoiceLanguage(voice.language);
                     }}
                     className={`p-3.5 rounded-[12px] border transition-all cursor-pointer flex items-center justify-between ${isSelected
                         ? "border-emerald-500 bg-emerald-50/30 shadow-xs"
@@ -1717,6 +1716,32 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
         </div>
       )}
 
+      {/* Assistant Voice & Phone Test Modal */}
+      <AssistantTestModal
+        isOpen={isTestModalOpen}
+        onClose={() => setIsTestModalOpen(false)}
+        assistant={{
+          id: assistant.id,
+          name: name,
+          provider_resource_id: assistant.provider_resource_id,
+          config_snapshot: {
+            welcome_message: dynamicWelcomeEnabled ? dynamicWelcomeMessage : welcomeMessage,
+            system_prompt: systemPrompt,
+            voice: { name: voiceName, language: voiceLanguage, provider: voiceProvider }
+          },
+          welcome_message: dynamicWelcomeEnabled ? dynamicWelcomeMessage : welcomeMessage,
+          system_prompt: systemPrompt
+        }}
+      />
+      {/* Floating Action Button (Vomyra Parity) */}
+      <button
+        type="button"
+        onClick={() => setIsTestModalOpen(true)}
+        className="fixed bottom-8 right-8 w-14 h-14 bg-[#10b981] hover:bg-[#059669] text-white rounded-full flex items-center justify-center shadow-[0_4px_20px_rgba(16,185,129,0.4)] transition-all hover:scale-110 z-40 group border-2 border-emerald-400/30"
+        title="Test Assistant"
+      >
+        <Bot className="w-6 h-6 text-white group-hover:animate-pulse" />
+      </button>
       <audio ref={audioRef} className="hidden" />
     </form>
   );

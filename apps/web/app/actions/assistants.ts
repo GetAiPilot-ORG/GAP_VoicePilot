@@ -485,50 +485,16 @@ export async function updateAssistantAction(id: string, payload: any) {
     let updatedConfig = { ...(dbAssistant.config_snapshot || {}), ...payload };
 
     // Sync with Vomyra API directly if key is available
-    const vomyraApiKey = process.env.VOMYRA_API_KEY || '0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx';
+    const vomyraApiKey = process.env.VOMYRA_API_KEY || '';
     const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || 'https://api.vomyra.com';
     const providerResId = dbAssistant.provider_resource_id || id;
 
     if (vomyraApiKey && providerResId && !providerResId.startsWith('mock_') && !providerResId.startsWith('ast_')) {
       try {
-        const vPayload: any = { ...payload };
-
-        // Ensure welcome message and first message parity
-        const effectiveWelcome = vPayload.dynamic_welcome_enabled && vPayload.dynamic_welcome_message
-          ? vPayload.dynamic_welcome_message
-          : (vPayload.welcome_message || vPayload.first_message || '');
-        if (effectiveWelcome) {
-          vPayload.welcome_message = effectiveWelcome;
-          vPayload.first_message = effectiveWelcome;
-        }
-
-        const customIntegrations = ['petpooja', 'gsheets', 'gcal', 'webhook'];
-        for (const key of customIntegrations) {
-          delete vPayload[key];
-        }
-
-        if (vPayload.voice) {
-          const sanitizedVoice = { ...vPayload.voice };
-          if (!sanitizedVoice.tts_model) delete sanitizedVoice.tts_model;
-          vPayload.voice = sanitizedVoice;
-        }
-
-        if (vPayload.deepgram) {
-          vPayload.transcription = {
-            ...(vPayload.transcription || {}),
-            deepgram: vPayload.deepgram
-          };
-          delete vPayload.deepgram;
-        }
-
-        if (Array.isArray(vPayload.selected_tools)) {
-          const validObjectIds = vPayload.selected_tools.filter((t: string) => /^[0-9a-fA-F]{24}$/.test(String(t)));
-          if (validObjectIds.length > 0) {
-            vPayload.selected_tools = validObjectIds;
-          } else {
-            delete vPayload.selected_tools;
-          }
-        }
+        const sanitizedVoice = payload.voice ? { ...payload.voice } : undefined;
+        if (sanitizedVoice && !sanitizedVoice.tts_model) delete sanitizedVoice.tts_model;
+        const vPayload = { ...payload };
+        if (sanitizedVoice) vPayload.voice = sanitizedVoice;
 
         const vRes = await fetch(`${vomyraBaseUrl}/v1/assistants/${providerResId}`, {
           method: 'PUT',

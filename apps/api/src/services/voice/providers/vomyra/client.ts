@@ -68,7 +68,7 @@ export class VomyraClient implements VoiceProvider {
   }
 
   async updateAssistant(id: string, input: any): Promise<any> {
-    const sanitizedInput: any = { ...input };
+    const sanitizedInput = { ...input };
 
     // Strip custom integrations that Vomyra API doesn't support
     const customIntegrations = ['petpooja', 'gsheets', 'gcal', 'webhook'];
@@ -76,43 +76,9 @@ export class VomyraClient implements VoiceProvider {
       delete sanitizedInput[key];
     }
 
-    // Ensure welcome message and first message parity
-    const effectiveWelcome = sanitizedInput.dynamic_welcome_enabled && sanitizedInput.dynamic_welcome_message
-      ? sanitizedInput.dynamic_welcome_message
-      : (sanitizedInput.welcome_message || sanitizedInput.first_message || '');
-    if (effectiveWelcome) {
-      sanitizedInput.welcome_message = effectiveWelcome;
-      sanitizedInput.first_message = effectiveWelcome;
+    if (sanitizedInput.voice && (sanitizedInput.voice.tts_model === null || !sanitizedInput.voice.tts_model)) {
+      delete sanitizedInput.voice.tts_model;
     }
-
-    // Clean voice tts_model
-    if (sanitizedInput.voice) {
-      const v = { ...sanitizedInput.voice };
-      if (!v.tts_model) delete v.tts_model;
-      sanitizedInput.voice = v;
-    }
-
-    // Nest deepgram into transcription
-    if (sanitizedInput.deepgram) {
-      sanitizedInput.transcription = {
-        ...(sanitizedInput.transcription || {}),
-        deepgram: sanitizedInput.deepgram
-      };
-      delete sanitizedInput.deepgram;
-    }
-
-    // Only pass valid 24-hex ObjectIds in selected_tools to Vomyra
-    if (Array.isArray(sanitizedInput.selected_tools)) {
-      const validObjectIds = sanitizedInput.selected_tools.filter((t: string) => /^[0-9a-fA-F]{24}$/.test(String(t)));
-      if (validObjectIds.length > 0) {
-        sanitizedInput.selected_tools = validObjectIds;
-      } else {
-        delete sanitizedInput.selected_tools;
-      }
-    }
-
-    console.log(`[VomyraClient] Sending sanitized PUT update to /v1/assistants/${id}:`, JSON.stringify(sanitizedInput));
-
     return await this.request<any>(`/v1/assistants/${id}`, {
       method: 'PUT',
       body: JSON.stringify(sanitizedInput),

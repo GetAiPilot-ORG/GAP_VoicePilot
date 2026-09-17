@@ -21,7 +21,7 @@ export function SidebarEngineCard({ isCollapsed = false }: { isCollapsed?: boole
         </span>
       </div>
       <p className="mt-1 text-[11px] font-normal leading-relaxed text-neutral-600">
-        Ultra-low latency Cartesia & Azure Neural voice pipeline active.
+        Ultra-low latency Cartesia & ElevenLabs voice pipeline active.
       </p>
     </div>
   );
