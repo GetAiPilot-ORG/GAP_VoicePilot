@@ -153,7 +153,20 @@ export default function AuthSectionOne({ mode = "signup", error }: AuthSectionOn
               </div>
             )}
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            {/* GetAiPilot Hub SSO button */}
+            <button
+              type="button"
+              onClick={() => {
+                const hubUrl = "https://getaipilot.in";
+                window.location.href = `${hubUrl}/login?sso=voice`;
+              }}
+              className="mt-6 flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-black/10 bg-gradient-to-r from-[#031b4e] to-[#0d3880] px-4 text-xs font-semibold text-white shadow-sm transition-all hover:opacity-95 hover:shadow-md sm:text-sm active:scale-[0.99] cursor-pointer"
+            >
+              <Image src="/logo.png" alt="GetAiPilot Logo" width={20} height={20} className="rounded object-contain" />
+              <span>Continue with GetAiPilot</span>
+            </button>
+
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <SocialButton icon={<GoogleIcon />} label={isLogin ? "Sign in with Google" : "Sign up with Google"} />
               <SocialButton icon={<AppleIcon />} label={isLogin ? "Sign in with Apple" : "Sign up with Apple"} />
             </div>
