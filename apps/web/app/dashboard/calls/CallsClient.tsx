@@ -25,7 +25,8 @@ import {
   Activity,
   Loader2,
   ArrowUpRight,
-  ExternalLink
+  ExternalLink,
+  MessageSquare
 } from "lucide-react";
 import AssistantTestModal from "@/components/AssistantTestModal";
 import { fetchCallDetailsAction, fetchCallRecordingAction } from "@/app/actions/calls";
@@ -422,9 +423,16 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
                     </span>
                   </td>
                   <td className="py-3.5 px-4 font-medium text-neutral-600">
-                    <span className="bg-surface-soft px-2 py-1 rounded-[6px] border border-hairline font-mono text-[10px]">
-                      {c.direction}
-                    </span>
+                    {c.callType === "whatsapp" ? (
+                      <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-[6px] border border-emerald-200 font-mono text-[10px] font-bold inline-flex items-center gap-1">
+                        <MessageSquare className="w-3 h-3 text-emerald-600" />
+                        WhatsApp
+                      </span>
+                    ) : (
+                      <span className="bg-surface-soft px-2 py-1 rounded-[6px] border border-hairline font-mono text-[10px]">
+                        {c.direction}
+                      </span>
+                    )}
                   </td>
                   <td className="py-3.5 px-4">
                     <div className="flex items-center gap-2">

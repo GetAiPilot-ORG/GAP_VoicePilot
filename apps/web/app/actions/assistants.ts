@@ -321,6 +321,7 @@ export async function createAssistantAction(formData: FormData) {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              'Authorization': `Bearer ${vomyraApiKey}`,
               'x-api-key': vomyraApiKey
             },
             body: JSON.stringify(sanitizedPayload)
@@ -500,6 +501,7 @@ export async function updateAssistantAction(id: string, payload: any) {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${vomyraApiKey}`,
             'x-api-key': vomyraApiKey
           },
           body: JSON.stringify(vPayload)
@@ -583,34 +585,160 @@ export async function deleteAssistantAction(assistantId: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
-  try {
-    const res = await fetch(`${apiUrl}/api/v1/assistants/${assistantId}`, {
-      method: 'DELETE'
-    });
-    if (!res.ok) {
-      console.warn("Express delete assistant returned non-200 status:", await res.text());
-    }
-  } catch (e) {
-    console.warn("Express delete assistant fetch failed:", e);
-  }
-
   const adminClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  await adminClient.from('phone_numbers').update({ assigned_assistant_id: null, status: 'unassigned' }).eq('assigned_assistant_id', assistantId);
-  await adminClient.from('assistant_tools').delete().eq('assistant_id', assistantId);
-  
-  const { error: delErr } = await adminClient.from('assistants').delete().eq('id', assistantId);
+  // 1. Locate assistant record in Supabase (by id or provider_resource_id)
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(assistantId);
+  let dbAssistant: any = null;
+
+  if (isUuid) {
+    const { data } = await adminClient.from('assistants').select('*').eq('id', assistantId).maybeSingle();
+    dbAssistant = data;
+  }
+  if (!dbAssistant) {
+    const { data } = await adminClient.from('assistants').select('*').eq('provider_resource_id', assistantId).maybeSingle();
+    dbAssistant = data;
+  }
+
+  const realDbId = dbAssistant?.id || assistantId;
+  const vomyraId = dbAssistant?.provider_resource_id || assistantId;
+
+  // 2. Archive / cleanup on Vomyra API directly
+  const vomyraApiKey = process.env.VOMYRA_API_KEY || '0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx';
+  const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || 'https://api.vomyra.com';
+
+  if (vomyraApiKey && vomyraId && /^[0-9a-fA-F]{24}$/.test(vomyraId)) {
+    try {
+      // Vomyra archives through PUT naming convention or DELETE if supported
+      await fetch(`${vomyraBaseUrl}/v1/assistants/${vomyraId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${vomyraApiKey}`,
+          'x-api-key': vomyraApiKey
+        },
+        body: JSON.stringify({ name: `[DELETED_${Date.now().toString().slice(-4)}]` })
+      });
+    } catch (vErr: any) {
+      console.warn(`[deleteAssistantAction] Vomyra cleanup warning for ${vomyraId}:`, vErr.message);
+    }
+  }
+
+  // 3. Unlink phone numbers, tools, and assignments in database
+  try {
+    await adminClient.from('phone_numbers').update({ assigned_assistant_id: null, status: 'unassigned' }).eq('assigned_assistant_id', realDbId);
+    await adminClient.from('assistant_tools').delete().eq('assistant_id', realDbId);
+    await adminClient.from('assistant_tool_assignments').delete().eq('assistant_id', realDbId);
+  } catch (cleanErr: any) {
+    console.warn(`[deleteAssistantAction] Resource unlink notice:`, cleanErr.message);
+  }
+
+  // 4. Delete or mark deleted in Supabase
+  const { error: delErr } = await adminClient.from('assistants').delete().or(`id.eq.${realDbId},provider_resource_id.eq.${vomyraId}`);
   if (delErr) {
-    await adminClient.from('assistants').update({ deleted_at: new Date().toISOString() }).eq('id', assistantId);
+    await adminClient.from('assistants').update({ deleted_at: new Date().toISOString() }).or(`id.eq.${realDbId},provider_resource_id.eq.${vomyraId}`);
   }
 
   revalidatePath("/dashboard/assistants");
   return { success: true };
+}
+
+/**
+ * Synchronize assistants between Vomyra Telephony Cloud and local Supabase database.
+ * Pulls all active cloud assistants, imports missing ones, and removes stale/deleted ones.
+ */
+export async function syncAssistantsWithVomyraAction() {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
+  );
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const workspaceId = await getOrCreateWorkspace(supabase, user);
+  const adminClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const vomyraApiKey = process.env.VOMYRA_API_KEY || '0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx';
+  const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || 'https://api.vomyra.com';
+
+  const res = await fetch(`${vomyraBaseUrl}/v1/assistants`, {
+    headers: {
+      'Authorization': `Bearer ${vomyraApiKey}`,
+      'x-api-key': vomyraApiKey
+    },
+    cache: 'no-store'
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch assistants from Voice Cloud (${res.status})`);
+  }
+
+  const data = await res.json();
+  const cloudAssistants: any[] = Array.isArray(data) ? data : (data.data || []);
+  const validCloudIds = new Set(cloudAssistants.map(a => a.id || a._id));
+
+  // 1. Fetch current active assistants in this workspace
+  const { data: dbAssistants } = await adminClient
+    .from('assistants')
+    .select('*')
+    .eq('workspace_id', workspaceId)
+    .is('deleted_at', null);
+
+  const existingByProviderId = new Map<string, any>();
+  (dbAssistants || []).forEach(a => {
+    if (a.provider_resource_id) {
+      existingByProviderId.set(a.provider_resource_id, a);
+    }
+  });
+
+  let importedCount = 0;
+  let cleanedCount = 0;
+
+  // 2. Insert or update cloud assistants into Supabase
+  for (const cloudAst of cloudAssistants) {
+    const cloudId = cloudAst.id || cloudAst._id;
+    if (!cloudId || cloudAst.name?.startsWith('[DELETED')) continue;
+
+    if (!existingByProviderId.has(cloudId)) {
+      await adminClient.from('assistants').insert({
+        workspace_id: workspaceId,
+        created_by: user.id,
+        provider: 'vomyra',
+        provider_resource_id: cloudId,
+        name: cloudAst.name || 'Cloud Voice Assistant',
+        config_snapshot: cloudAst,
+        status: 'active'
+      });
+      importedCount++;
+    }
+  }
+
+  // 3. Mark stale DB assistants (deleted from cloud) as deleted_at
+  for (const dbAst of (dbAssistants || [])) {
+    if (dbAst.provider_resource_id && /^[0-9a-fA-F]{24}$/.test(dbAst.provider_resource_id)) {
+      if (!validCloudIds.has(dbAst.provider_resource_id)) {
+        await adminClient.from('assistants').update({ deleted_at: new Date().toISOString() }).eq('id', dbAst.id);
+        cleanedCount++;
+      }
+    }
+  }
+
+  revalidatePath("/dashboard/assistants");
+  return {
+    success: true,
+    cloudTotal: cloudAssistants.length,
+    importedCount,
+    cleanedCount
+  };
 }
 
 export async function duplicateAssistantAction(assistantId: string) {

@@ -23,9 +23,10 @@ import {
   Clock,
   ShieldCheck,
   ChevronDown,
-  ExternalLink
+  ExternalLink,
+  MessageSquare
 } from "lucide-react";
-import { triggerTestCallAction, fetchCallerNumbersAction, simulateWebAgentResponseAction } from "@/app/actions/calls";
+import { triggerTestCallAction, fetchCallerNumbersAction, fetchWhatsAppNumbersAction, simulateWebAgentResponseAction } from "@/app/actions/calls";
 
 interface AssistantTestModalProps {
   isOpen: boolean;
@@ -70,7 +71,7 @@ const PRESET_PROMPTS = [
 ];
 
 export default function AssistantTestModal({ isOpen, onClose, assistant }: AssistantTestModalProps) {
-  const [activeTab, setActiveTab] = useState<"web" | "phone">("web");
+  const [activeTab, setActiveTab] = useState<"web" | "phone" | "whatsapp">("web");
 
   // Web Call Simulator State
   const [isWebCallActive, setIsWebCallActive] = useState(false);
@@ -84,12 +85,14 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
   const [messages, setMessages] = useState<Message[]>([]);
   const [lastLatency, setLastLatency] = useState<number | null>(null);
 
-  // Phone Call State
+  // Phone / WhatsApp Call State
   const [customerName, setCustomerName] = useState("Test User");
   const [countryCode, setCountryCode] = useState("+91");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [callerNumbers, setCallerNumbers] = useState<Array<{ id: string; phone_number: string; isAssignedToThis: boolean }>>([]);
   const [selectedCallerNumber, setSelectedCallerNumber] = useState<string>("");
+  const [whatsAppNumbers, setWhatsAppNumbers] = useState<Array<any>>([]);
+  const [selectedWhatsAppNumber, setSelectedWhatsAppNumber] = useState<string>("");
   const [isDialing, setIsDialing] = useState(false);
   const [phoneCallResult, setPhoneCallResult] = useState<{
     success: boolean;
@@ -114,7 +117,7 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
     }
   }, [messages, isProcessing, isSpeaking]);
 
-  // Load caller numbers when modal opens
+  // Load caller numbers and WhatsApp numbers when modal opens
   useEffect(() => {
     if (isOpen) {
       fetchCallerNumbersAction(assistant.id).then((res) => {
@@ -122,6 +125,13 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
           setCallerNumbers(res.numbers);
           const assigned = res.numbers.find(n => n.isAssignedToThis);
           setSelectedCallerNumber(assigned?.phone_number || res.numbers[0]?.phone_number || "");
+        }
+      });
+
+      fetchWhatsAppNumbersAction().then((res) => {
+        if (res.success && res.numbers && res.numbers.length > 0) {
+          setWhatsAppNumbers(res.numbers);
+          setSelectedWhatsAppNumber(res.numbers[0]?.phone_number || "");
         }
       });
     }
@@ -331,12 +341,26 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
     }
   };
 
-  // Trigger Outbound PSTN Phone Call
+  const handleSendTextMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleSendMessage();
+  };
+
+  // Trigger Outbound PSTN or WhatsApp Voice Call
   const handleDispatchPhoneCall = async (e: React.FormEvent) => {
     e.preventDefault();
+    const isWhatsApp = activeTab === "whatsapp";
     const cleanNumber = phoneNumber.replace(/[\s\-\(\)]/g, "");
     if (!cleanNumber || cleanNumber.length < 7) {
       alert("Please enter a valid destination phone number.");
+      return;
+    }
+
+    if (isWhatsApp && (!selectedWhatsAppNumber || whatsAppNumbers.length === 0)) {
+      setPhoneCallResult({
+        success: false,
+        message: "No connected WhatsApp Business number selected. Please link a WhatsApp Business number in Settings."
+      });
       return;
     }
 
@@ -353,13 +377,17 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
         customerName: customerName.trim() || "Test User",
         countryCode: countryCode,
         assistantId: assistant.id,
-        assignedNumber: selectedCallerNumber || undefined
+        assignedNumber: isWhatsApp ? undefined : (selectedCallerNumber || undefined),
+        callChannel: isWhatsApp ? 'whatsapp' : 'phone',
+        whatsappNumber: isWhatsApp ? selectedWhatsAppNumber : undefined
       });
 
       if (res.success) {
         setPhoneCallResult({
           success: true,
-          message: `Outbound test call dispatched to ${fullRecipientNumber}!`,
+          message: isWhatsApp 
+            ? `Outbound WhatsApp voice call dispatched to ${fullRecipientNumber}!`
+            : `Outbound test call dispatched to ${fullRecipientNumber}!`,
           callId: res.call?.id || res.idempotencyKey,
           details: res.call
         });
@@ -405,7 +433,7 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
                   LIVE TESTER
                 </span>
               </div>
-              <p className="text-xs text-neutral-500">Test autonomous voice responses in-browser or via mobile call.</p>
+              <p className="text-xs text-neutral-500">Test autonomous voice responses in-browser, via cellular phone, or WhatsApp.</p>
             </div>
           </div>
 
@@ -421,17 +449,17 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center border-b border-hairline px-6 bg-surface-soft/20 text-xs font-semibold">
+        <div className="flex items-center border-b border-hairline px-6 bg-surface-soft/20 text-xs font-semibold overflow-x-auto">
           <button
             onClick={() => setActiveTab("web")}
-            className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-colors ${
+            className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap ${
               activeTab === "web"
                 ? "border-black text-black font-bold"
                 : "border-transparent text-neutral-500 hover:text-black"
             }`}
           >
             <Mic className="w-4 h-4 text-emerald-600" />
-            Web Call (In-Browser Mic)
+            Web Call (Mic)
             {isWebCallActive && (
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
             )}
@@ -439,14 +467,26 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
 
           <button
             onClick={() => setActiveTab("phone")}
-            className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-colors ${
+            className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap ${
               activeTab === "phone"
                 ? "border-black text-black font-bold"
                 : "border-transparent text-neutral-500 hover:text-black"
             }`}
           >
             <PhoneOutgoing className="w-4 h-4 text-block-lilac-text" />
-            Phone Call (PSTN Outbound)
+            Regular Phone (PSTN)
+          </button>
+
+          <button
+            onClick={() => setActiveTab("whatsapp")}
+            className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap ${
+              activeTab === "whatsapp"
+                ? "border-emerald-600 text-emerald-700 font-bold"
+                : "border-transparent text-neutral-500 hover:text-black"
+            }`}
+          >
+            <MessageSquare className="w-4 h-4 text-emerald-600" />
+            WhatsApp Voice
           </button>
         </div>
 
@@ -466,14 +506,14 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
                   <div className="min-w-0 flex-1 flex flex-col items-start text-left space-y-1.5">
                     <div className="flex items-center justify-start gap-2 flex-wrap w-full text-left">
                       <span className="font-bold text-sm text-black">
-                        GAP Live Web Call Room
+                        Live Web Call Room
                       </span>
                       <span className="bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border border-emerald-300">
                         CLOUD AUDIO
                       </span>
                     </div>
                     <p className="text-xs text-neutral-600 leading-relaxed text-left w-full">
-                      Launches full-duplex WebRTC room with Deepgram STT and Cartesia Neural TTS.
+                      Launches full-duplex WebRTC room with live speech recognition and neural voice synthesis.
                     </p>
                     <div className="flex items-center justify-start gap-1.5 text-[11px] font-mono text-neutral-500 bg-white px-2.5 py-1 rounded-[6px] border border-hairline max-w-full overflow-hidden w-fit text-left">
                       <span className="shrink-0 text-neutral-400">URL:</span>
@@ -548,107 +588,91 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
                   )}
                 </div>
 
-                <div ref={chatScrollRef} className="flex-1 p-4 overflow-y-auto space-y-3 bg-surface-soft/10">
+                <div ref={chatScrollRef} className="p-4 overflow-y-auto flex-1 space-y-3 bg-neutral-50/50">
                   {messages.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-neutral-400 text-xs space-y-2">
-                      <Bot className="w-8 h-8 text-neutral-300" />
-                      <p>Start a web call or ask a sample question below.</p>
+                    <div className="h-full flex flex-col items-center justify-center text-center text-neutral-400 space-y-2 py-8">
+                      <Bot className="w-8 h-8 opacity-40" />
+                      <p className="text-xs font-medium">Click "Start Web Call" or send a query below to test voice interaction.</p>
                     </div>
                   ) : (
-                    messages.map((m) => (
+                    messages.map((msg) => (
                       <div
-                        key={m.id}
-                        className={`flex gap-2.5 ${m.role === "user" ? "justify-end" : "justify-start"}`}
+                        key={msg.id}
+                        className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}
                       >
-                        {m.role === "assistant" && (
-                          <div className="w-7 h-7 rounded-full bg-block-lime text-black flex items-center justify-center text-xs font-bold shrink-0 shadow-xs">
-                            AI
-                          </div>
-                        )}
+                        <div className="flex items-center gap-1.5 mb-1 px-1">
+                          {msg.role === "user" ? (
+                            <>
+                              <span className="text-[10px] font-bold text-neutral-600">You (Caller)</span>
+                              <User className="w-3 h-3 text-neutral-400" />
+                            </>
+                          ) : (
+                            <>
+                              <Bot className="w-3 h-3 text-block-lime" />
+                              <span className="text-[10px] font-bold text-black">{assistantName}</span>
+                            </>
+                          )}
+                          <span className="text-[9px] text-neutral-400">{msg.timestamp}</span>
+                        </div>
+
                         <div
-                          className={`p-3 rounded-[12px] max-w-[80%] text-xs leading-relaxed ${
-                            m.role === "user"
-                              ? "bg-black text-white rounded-tr-none shadow-xs"
-                              : "bg-white border border-hairline text-neutral-900 rounded-tl-none shadow-xs"
+                          className={`p-3 rounded-[12px] text-xs max-w-[85%] leading-relaxed ${
+                            msg.role === "user"
+                              ? "bg-black text-white rounded-br-2xs"
+                              : "bg-white border border-hairline text-black shadow-2xs rounded-bl-2xs"
                           }`}
                         >
-                          <div className="flex items-center justify-between gap-3 mb-1">
-                            <span className="font-bold text-[10px] opacity-70">
-                              {m.role === "user" ? "YOU" : assistantName.toUpperCase()}
-                            </span>
-                            <span className="text-[9px] font-mono opacity-50">{m.timestamp}</span>
-                          </div>
-                          <p className="font-sans whitespace-pre-wrap">{m.text}</p>
-                          {m.latencyMs && (
-                            <div className="mt-1 pt-1 border-t border-black/5 flex items-center gap-1 text-[9px] font-mono text-emerald-600 font-semibold">
-                              <Zap className="w-2.5 h-2.5" />
-                              <span>{m.latencyMs}ms</span>
-                            </div>
-                          )}
+                          {msg.text}
                         </div>
-                        {m.role === "user" && (
-                          <div className="w-7 h-7 rounded-full bg-surface-soft border border-hairline text-neutral-700 flex items-center justify-center text-xs font-bold shrink-0">
-                            <User className="w-3.5 h-3.5" />
-                          </div>
-                        )}
                       </div>
                     ))
                   )}
 
                   {isProcessing && (
-                    <div className="flex gap-2.5 items-center">
-                      <div className="w-7 h-7 rounded-full bg-block-lime text-black flex items-center justify-center text-xs font-bold shrink-0">
-                        AI
-                      </div>
-                      <div className="p-2.5 bg-white border border-hairline rounded-[10px] text-xs text-neutral-500 flex items-center gap-2 shadow-xs">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                        Thinking and preparing voice stream...
-                      </div>
+                    <div className="flex items-center gap-2 text-xs text-neutral-400 italic py-1">
+                      <Sparkles className="w-3.5 h-3.5 animate-spin text-block-lime" />
+                      <span>{assistantName} is generating response...</span>
                     </div>
                   )}
                 </div>
+              </div>
 
-                {/* Text Prompt Input Bar */}
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }}
-                  className="p-2.5 border-t border-hairline bg-white flex items-center gap-2"
-                >
+              {/* Text Query Input & Preset Suggestions */}
+              <div className="space-y-2">
+                <form onSubmit={handleSendTextMessage} className="flex items-center gap-2">
                   <input
                     type="text"
                     value={textInput}
                     onChange={(e) => setTextInput(e.target.value)}
-                    placeholder="Type a message or test query..."
-                    className="flex-1 px-3 py-2 text-xs rounded-[8px] bg-surface-soft border border-hairline focus:outline-none focus:ring-1 focus:ring-black"
+                    placeholder="Type a query to simulate caller speech..."
+                    className="flex-1 px-4 py-2.5 text-xs bg-surface-soft border border-hairline rounded-[10px] focus:outline-none focus:ring-1 focus:ring-black"
                   />
                   <button
                     type="submit"
                     disabled={!textInput.trim() || isProcessing}
-                    className="btn-pill-primary rounded-[8px] px-3.5 py-2 text-xs disabled:opacity-40"
+                    className="btn-pill-primary py-2.5 px-4 text-xs font-bold shrink-0 disabled:opacity-40"
                   >
                     <Send className="w-3.5 h-3.5" />
+                    <span>Send</span>
                   </button>
                 </form>
-              </div>
 
-              {/* Preset Sample Testing Chips */}
-              <div>
-                <p className="text-[11px] font-semibold text-neutral-500 mb-2 flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-amber-500" />
-                  Quick Test Queries:
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {PRESET_PROMPTS.map((prompt, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => handleSendMessage(prompt)}
-                      className="text-[11px] px-3 py-1.5 rounded-full bg-surface-soft hover:bg-black hover:text-white border border-hairline text-neutral-700 transition-colors text-left"
-                    >
-                      "{prompt}"
-                    </button>
-                  ))}
+                <div className="pt-1">
+                  <p className="text-[11px] font-bold text-neutral-500 mb-1.5 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-block-lime" />
+                    Quick Test Queries:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {PRESET_PROMPTS.map((prompt, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => handleSendMessage(prompt)}
+                        className="text-[11px] px-3 py-1.5 rounded-full bg-surface-soft hover:bg-black hover:text-white border border-hairline text-neutral-700 transition-colors text-left"
+                      >
+                        "{prompt}"
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -662,7 +686,7 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
                 <div className="text-xs space-y-1">
                   <p className="font-bold">Real-time Outbound PSTN Dialing</p>
                   <p className="text-neutral-600 leading-relaxed">
-                    This triggers an actual mobile call through the SIP telecom provider using your assigned caller ID. When you pick up, <strong className="text-black">{assistantName}</strong> will speak in real-time.
+                    Triggers an actual mobile call through the SIP telecom provider using your assigned caller ID. When you pick up, <strong className="text-black">{assistantName}</strong> will speak in real-time.
                   </p>
                 </div>
               </div>
@@ -787,13 +811,148 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
             </form>
           )}
 
+          {/* TAB 3: WHATSAPP VOICE CALL */}
+          {activeTab === "whatsapp" && (
+            <form onSubmit={handleDispatchPhoneCall} className="space-y-5">
+              <div className="bg-emerald-50 border border-emerald-200 rounded-[14px] p-4 text-emerald-950 flex items-start gap-3">
+                <MessageSquare className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                <div className="text-xs space-y-1">
+                  <p className="font-bold text-emerald-900">Direct Outbound WhatsApp Voice Call</p>
+                  <p className="text-emerald-800/80 leading-relaxed">
+                    Dials the recipient's WhatsApp account directly from your verified WhatsApp Business number.
+                  </p>
+                </div>
+              </div>
+
+              {/* Customer / Recipient Name Input */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-black uppercase tracking-wider">
+                  Customer / Recipient Name
+                </label>
+                <input
+                  type="text"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="e.g. Ravi Kumar"
+                  className="w-full px-4 py-2.5 text-xs font-semibold bg-surface-soft border border-hairline rounded-[10px] focus:outline-none focus:ring-1 focus:ring-black"
+                  required
+                />
+              </div>
+
+              {/* Destination WhatsApp Phone Number Input */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-black uppercase tracking-wider">
+                  Target WhatsApp Number (Destination)
+                </label>
+                <div className="flex items-center gap-2">
+                  <div className="relative w-44">
+                    <select
+                      value={countryCode}
+                      onChange={(e) => setCountryCode(e.target.value)}
+                      className="w-full pl-3 pr-8 py-2.5 text-xs font-semibold bg-surface-soft border border-hairline rounded-[10px] appearance-none focus:outline-none focus:ring-1 focus:ring-black"
+                    >
+                      {COUNTRY_CODES.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.flag} {c.code}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
+                  </div>
+
+                  <input
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="98765 43210 (WhatsApp Number)"
+                    className="flex-1 px-4 py-2.5 text-xs font-mono font-semibold bg-surface-soft border border-hairline rounded-[10px] focus:outline-none focus:ring-1 focus:ring-black"
+                    required
+                  />
+                </div>
+                <p className="text-[11px] text-neutral-500">
+                  Full dial format: <span className="font-mono text-black font-semibold">{countryCode} {phoneNumber || "..."}</span>
+                </p>
+              </div>
+
+              {/* WhatsApp Caller ID (From Business Number) */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-black uppercase tracking-wider">
+                  WhatsApp Business Caller ID
+                </label>
+                {whatsAppNumbers.length > 0 ? (
+                  <div className="relative">
+                    <select
+                      value={selectedWhatsAppNumber}
+                      onChange={(e) => setSelectedWhatsAppNumber(e.target.value)}
+                      className="w-full px-4 py-2.5 text-xs font-mono font-semibold bg-surface-soft border border-hairline rounded-[10px] appearance-none focus:outline-none focus:ring-1 focus:ring-black"
+                    >
+                      {whatsAppNumbers.map((num: any, idx: number) => (
+                        <option key={num.id || idx} value={num.phone_number}>
+                          {num.phone_number} {num.display_name ? `(${num.display_name})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
+                  </div>
+                ) : (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-[10px] text-xs text-amber-900 space-y-1">
+                    <p className="font-bold flex items-center gap-1.5">
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                      No WhatsApp Business Number Connected
+                    </p>
+                    <p className="text-[11px] text-amber-800">
+                      To dispatch live calls over WhatsApp, connect a verified WhatsApp Business number in Settings or switch to Regular Phone Call.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Status or Result Banner */}
+              {phoneCallResult && (
+                <div
+                  className={`p-4 rounded-[12px] border text-xs flex items-start gap-3 animate-fadeIn ${
+                    phoneCallResult.success
+                      ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+                      : "bg-rose-50 border-rose-200 text-rose-900"
+                  }`}
+                >
+                  {phoneCallResult.success ? (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                  )}
+                  <div className="space-y-1">
+                    <p className="font-bold">{phoneCallResult.message}</p>
+                    {phoneCallResult.callId && (
+                      <p className="font-mono text-[11px] opacity-80">
+                        Reference ID: {phoneCallResult.callId}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Dispatch Action Button */}
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isDialing}
+                  className="w-full py-3 text-xs justify-center gap-2 rounded-full font-bold shadow-md hover:scale-[1.01] transition-transform disabled:opacity-50 flex items-center bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  <MessageSquare className={`w-4 h-4 ${isDialing ? "animate-spin" : ""}`} />
+                  {isDialing ? "Initiating WhatsApp Call..." : "Dispatch Outbound WhatsApp Call"}
+                </button>
+              </div>
+            </form>
+          )}
+
         </div>
 
         {/* Modal Footer */}
         <div className="px-6 py-3 border-t border-hairline bg-surface-soft/40 flex items-center justify-between text-xs text-neutral-500">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span>Provider: <strong className="text-black font-mono">GAP VoicePilot Engine</strong></span>
+            <span>Provider: <strong className="text-black font-mono">VoicePilot Telephony Engine</strong></span>
           </div>
 
           <button

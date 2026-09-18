@@ -96,6 +96,7 @@ export async function assignPhoneNumberAction(numberId: string, assistantId: str
         const vRes = await fetch(`${vomyraBaseUrl}/v1/numbers/assignment`, {
           method: "PUT",
           headers: {
+            "Authorization": `Bearer ${vomyraApiKey}`,
             "x-api-key": vomyraApiKey,
             "Content-Type": "application/json"
           },
@@ -122,6 +123,7 @@ export async function assignPhoneNumberAction(numberId: string, assistantId: str
         const vRes = await fetch(`${vomyraBaseUrl}/v1/numbers/assignment`, {
           method: "DELETE",
           headers: {
+            "Authorization": `Bearer ${vomyraApiKey}`,
             "x-api-key": vomyraApiKey,
             "Content-Type": "application/json"
           },

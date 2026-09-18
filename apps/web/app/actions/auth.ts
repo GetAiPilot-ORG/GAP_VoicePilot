@@ -146,3 +146,87 @@ export async function signOut() {
   await supabase.auth.signOut();
   return redirect("/login");
 }
+
+export async function requestPasswordReset(formData: FormData) {
+  const email = (formData.get("email") as string)?.trim();
+  const origin = (formData.get("origin") as string) || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3002";
+
+  if (!email) {
+    return { success: false, error: "Please enter your registered email address." };
+  }
+
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            );
+          } catch {}
+        },
+      },
+    }
+  );
+
+  const redirectTo = `${origin.replace(/\/$/, '')}/auth/callback?next=/reset-password`;
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo,
+  });
+
+  if (error) {
+    return { success: false, error: formatAuthError(error.message) };
+  }
+
+  return { success: true, message: `Password reset link has been sent to ${email}. Please check your inbox and spam folder.` };
+}
+
+export async function updatePassword(formData: FormData) {
+  const password = formData.get("password") as string;
+  const confirmPassword = formData.get("confirmPassword") as string;
+
+  if (!password || password.length < 6) {
+    return { success: false, error: "Password must be at least 6 characters long." };
+  }
+
+  if (confirmPassword && password !== confirmPassword) {
+    return { success: false, error: "Passwords do not match. Please re-enter your new password." };
+  }
+
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            );
+          } catch {}
+        },
+      },
+    }
+  );
+
+  const { error } = await supabase.auth.updateUser({
+    password,
+  });
+
+  if (error) {
+    return { success: false, error: formatAuthError(error.message) };
+  }
+
+  return { success: true, message: "Your password has been successfully updated! You can now log in." };
+}
