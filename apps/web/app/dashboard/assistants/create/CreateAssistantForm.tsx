@@ -699,7 +699,7 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
                 <p className="text-xs text-neutral-500">Configure AI Model, Prompts, Dynamic Welcome Messages, Summary Prompts, and Transfer Call Settings.</p>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 max-w-lg">
                 <Label className="eyebrow text-neutral-500 flex items-center justify-between">
                   <span>ASSISTANT NAME <span className="text-red-500 font-bold">*</span></span>
                   <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-[6px] font-semibold italic normal-case flex items-center gap-1 shadow-sm shrink-0">

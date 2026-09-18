@@ -15,10 +15,18 @@ import {
   GitBranch,
   Users,
   Megaphone,
+  MessageSquare,
   PhoneCall,
+  Phone,
   Headphones,
+  FileText,
   TrendingUp,
-  CreditCard
+  BarChart3,
+  CreditCard,
+  Webhook,
+  Settings,
+  ShieldCheck,
+  HelpCircle,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,27 +35,35 @@ import {
   getAdminSidebarPermissionsAction, 
   updateSidebarPermissionsAction
 } from "@/app/actions/adminSidebarPermissions";
-import { SidebarPermissionsConfig, DEFAULT_SIDEBAR_PERMISSIONS } from "@/lib/sidebarPermissions";
+import { 
+  SidebarPermissionsConfig, 
+  DEFAULT_SIDEBAR_PERMISSIONS,
+  ALL_SIDEBAR_MODULES,
+  SidebarModuleDefinition
+} from "@/lib/sidebarPermissions";
 
-interface SidebarItemDefinition {
-  href: string;
-  name: string;
-  description: string;
-  icon: any;
-}
-
-const SIDEBAR_ITEMS: SidebarItemDefinition[] = [
-  { href: "/dashboard", name: "Overview", description: "Main overview page with aggregate metrics and quick links.", icon: LayoutDashboard },
-  { href: "/dashboard/assistants", name: "Assistants", description: "Manage neural voice agents, prompts, and catalogs.", icon: Bot },
-  { href: "/dashboard/connectors", name: "Connectors & Tools", description: "Integrations, API actions, and database connector mappings.", icon: Share2 },
-  { href: "/dashboard/workflows", name: "Workflows & Automation", description: "Automated trigger pipelines for call logs and CRM events.", icon: GitBranch },
-  { href: "/dashboard/contacts", name: "Contacts & Sync", description: "Customer contact uploads, custom lists, and databases.", icon: Users },
-  { href: "/dashboard/campaigns", name: "Campaigns", description: "High-volume dialing operations and automatic calling queues.", icon: Megaphone },
-  { href: "/dashboard/phone-numbers", name: "Phone Numbers", description: "Rent virtual phone lines and assign them to voice assistants.", icon: PhoneCall },
-  { href: "/dashboard/calls", name: "Call Logs & Audio", description: "Review audio recordings, cost metrics, and full call transcripts.", icon: Headphones },
-  { href: "/dashboard/analytics", name: "Analytics", description: "Detailed graphical insights on user metrics and latencies.", icon: TrendingUp },
-  { href: "/dashboard/billing", name: "Plans & Billing", description: "Plan tier upgrades, wallet recharges, and billing summaries.", icon: CreditCard }
-];
+// Dynamic Icon Registry
+const ICON_MAP: Record<string, React.ElementType> = {
+  LayoutDashboard,
+  Bot,
+  Share2,
+  GitBranch,
+  Users,
+  Megaphone,
+  MessageSquare,
+  PhoneCall,
+  Phone,
+  Headphones,
+  FileText,
+  TrendingUp,
+  BarChart3,
+  CreditCard,
+  Webhook,
+  Settings,
+  ShieldCheck,
+  Shield,
+  Lock,
+};
 
 export default function SidebarPermissionsClient() {
   const [loading, setLoading] = useState(true);
@@ -130,7 +146,7 @@ export default function SidebarPermissionsClient() {
             </Badge>
           </div>
           <p className="text-xs text-neutral-500 mt-1">
-            Configure access rules for individual navigation tabs. Modules locked as Admin Only are hidden from ordinary users and blocked from direct routing.
+            Configure access rules for all navigation and system modules. Modules locked as Admin Only are hidden from ordinary users in the sidebar and blocked from direct URL access.
           </p>
         </div>
 
@@ -168,16 +184,16 @@ export default function SidebarPermissionsClient() {
           <CardHeader className="border-b border-neutral-100 pb-4">
             <CardTitle className="text-sm font-bold text-black uppercase tracking-wider flex items-center gap-2">
               <Shield className="w-5 h-5 text-neutral-800" />
-              <span>Sidebar Access Matrix</span>
+              <span>Sidebar Access Matrix ({ALL_SIDEBAR_MODULES.length} Features)</span>
             </CardTitle>
             <CardDescription className="text-xs">
-              Manage permission overrides for standard users. Locked sidebar items default to Admin Only.
+              All sidebar features automatically sync here. Locked modules are restricted to Administrator accounts.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0 divide-y divide-neutral-100">
-            {SIDEBAR_ITEMS.map(item => {
+            {ALL_SIDEBAR_MODULES.map((item: SidebarModuleDefinition) => {
               const isAdminOnly = config[item.href] === "admin";
-              const ItemIcon = item.icon;
+              const ItemIcon = ICON_MAP[item.iconName] || HelpCircle;
 
               return (
                 <div 
@@ -195,9 +211,14 @@ export default function SidebarPermissionsClient() {
                       <ItemIcon className="w-5 h-5" />
                     </div>
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-bold text-black">{item.name}</span>
                         <span className="text-[10px] font-mono text-neutral-400">({item.href})</span>
+                        {item.category === "system" && (
+                          <Badge variant="outline" className="text-[9px] font-mono px-1.5 py-0">
+                            SYSTEM
+                          </Badge>
+                        )}
                         {isAdminOnly && (
                           <Badge className="bg-amber-50 text-amber-800 border border-amber-200 font-mono text-[9px] font-bold px-1.5 py-0.2 rounded">
                             ADMIN ONLY

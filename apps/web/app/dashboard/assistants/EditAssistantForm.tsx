@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import AssistantTestModal from "@/components/AssistantTestModal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,9 +11,18 @@ import { VOMYRA_CATALOG, VoiceOption } from "@/lib/catalog";
 import { updateAssistantAction, toggleAssistantToolAction, generatePromptAction } from "@/app/actions/assistants";
 import { getConnectorsAction } from "@/app/actions/connectors";
 import { getToolCallingDefaults } from "@/lib/toolCallingDefaults";
-import { Play, Pause, Volume2, Check, Wrench, Sparkles, PhoneCall, Wand2, X, Plus, Trash2, Bot, Cpu, Mic, Settings2, Copy, Share2, CheckCircle2, Settings, ExternalLink, AlertTriangle, Lock } from "lucide-react";
+import { Play, Pause, Volume2, Check, Wrench, Sparkles, PhoneCall, Wand2, X, Plus, Trash2, Bot, Cpu, Mic, Settings2, Copy, Share2, CheckCircle2, Settings, ExternalLink, AlertTriangle, Lock, Zap, MessageSquare, Sliders, ArrowRight, RotateCcw, Lightbulb, Bookmark } from "lucide-react";
 import { AgentIntegrationsPermissions } from "@/components/connectors/AgentIntegrationsPermissions";
 import { AssistantToolConfigDrawer, ToolAssignmentConfig } from "@/components/assistants/AssistantToolConfigDrawer";
+
+
+const DYNAMIC_VARIABLES = [
+  { tag: "{{name}}", label: "Customer Name", desc: "e.g. John Doe" },
+  { tag: "{{company}}", label: "Company", desc: "e.g. Acme Corp" },
+  { tag: "{{phone}}", label: "Phone", desc: "e.g. +91 98765 43210" },
+  { tag: "{{date}}", label: "Date", desc: "e.g. Tomorrow" },
+  { tag: "{{time}}", label: "Time", desc: "e.g. 10:30 AM" }
+];
 
 interface EditAssistantFormProps {
   assistant: {
@@ -30,13 +38,203 @@ interface EditAssistantFormProps {
   workspaceTools?: Array<{ id: string; name: string; type: string; description?: string; config?: any }>;
 }
 
-export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssistantFormProps) {
+
+type GuideLang = "en" | "hinglish";
+
+interface GuideContextType {
+  guideLang: GuideLang;
+  setGuideLang: (lang: GuideLang) => void;
+}
+
+const GuideLanguageContext = React.createContext<GuideContextType>({
+  guideLang: "en",
+  setGuideLang: () => {},
+});
+
+export function GuideLanguageProvider({ children }: { children: React.ReactNode }) {
+  const [guideLang, setGuideLangState] = React.useState<GuideLang>("en");
+
+  React.useEffect(() => {
+    try {
+      const saved = localStorage.getItem("gap_guide_lang") as GuideLang;
+      if (saved === "en" || saved === "hinglish") {
+        setGuideLangState(saved);
+      }
+    } catch {}
+  }, []);
+
+  const setGuideLang = (lang: GuideLang) => {
+    setGuideLangState(lang);
+    try {
+      localStorage.setItem("gap_guide_lang", lang);
+    } catch {}
+  };
+
+  return (
+    <GuideLanguageContext.Provider value={{ guideLang, setGuideLang }}>
+      {children}
+    </GuideLanguageContext.Provider>
+  );
+}
+
+export function useGuideLanguage() {
+  return React.useContext(GuideLanguageContext);
+}
+
+export interface GuideTooltipProps {
+  title: string;
+  titleHinglish?: string;
+  whatIsIt: string;
+  whatToDo: string;
+  whatIsItHinglish?: string;
+  whatToDoHinglish?: string;
+}
+
+export function GuideTooltip({
+  title,
+  titleHinglish,
+  whatIsIt,
+  whatToDo,
+  whatIsItHinglish,
+  whatToDoHinglish
+}: GuideTooltipProps) {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const { guideLang, setGuideLang } = useGuideLanguage();
+  const popoverRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [isOpen]);
+
+  const isHinglish = guideLang === "hinglish";
+  const displayTitle = isHinglish && titleHinglish ? titleHinglish : title;
+  const displayWhatIsIt = isHinglish && whatIsItHinglish ? whatIsItHinglish : whatIsIt;
+  const displayWhatToDo = isHinglish && whatToDoHinglish ? whatToDoHinglish : whatToDo;
+
+  return (
+    <span className="relative inline-flex items-center ml-1.5 shrink-0 align-middle">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+        }}
+        aria-label={`Guide for ${title}`}
+        title="Click for simple non-technical guide"
+        className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold font-mono transition-all cursor-pointer select-none ${
+          isOpen
+            ? "bg-black text-white ring-2 ring-emerald-400 scale-110"
+            : "bg-surface-soft border border-hairline text-neutral-500 hover:text-black hover:bg-neutral-200"
+        }`}
+      >
+        i
+      </button>
+
+      {isOpen && (
+        <span
+          ref={popoverRef}
+          className="fixed sm:absolute inset-x-4 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 bottom-20 sm:bottom-full sm:mb-2 w-auto sm:w-88 max-w-[calc(100vw-32px)] p-4 bg-neutral-950 text-white rounded-2xl shadow-2xl border border-neutral-700 z-50 animate-fadeIn text-left font-sans block cursor-default"
+        >
+          {/* Header with Title and Language Switcher */}
+          <span className="flex items-center justify-between border-b border-neutral-800 pb-2.5 mb-2.5 gap-2">
+            <span className="flex items-center gap-2 min-w-0">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+              <span className="font-bold text-xs text-white tracking-tight truncate">{displayTitle}</span>
+            </span>
+
+            <span className="flex items-center gap-2 shrink-0">
+              {/* Language Switch Toggle */}
+              <span className="flex items-center bg-neutral-900 border border-neutral-700 p-0.5 rounded-lg text-[10px] font-bold">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setGuideLang("en");
+                  }}
+                  className={`px-1.5 py-0.5 rounded transition-all cursor-pointer ${
+                    !isHinglish ? "bg-emerald-500 text-black shadow-xs font-bold" : "text-neutral-400 hover:text-white"
+                  }`}
+                >
+                  EN
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setGuideLang("hinglish");
+                  }}
+                  className={`px-1.5 py-0.5 rounded transition-all cursor-pointer ${
+                    isHinglish ? "bg-emerald-500 text-black shadow-xs font-bold" : "text-neutral-400 hover:text-white"
+                  }`}
+                >
+                  हिंदी
+                </button>
+              </span>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsOpen(false);
+                }}
+                className="text-neutral-400 hover:text-white p-1 rounded-full hover:bg-neutral-800 transition-colors cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </span>
+          </span>
+
+          {/* Body Content */}
+          <span className="space-y-2.5 text-[11px] leading-relaxed block">
+            <span className="space-y-0.5 block">
+              <span className="font-bold text-emerald-400 block text-[10px] uppercase tracking-wider font-mono">
+                {isHinglish ? "💡 Ye kya hai?" : "💡 What is it?"}
+              </span>
+              <span className="text-neutral-200 font-medium block normal-case leading-normal">{displayWhatIsIt}</span>
+            </span>
+
+            <span className="pt-2 border-t border-neutral-800/80 space-y-0.5 block">
+              <span className="font-bold text-amber-300 block text-[10px] uppercase tracking-wider font-mono">
+                {isHinglish ? "🎯 Mujhe kya karna hai?" : "🎯 What should I do?"}
+              </span>
+              <span className="text-neutral-300 font-medium block normal-case leading-normal">{displayWhatToDo}</span>
+            </span>
+          </span>
+        </span>
+      )}
+    </span>
+  );
+}
+
+export function EditAssistantForm(props: EditAssistantFormProps) {
+  return (
+    <GuideLanguageProvider>
+      <EditAssistantFormInner {...props} />
+    </GuideLanguageProvider>
+  );
+}
+
+function EditAssistantFormInner({ assistant, workspaceTools = [] }: EditAssistantFormProps) {
   const [activeTab, setActiveTab] = React.useState<"model" | "speech" | "voice" | "tools" | "integrations" | "advance">("model");
 
   const [isUpdating, setIsUpdating] = React.useState(false);
   const [saveSuccess, setSaveSuccess] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
-  const [isTestModalOpen, setIsTestModalOpen] = React.useState(false);
 
   // Validation Errors
   const [nameError, setNameError] = React.useState<string | null>(null);
@@ -451,100 +649,97 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
 
       {/* Top Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-hairline pb-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-black tracking-tight">{name}</h1>
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-bold text-black tracking-tight">{name}</h1>
             <span className="font-mono text-[11px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 rounded-full font-bold">
               {assistant.status || "active"}
             </span>
             {assistant.provider_resource_id && (
               <span className="font-mono text-[10px] bg-surface-soft border border-hairline text-neutral-500 px-2 py-0.5 rounded">
-                Resource ID: {assistant.provider_resource_id.slice(-6)}
+                ID: {assistant.provider_resource_id.slice(-6)}
               </span>
             )}
           </div>
-          <p className="text-xs text-neutral-500 mt-1">Configure speech pipeline, prompt engineering, custom function tools, and advance telephony settings.</p>
+          <p className="text-xs text-neutral-500 leading-relaxed">Configure speech pipeline, prompt engineering, custom function tools, and advance telephony settings.</p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Button
-            type="button"
-            onClick={() => setIsTestModalOpen(true)}
-            className="btn-pill-primary rounded-[10px] text-xs px-4 py-2 flex items-center gap-2 shadow-sm"
-          >
-            <PhoneCall className="w-3.5 h-3.5" />
-            <span>Test Voice & Phone</span>
-          </Button>
-
+        <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
           <Button
             type="submit"
             disabled={isUpdating}
-            className="bg-black hover:bg-neutral-800 text-white rounded-[10px] text-xs px-5 py-2 font-bold transition-transform active:scale-95 shadow-sm"
+            className="bg-black hover:bg-neutral-800 text-white rounded-xl text-xs px-6 py-2.5 font-bold transition-transform active:scale-95 shadow-sm cursor-pointer shrink-0"
           >
             {isUpdating ? "Saving..." : saveSuccess ? "Saved ✓" : "Update Assistant"}
           </Button>
         </div>
       </div>
 
-      {/* Tabs Navigation */}
-      <div className="flex border border-hairline rounded-[12px] bg-surface-soft p-1 gap-1 text-xs">
+      {/* Tabs Navigation (Responsive Horizontally Scrollable on Mobile) */}
+      <div className="flex overflow-x-auto no-scrollbar scroll-smooth whitespace-nowrap border border-hairline rounded-2xl bg-surface-soft p-1.5 gap-1.5 text-xs shadow-2xs">
         <button
           type="button"
           onClick={() => setActiveTab("model")}
-          className={`flex-1 py-2 px-3 rounded-[8px] font-semibold flex items-center justify-center gap-1.5 transition-all ${activeTab === "model" ? "bg-white text-black shadow-xs font-bold" : "text-neutral-500 hover:text-black"
-            }`}
+          className={`shrink-0 py-2.5 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            activeTab === "model" ? "bg-white text-black shadow-xs font-bold" : "text-neutral-500 hover:text-black hover:bg-white/50"
+          }`}
         >
-          <Bot className="w-3.5 h-3.5" />
+          <Bot className="w-4 h-4 text-emerald-600" />
           <span>Model & Prompts</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("speech")}
-          className={`flex-1 py-2 px-3 rounded-[8px] font-semibold flex items-center justify-center gap-1.5 transition-all ${activeTab === "speech" ? "bg-white text-black shadow-xs font-bold" : "text-neutral-500 hover:text-black"
-            }`}
+          className={`shrink-0 py-2.5 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            activeTab === "speech" ? "bg-white text-black shadow-xs font-bold" : "text-neutral-500 hover:text-black hover:bg-white/50"
+          }`}
         >
-          <Cpu className="w-3.5 h-3.5" />
+          <Cpu className="w-4 h-4 text-blue-600" />
           <span>Speech Input (STT)</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("voice")}
-          className={`flex-1 py-2 px-3 rounded-[8px] font-semibold flex items-center justify-center gap-1.5 transition-all ${activeTab === "voice" ? "bg-white text-black shadow-xs font-bold" : "text-neutral-500 hover:text-black"
-            }`}
+          className={`shrink-0 py-2.5 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            activeTab === "voice" ? "bg-white text-black shadow-xs font-bold" : "text-neutral-500 hover:text-black hover:bg-white/50"
+          }`}
         >
-          <Mic className="w-3.5 h-3.5" />
+          <Mic className="w-4 h-4 text-purple-600" />
           <span>Voice Output (TTS)</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("tools")}
-          className={`flex-1 py-2 px-3 rounded-[8px] font-semibold flex items-center justify-center gap-1.5 transition-all ${activeTab === "tools" ? "bg-white text-black shadow-xs font-bold" : "text-neutral-500 hover:text-black"
-            }`}
+          className={`shrink-0 py-2.5 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            activeTab === "tools" ? "bg-white text-black shadow-xs font-bold" : "text-neutral-500 hover:text-black hover:bg-white/50"
+          }`}
         >
-          <Wrench className="w-3.5 h-3.5" />
+          <Wrench className="w-4 h-4 text-amber-600" />
           <span>Tools ({assignedToolIds.length})</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("integrations")}
-          className={`flex-1 py-2 px-3 rounded-[8px] font-semibold flex items-center justify-center gap-1.5 transition-all ${activeTab === "integrations" ? "bg-white text-black shadow-xs font-bold" : "text-neutral-500 hover:text-black"
-            }`}
+          className={`shrink-0 py-2.5 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            activeTab === "integrations" ? "bg-white text-black shadow-xs font-bold" : "text-neutral-500 hover:text-black hover:bg-white/50"
+          }`}
         >
-          <Share2 className="w-3.5 h-3.5" />
+          <Share2 className="w-4 h-4 text-indigo-600" />
           <span>Integrations & Permissions</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("advance")}
-          className={`flex-1 py-2 px-3 rounded-[8px] font-semibold flex items-center justify-center gap-1.5 transition-all ${activeTab === "advance" ? "bg-white text-black shadow-xs font-bold" : "text-neutral-500 hover:text-black"
-            }`}
+          className={`shrink-0 py-2.5 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            activeTab === "advance" ? "bg-white text-black shadow-xs font-bold" : "text-neutral-500 hover:text-black hover:bg-white/50"
+          }`}
         >
-          <Settings2 className="w-3.5 h-3.5" />
+          <Settings2 className="w-4 h-4 text-neutral-600" />
           <span>Advance Settings</span>
         </button>
       </div>
@@ -558,212 +753,561 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
 
       {/* Model & Prompts Tab */}
       {activeTab === "model" && (
+        <div className="bg-white border border-hairline rounded-[16px] p-6 sm:p-8 space-y-8 shadow-xs">
+          
+          {/* Header & Quick Summary */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-hairline pb-5">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-black text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                  <Bot className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-black tracking-tight">Model & Conversation Persona</h3>
+                  <p className="text-xs text-neutral-500">Configure AI provider, system persona prompt, dynamic greetings, and telephony behaviors.</p>
+                </div>
+              </div>
+            </div>
 
-        <div className="bg-white border border-hairline rounded-[14px] p-6 space-y-6 shadow-sm">
-          <div>
-            <h3 className="text-xl font-bold text-black">Model & Prompt Configuration</h3>
-            <p className="text-xs text-neutral-500">Configure AI Model, Prompts, Dynamic Welcome Messages, Summary Prompts, and Transfer Call Settings.</p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsPromptModalOpen(true)}
+                className="px-3.5 py-2 rounded-xl text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 transition-all shadow-2xs flex items-center gap-2 cursor-pointer"
+              >
+                <Wand2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>AI Prompt Generator</span>
+              </button>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label className="eyebrow text-neutral-500 flex items-center justify-between">
-              <span>ASSISTANT NAME <span className="text-red-500 font-bold">*</span></span>
-              <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-[6px] font-semibold italic normal-case flex items-center gap-1 shadow-sm shrink-0">
-                Required Field
+          {/* Assistant Name Card (Compact & Focused) */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-surface-soft/60 border border-hairline space-y-2 max-w-lg">
+            <Label className="eyebrow text-neutral-600 flex items-center justify-between gap-3">
+              <span className="font-bold flex items-center gap-1.5 shrink-0">
+                <span>ASSISTANT NAME</span>
+                <span className="text-rose-500 font-bold">*</span>
+                <GuideTooltip
+                  title="Assistant Name"
+                  titleHinglish="Assistant Ka Naam"
+                  whatIsIt="The public name for your AI bot shown on your dashboard and call history."
+                  whatIsItHinglish="Aapke AI agent ka display name jo dashboard aur call records me dikhega."
+                  whatToDo="Give it a clear role name like 'Front Desk Receptionist' or 'Support Agent'."
+                  whatToDoHinglish="Isko ek aasan job role dein, jaise 'Front Desk Receptionist' ya 'Hotel Concierge'."
+                />
               </span>
+              <span className="text-[10px] text-neutral-400 font-medium truncate">Shown on call logs</span>
             </Label>
             <Input
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="bg-surface-soft border border-hairline rounded-[10px] px-4 py-2 text-xs font-semibold text-black"
+              onChange={(e) => {
+                setName(e.target.value);
+                if (nameError) setNameError(null);
+              }}
+              placeholder="e.g. Front Desk Receptionist, Lead Qualifier"
+              className="bg-white border border-hairline rounded-xl px-4 py-2 text-sm font-semibold text-black focus:border-black focus:ring-1 focus:ring-black shadow-2xs"
               required
             />
             {nameError && (
-              <p className="text-xs text-red-600 font-semibold mt-1.5 flex items-center gap-1 animate-fadeIn">
-                <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
+              <p className="text-xs text-rose-600 font-semibold mt-1.5 flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                 <span>{nameError}</span>
               </p>
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label className="eyebrow text-neutral-500">AI PROVIDER</Label>
-              <select
-                value={aiProvider}
-                onChange={(e) => {
-                  setAiProvider(e.target.value);
-                  const avail = VOMYRA_CATALOG.ai.models[e.target.value as keyof typeof VOMYRA_CATALOG.ai.models] || [];
-                  if (avail && avail.length > 0 && avail[0]) setModel(avail[0].id);
-                }}
-                className="w-full bg-surface-soft border border-hairline rounded-[10px] px-3 py-2 text-xs font-semibold text-black capitalize"
-              >
-                {aiProviders.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
+          {/* AI Provider, Model Selection & Intelligence Parameters */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-black uppercase tracking-wider flex items-center gap-2">
+                <Cpu className="w-4 h-4 text-neutral-600" />
+                <span>Intelligence Engine & Creativity</span>
+              </h4>
+              <span className="text-[11px] font-mono text-neutral-500 bg-surface-soft px-2.5 py-0.5 rounded-full border border-hairline">
+                Ultra-low Latency Optimized
+              </span>
             </div>
 
-            <div className="space-y-2">
-              <Label className="eyebrow text-neutral-500">MODEL</Label>
-              <select
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-                className="w-full bg-surface-soft border border-hairline rounded-[10px] px-3 py-2 text-xs font-semibold text-black"
-              >
-                {currentModels.map((m) => (
-                  <option key={m.id} value={m.id}>{m.label}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="eyebrow text-neutral-500">MAX TOKENS</Label>
-                <span className="font-mono text-xs font-bold text-black">{maxTokens}</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Provider Selection */}
+              <div className="p-4 rounded-xl border border-hairline bg-surface-soft/40 space-y-2">
+                <Label className="eyebrow text-neutral-500 flex items-center">
+                  <span>AI PROVIDER</span>
+                  <GuideTooltip
+                    title="AI Intelligence Provider"
+                    titleHinglish="AI Brain Provider"
+                    whatIsIt="The AI technology company powering your assistant's thinking and answers."
+                    whatIsItHinglish="Ye wo AI system hai jo bot ko samajhne aur bolne ka dimaag deta hai."
+                    whatToDo="Keep OpenAI (default) for natural conversation, or Groq for extreme low latency."
+                    whatToDoHinglish="OpenAI hi select rehne dein, ye sabse smart aur natural baat karta hai."
+                  />
+                </Label>
+                <select
+                  value={aiProvider}
+                  onChange={(e) => {
+                    const newProvider = e.target.value;
+                    setAiProvider(newProvider);
+                    const avail = VOMYRA_CATALOG.ai.models[newProvider as keyof typeof VOMYRA_CATALOG.ai.models] || [];
+                    if (avail && avail.length > 0 && avail[0]) setModel(avail[0].id);
+                  }}
+                  className="w-full bg-white border border-hairline rounded-lg px-3.5 py-2.5 text-xs font-bold text-black capitalize focus:outline-none focus:border-black shadow-2xs"
+                >
+                  {aiProviders.map((p) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-neutral-400">Underlying LLM infrastructure</p>
               </div>
+
+              {/* Model Tier Selection */}
+              <div className="p-4 rounded-xl border border-hairline bg-surface-soft/40 space-y-2">
+                <Label className="eyebrow text-neutral-500 flex items-center">
+                  <span>MODEL ARCHITECTURE</span>
+                  <GuideTooltip
+                    title="AI Model Tier"
+                    titleHinglish="AI Model Version"
+                    whatIsIt="The brain size and intelligence level used for conversation turns."
+                    whatIsItHinglish="AI dimaag ka model jo decide karta hai bot kitni tezi se aur kitna smart jawab dega."
+                    whatToDo="GPT-4o-mini is recommended for fast, affordable, and natural phone calls."
+                    whatToDoHinglish="'gpt-4o-mini' chunein — ye super fast, sasta aur bilkul natural bolta hai."
+                  />
+                </Label>
+                <select
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                  className="w-full bg-white border border-hairline rounded-lg px-3.5 py-2.5 text-xs font-bold text-black focus:outline-none focus:border-black shadow-2xs"
+                >
+                  {currentModels.map((m) => (
+                    <option key={m.id} value={m.id}>{m.label}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-neutral-400">Select model size and reasoning speed</p>
+              </div>
+
+              {/* Max Tokens Slider & Speech Duration */}
+              <div className="p-4 rounded-xl border border-hairline bg-surface-soft/40 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <Label className="eyebrow text-neutral-500 flex items-center">
+                    <span>MAX OUTPUT TOKENS</span>
+                    <GuideTooltip
+                      title="Max Output Tokens (Speech Length)"
+                      titleHinglish="Bolne Ki Dialogue Limit"
+                      whatIsIt="The maximum length of words the bot can generate in one single reply."
+                      whatIsItHinglish="Ek baar me bot kitna lamba dialogue bol sakta hai uski boundary."
+                      whatToDo="Keep between 150 to 250 tokens (~20-30 seconds) so the bot never gives long monologues."
+                      whatToDoHinglish="Isko 150 se 250 par rakhein taaki bot lamba bhashan na de aur customer ko bolne de."
+                    />
+                  </Label>
+                  <span className="font-mono text-xs font-bold text-black bg-white px-2 py-0.5 rounded border border-hairline">
+                    {maxTokens}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="64"
+                  max="1024"
+                  step="32"
+                  value={maxTokens}
+                  onChange={(e) => setMaxTokens(parseInt(e.target.value) || 256)}
+                  className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-black"
+                />
+                <div className="flex items-center justify-between text-[10px] text-neutral-500 font-medium">
+                  <span>~{Math.round(maxTokens * 0.12)}s max speech</span>
+                  <span className="text-neutral-400 font-mono">1024 max</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Creativity / Temperature Control */}
+            <div className="p-4 rounded-xl border border-hairline bg-surface-soft/40 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                <div>
+                  <Label className="text-xs font-bold text-black uppercase tracking-wider flex items-center">
+                    <span>Creativity & Temperature</span>
+                    <GuideTooltip
+                      title="Creativity (Temperature)"
+                      titleHinglish="Creativity (Temperature)"
+                      whatIsIt="Controls how strictly the AI follows facts (0.0) versus natural improvisation (1.0)."
+                      whatIsItHinglish="Ye tay karta hai ki bot kitna strictly factual bolega ya natural friendly baatein karega."
+                      whatToDo="Use 0.0 - 0.2 for strict booking/pricing, and 0.3 - 0.5 for friendly customer support."
+                      whatToDoHinglish="Isko 0.2 se 0.4 ke beech rakhein taaki bot sahi jankari de bina kisi galti ke."
+                    />
+                  </Label>
+                  <p className="text-xs text-neutral-500">Controls how strictly the assistant follows predefined facts vs improvisation.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                    temperature <= 0.2
+                      ? "bg-blue-50 text-blue-800 border-blue-200"
+                      : temperature <= 0.6
+                        ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                        : "bg-purple-50 text-purple-800 border-purple-200"
+                  }`}>
+                    {temperature <= 0.2 ? "Strict & Factual" : temperature <= 0.6 ? "Balanced & Natural" : "Creative & Expressive"}
+                  </span>
+                  <span className="font-mono text-xs font-bold text-black bg-white px-2.5 py-0.5 rounded border border-hairline shadow-2xs">
+                    {temperature.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
               <input
                 type="range"
-                min="64"
-                max="2048"
-                step="32"
-                value={maxTokens}
-                onChange={(e) => setMaxTokens(parseInt(e.target.value) || 256)}
-                className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                min="0.0"
+                max="1.0"
+                step="0.05"
+                value={temperature}
+                onChange={(e) => setTemperature(parseFloat(e.target.value) || 0.3)}
+                className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-black"
               />
+
+              <div className="grid grid-cols-3 text-[10px] font-semibold text-neutral-500 pt-1">
+                <span className="text-left">0.0 (Strict / Data Retrieval)</span>
+                <span className="text-center">0.3 - 0.5 (Natural Telephony)</span>
+                <span className="text-right">1.0 (Creative Sales)</span>
+              </div>
             </div>
           </div>
 
-          {/* Dynamic Welcome Message */}
-          <div className="space-y-3 pt-4 border-t border-hairline">
-            <div className="flex items-center justify-between">
+
+          {/* Dynamic / Static Welcome Greeting with Live Preview */}
+          <div className="space-y-4 pt-4 border-t border-hairline">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
-                <Label className="text-xs font-bold text-black uppercase tracking-wider">Dynamic Welcome Message</Label>
-                <p className="text-xs text-neutral-500">When enabled, the assistant greets dynamically based on conversation context or lead data.</p>
+                <Label className="text-xs font-bold text-black uppercase tracking-wider flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-emerald-600" />
+                  <span>Greeting & First Utterance</span>
+                  <GuideTooltip
+                    title="Greeting & First Utterance"
+                    titleHinglish="Pehla Swagat Message"
+                    whatIsIt="The very first sentence spoken by the assistant the moment the call connects."
+                    whatIsItHinglish="Call connect hote hi bot sabse pehle jo pehli line customer ko bolega."
+                    whatToDo="Write a warm opening ending with an open question, e.g. 'Hello! How can I assist you today?'"
+                    whatToDoHinglish="Ek chhota aur warm greeting likhein, jaise 'Namaste! Main aapki kya madad kar sakta hoon?'"
+                  />
+                </Label>
+                <p className="text-xs text-neutral-500">The first sentence spoken by the assistant the moment the call connects.</p>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-neutral-600">{dynamicWelcomeEnabled ? "Enabled" : "Disabled"}</span>
+
+              {/* Dynamic Toggle Switch */}
+              <div className="flex items-center gap-2.5 bg-surface-soft p-1.5 px-3 rounded-full border border-hairline">
+                <span className="text-xs font-bold text-neutral-700">
+                  {dynamicWelcomeEnabled ? "Dynamic LLM Greeting" : "Static Fixed Greeting"}
+                </span>
                 <button
                   type="button"
                   onClick={() => setDynamicWelcomeEnabled(!dynamicWelcomeEnabled)}
-                  className={`w-11 h-6 rounded-full transition-colors relative p-0.5 ${dynamicWelcomeEnabled ? 'bg-emerald-500' : 'bg-neutral-300'}`}
+                  className={`w-10 h-5 rounded-full transition-colors relative p-0.5 cursor-pointer ${
+                    dynamicWelcomeEnabled ? 'bg-emerald-500' : 'bg-neutral-300'
+                  }`}
                 >
-                  <span className={`block w-5 h-5 rounded-full bg-white transition-transform ${dynamicWelcomeEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                  <span className={`block w-4 h-4 rounded-full bg-white transition-transform ${
+                    dynamicWelcomeEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`} />
                 </button>
               </div>
             </div>
 
+            {/* Dynamic Variables Quick Insert Bar */}
+            <div className="flex flex-wrap items-center gap-1.5 p-3 rounded-xl bg-surface-soft/60 border border-hairline">
+              <span className="text-[11px] font-bold text-neutral-600 flex items-center gap-1 mr-1">
+                <Zap className="w-3.5 h-3.5 text-amber-500" />
+                <span>Insert Variables:</span>
+                <GuideTooltip
+                  title="Dynamic Variables"
+                  titleHinglish="Auto-fill Tags"
+                  whatIsIt="Tags that automatically get replaced with the caller's real name, company, or appointment time."
+                  whatIsItHinglish="Auto-fill tags jo customer ka asli naam, phone ya details khud bhar dete hain."
+                  whatToDo="Click any tag (e.g. {{name}}) to insert it into your greeting or prompt."
+                  whatToDoHinglish="{{name}} par click karein taaki bot customer ko unke naam se pukaare."
+                />
+              </span>
+              {DYNAMIC_VARIABLES.map((v) => (
+                <button
+                  key={v.tag}
+                  type="button"
+                  onClick={() => {
+                    if (dynamicWelcomeEnabled) {
+                      setDynamicWelcomeMessage((prev: string) => (prev ? `${prev} ${v.tag}` : v.tag));
+                    } else {
+                      setWelcomeMessage((prev: string) => (prev ? `${prev} ${v.tag}` : v.tag));
+                    }
+                  }}
+                  title={`Insert ${v.desc}`}
+                  className="px-2.5 py-1 rounded-lg bg-white border border-hairline text-[11px] font-mono font-semibold text-neutral-700 hover:bg-black hover:text-white hover:border-black transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
+                >
+                  <span className="text-emerald-600 font-bold">+</span>
+                  <span>{v.tag}</span>
+                  <span className="text-[10px] text-neutral-400 font-normal">({v.label})</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Input Field */}
             {dynamicWelcomeEnabled ? (
               <div className="space-y-2">
-                <Label className="eyebrow text-neutral-500">DYNAMIC GREETING INSTRUCTIONS</Label>
+                <Label className="eyebrow text-neutral-500 flex items-center">
+                  <span>DYNAMIC GREETING INSTRUCTIONS</span>
+                  <GuideTooltip
+                    title="Dynamic Greeting Instructions"
+                    titleHinglish="Dynamic Greeting Nirdesh"
+                    whatIsIt="Instructs the AI how to formulate the opening line dynamically based on caller details."
+                    whatIsItHinglish="AI ko batana ki customer ke profile ke hisab se alag greeting kaise banaye."
+                    whatToDo="Provide brief instructions like 'Greet warmly in Hindi and ask how you can help with bookings'."
+                    whatToDoHinglish="Simple instruction likhein jaise 'Customer ka swagat karein aur poochhein kis room ki enquiry hai'."
+                  />
+                </Label>
                 <Textarea
                   rows={2}
                   value={dynamicWelcomeMessage}
                   onChange={(e) => setDynamicWelcomeMessage(e.target.value)}
-                  placeholder="Greet the caller warmly in Hindi and ask how you can help them today with room bookings..."
-                  className="bg-surface-soft border border-hairline rounded-[10px] p-3 text-xs text-black font-semibold resize-y"
+                  placeholder="e.g. Greet the caller warmly in Hindi and ask how you can help them today with room bookings..."
+                  className="bg-white border border-hairline rounded-xl p-3.5 text-xs text-black font-semibold resize-y focus:border-black focus:ring-1 focus:ring-black shadow-2xs"
                 />
               </div>
             ) : (
               <div className="space-y-2">
-                <Label className="eyebrow text-neutral-500">STATIC FIRST MESSAGE (WELCOME MESSAGE)</Label>
-                <Input
-                  value={welcomeMessage}
-                  onChange={(e) => setWelcomeMessage(e.target.value)}
-                  placeholder="Welcome, how can I assist you?"
-                  className="bg-surface-soft border border-hairline rounded-[10px] px-4 py-2.5 text-xs text-black font-semibold"
-                />
+                <Label className="eyebrow text-neutral-500 flex items-center">
+                  <span>STATIC FIRST MESSAGE</span>
+                  <GuideTooltip
+                    title="Static First Message"
+                    titleHinglish="Fixed Pehli Line"
+                    whatIsIt="The exact fixed phrase the assistant speaks immediately when the call connects."
+                    whatIsItHinglish="Ek fix line jo har call uthate hi bot exactly wahi bolega."
+                    whatToDo="Keep it under 15 words and end with an open question."
+                    whatToDoHinglish="15 shabdon se chhota rakhein aur aakhiri me sawal poochhein."
+                  />
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={welcomeMessage}
+                    onChange={(e) => setWelcomeMessage(e.target.value)}
+                    placeholder="Welcome to our concierge! How may I assist you today?"
+                    className="bg-white border border-hairline rounded-xl px-4 py-2.5 text-xs text-black font-semibold focus:border-black focus:ring-1 focus:ring-black shadow-2xs flex-1"
+                  />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (typeof window !== "undefined" && window.speechSynthesis) {
+                        window.speechSynthesis.cancel();
+                        const utterance = new SpeechSynthesisUtterance(welcomeMessage || "Hello, how can I help you?");
+                        utterance.rate = voiceSpeed || 1.0;
+                        window.speechSynthesis.speak(utterance);
+                      }
+                    }}
+                    title="Listen to welcome message preview"
+                    className="px-3.5 py-2.5 rounded-xl bg-surface-soft border border-hairline hover:bg-neutral-200 text-black font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs shrink-0"
+                  >
+                    <Volume2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Preview Voice</span>
+                  </button>
+                </div>
               </div>
             )}
+
+            {/* Live Customer Speech Bubble Preview */}
+            <div className="p-4 rounded-2xl bg-linear-to-r from-neutral-900 to-neutral-800 text-white shadow-md flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-emerald-400 text-black flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
+                AI
+              </div>
+              <div className="space-y-1 flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Live Customer First Impression</span>
+                  <span className="text-[10px] text-neutral-400 font-mono">00:00 (Call Connected)</span>
+                </div>
+                <p className="text-xs text-neutral-100 italic leading-relaxed font-medium">
+                  "{dynamicWelcomeEnabled 
+                    ? (dynamicWelcomeMessage ? `[Dynamic Context]: ${dynamicWelcomeMessage}` : "Assistant dynamically generates tailored greeting based on caller profile...")
+                    : (welcomeMessage || "Welcome, how can I assist you?")
+                  }"
+                </p>
+              </div>
+            </div>
           </div>
 
-          {/* System Prompt */}
-          <div className="space-y-2 pt-4 border-t border-hairline">
-            <div className="flex items-center justify-between">
+          {/* System Prompt (Persona & Instructions) */}
+          <div className="space-y-3 pt-4 border-t border-hairline">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div>
                 <div className="flex items-center gap-2">
-                  <Label className="eyebrow text-neutral-500">SYSTEM PROMPT (AGENT INSTRUCTIONS) <span className="text-red-500 font-bold">*</span></Label>
-                  <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-[6px] font-semibold italic normal-case flex items-center gap-1 shadow-sm shrink-0">
-                    Required Field
+                  <Label className="eyebrow text-neutral-500 font-bold flex items-center">
+                    <span>SYSTEM PROMPT (AGENT INSTRUCTIONS)</span>
+                    <GuideTooltip
+                      title="System Prompt (Role Script)"
+                      titleHinglish="Agent Training Instructions"
+                      whatIsIt="The AI's full job training manual: persona, business info, pricing, FAQs, and rules."
+                      whatIsItHinglish="Bot ka training manual: bot kaun hai, aapki company kya bechti hai aur rates kya hain."
+                      whatToDo="Detail what your business offers in plain English. Avoid markdown bullet points or asterisks (**)."
+                      whatToDoHinglish="Plain bhasha me business rules likhein. Kabhi bhi star (**) ya markdown bullets na lagayein."
+                    />
+                  </Label>
+                  <span className="text-rose-500 font-bold">*</span>
+                  <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-bold">
+                    Required
                   </span>
                 </div>
-                <p className="text-xs text-neutral-500">Define the personality, operational rules, role, and conversation flow.</p>
+                <p className="text-xs text-neutral-500">Define knowledge bounds, conversation rules, booking logic, and persona behaviors.</p>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setIsPromptModalOpen(true)}
-                className="btn-pill-secondary rounded-full text-xs px-3 py-1.5 flex items-center gap-1.5 text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>AI Prompt Generator</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsPromptModalOpen(true)}
+                  className="px-3 py-1.5 rounded-lg bg-surface-soft hover:bg-neutral-200 text-neutral-700 border border-hairline text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span>AI Prompt Synthesizer</span>
+                </button>
+              </div>
             </div>
 
             <Textarea
-              rows={8}
+              rows={9}
               value={systemPrompt}
-              onChange={(e) => setSystemPrompt(e.target.value)}
+              onChange={(e) => {
+                setSystemPrompt(e.target.value);
+                if (systemPromptError) setSystemPromptError(null);
+              }}
               placeholder="You are an expert AI Voice Assistant..."
-              className="bg-surface-soft border border-hairline rounded-[10px] p-3.5 text-xs text-black font-mono leading-relaxed resize-y"
+              className="bg-surface-soft/50 border border-hairline rounded-xl p-4 text-xs text-black font-mono leading-relaxed resize-y focus:border-black focus:ring-1 focus:ring-black shadow-2xs"
             />
             {systemPromptError && (
-              <p className="text-xs text-red-600 font-semibold mt-1.5 flex items-center gap-1 animate-fadeIn">
-                <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
+              <p className="text-xs text-rose-600 font-semibold mt-1 flex items-center gap-1.5 animate-fadeIn">
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                 <span>{systemPromptError}</span>
               </p>
             )}
+            
+            <div className="flex items-center justify-between text-[11px] text-neutral-500 font-medium pt-0.5">
+              <span>Tip: Never use markdown bolding (**) or bullet points in prompts for voice bots.</span>
+              <span className="font-mono">{systemPrompt.length} characters</span>
+            </div>
           </div>
 
-          {/* Action Modals Trigger Bar */}
-          <div className="flex flex-wrap gap-3 pt-4 border-t border-hairline">
-            <button
-              type="button"
-              onClick={() => setIsTransferModalOpen(true)}
-              className="btn-pill-secondary rounded-[10px] text-xs px-4 py-2.5 flex items-center gap-2"
-            >
-              <PhoneCall className="w-3.5 h-3.5" />
-              <span>Transfer Call Settings ({transferPhoneNumbers.length})</span>
-            </button>
+          {/* Quick Telephony Action Cards (Transfer & WhatsApp Summary) */}
+          <div className="pt-4 border-t border-hairline space-y-3">
+            <h4 className="text-xs font-bold text-black uppercase tracking-wider flex items-center gap-2">
+              <PhoneCall className="w-4 h-4 text-neutral-600" />
+              <span>Call Handling & Post-Call Actions</span>
+            </h4>
 
-            <button
-              type="button"
-              onClick={() => setIsWhatsappModalOpen(true)}
-              className="btn-pill-secondary rounded-[10px] text-xs px-4 py-2.5 flex items-center gap-2"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>WhatsApp Summary Phone ({whatsappSummaryPhone || "Not set"})</span>
-            </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Transfer Settings Card */}
+              <div className="p-4 rounded-xl border border-hairline bg-surface-soft/40 flex items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-xs text-black flex items-center">
+                      <span>Live Call Transfer</span>
+                      <GuideTooltip
+                        title="Live Call Transfer"
+                        titleHinglish="Call Transfer Settings"
+                        whatIsIt="Automatically patches the live caller to a human agent when requested."
+                        whatIsItHinglish="Jab customer kisi insaan se baat karna chahe, to call turant aapke staff ke phone par transfer ho jayegi."
+                        whatToDo="Add destination phone numbers including the country code (e.g. +91 9876543210)."
+                        whatToDoHinglish="Apne staff ka mobile number country code ke sath daalein (e.g. +91 9876543210)."
+                      />
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border border-hairline text-neutral-700">
+                      {transferPhoneNumbers.length} Number{transferPhoneNumbers.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-neutral-500">Transfer live calls to human agents or departments.</p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsTransferModalOpen(true)}
+                  className="px-3.5 py-2 rounded-xl bg-white border border-hairline hover:bg-neutral-100 text-xs font-bold text-black shadow-2xs transition-all shrink-0 cursor-pointer"
+                >
+                  Configure
+                </button>
+              </div>
+
+              {/* WhatsApp Summary Card */}
+              <div className="p-4 rounded-xl border border-hairline bg-surface-soft/40 flex items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-xs text-black flex items-center">
+                      <span>WhatsApp Summary</span>
+                      <GuideTooltip
+                        title="WhatsApp Call Summary"
+                        titleHinglish="WhatsApp Call Summary"
+                        whatIsIt="Automatically sends a bulleted summary of every completed phone call to your WhatsApp."
+                        whatIsItHinglish="Call khatam hote hi poori baat-cheet ka concise summary aapke WhatsApp par turant bhej dega."
+                        whatToDo="Enter your registered WhatsApp phone number with country code (+91)."
+                        whatToDoHinglish="Apna WhatsApp mobile number country code ke sath enter karein."
+                      />
+                    </span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                      whatsappSummaryPhone ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-neutral-100 text-neutral-500 border-hairline'
+                    }`}>
+                      {whatsappSummaryPhone ? whatsappSummaryPhone : 'Not Configured'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-neutral-500">Dispatch instant AI call summaries via WhatsApp.</p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsWhatsappModalOpen(true)}
+                  className="px-3.5 py-2 rounded-xl bg-white border border-hairline hover:bg-neutral-100 text-xs font-bold text-black shadow-2xs transition-all shrink-0 cursor-pointer"
+                >
+                  Set Phone
+                </button>
+              </div>
+            </div>
           </div>
+
         </div>
       )}
 
       {/* Speech Input (STT) Tab */}
       {activeTab === "speech" && (
-        <div className="bg-white border border-hairline rounded-[14px] p-6 space-y-6 shadow-sm">
+        <div className="bg-white border border-hairline rounded-2xl p-5 sm:p-8 space-y-6 shadow-xs">
           <div>
             <h3 className="text-xl font-bold text-black">Speech Input (STT Engine)</h3>
             <p className="text-xs text-neutral-500">Deepgram Neural Transcription, Real-time VAD, Language, and Utterance Delays.</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label className="eyebrow text-neutral-500">TRANSCRIPTION PROVIDER</Label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="p-4 rounded-xl border border-hairline bg-surface-soft/40 space-y-2">
+              <Label className="eyebrow text-neutral-500 flex items-center">
+                <span>TRANSCRIPTION PROVIDER</span>
+                <GuideTooltip
+                  title="Speech-to-Text Provider"
+                  titleHinglish="Aawaz Sunne Wala System"
+                  whatIsIt="The speech listener that converts the caller's spoken words into text in real-time."
+                  whatIsItHinglish="Ye wo engine hai jo customer ki aawaz sun kar usko turant text me convert karta hai."
+                  whatToDo="Deepgram Nova-2 is optimized for live phone calls."
+                  whatToDoHinglish="Deepgram Nova-2 hi chunein, ye telephony calls ke liye sabse fast aur accurate hai."
+                />
+              </Label>
               <select
                 value={transcriptionProvider}
                 onChange={(e) => setTranscriptionProvider(e.target.value)}
-                className="w-full bg-surface-soft border border-hairline rounded-[10px] px-3 py-2 text-xs font-semibold text-black"
+                className="w-full bg-white border border-hairline rounded-lg px-3.5 py-2.5 text-xs font-semibold text-black focus:outline-none focus:border-black shadow-2xs"
               >
                 <option value="deepgram">Deepgram Nova-2</option>
               </select>
             </div>
 
-            <div className="space-y-2">
-              <Label className="eyebrow text-neutral-500">LANGUAGE</Label>
+            <div className="p-4 rounded-xl border border-hairline bg-surface-soft/40 space-y-2">
+              <Label className="eyebrow text-neutral-500 flex items-center">
+                <span>LANGUAGE</span>
+                <GuideTooltip
+                  title="Transcription Language"
+                  titleHinglish="Sunne Ki Bhasha"
+                  whatIsIt="The primary spoken language the bot listens for during the phone call."
+                  whatIsItHinglish="Wo bhasha jo customer phone par bolega aur bot usko samjhega."
+                  whatToDo="Select the language your callers usually speak (Hindi, Indian English, etc.)."
+                  whatToDoHinglish="Agar aapke customer Hindi bolte hain toh Hindi (hi-IN) select karein."
+                />
+              </Label>
               <select
                 value={transcriptionLanguage}
                 onChange={(e) => setTranscriptionLanguage(e.target.value)}
-                className="w-full bg-surface-soft border border-hairline rounded-[10px] px-3 py-2 text-xs font-semibold text-black"
+                className="w-full bg-white border border-hairline rounded-lg px-3.5 py-2.5 text-xs font-semibold text-black focus:outline-none focus:border-black shadow-2xs"
               >
                 <option value="hi-IN">Hindi (hi-IN)</option>
                 <option value="en-US">English (en-US)</option>
@@ -772,12 +1316,22 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
               </select>
             </div>
 
-            <div className="space-y-2">
-              <Label className="eyebrow text-neutral-500">MODEL TIER</Label>
+            <div className="p-4 rounded-xl border border-hairline bg-surface-soft/40 space-y-2 sm:col-span-2 lg:col-span-1">
+              <Label className="eyebrow text-neutral-500 flex items-center">
+                <span>MODEL TIER</span>
+                <GuideTooltip
+                  title="Speech Model Tier"
+                  titleHinglish="Speech Model Level"
+                  whatIsIt="Speech recognition model tuned for conversations versus generic audio."
+                  whatIsItHinglish="Aawaz pehchanne ka algorithm jo phone lines ke background shor ko filter karta hai."
+                  whatToDo="Nova-2 Conversational AI is recommended for natural phone dialogue."
+                  whatToDoHinglish="'Nova-2 Conversational AI' chunein taaki phone background noise me bhi sahi samjhe."
+                />
+              </Label>
               <select
                 value={dgModel}
                 onChange={(e) => setDgModel(e.target.value)}
-                className="w-full bg-surface-soft border border-hairline rounded-[10px] px-3 py-2 text-xs font-semibold text-black"
+                className="w-full bg-white border border-hairline rounded-lg px-3.5 py-2.5 text-xs font-semibold text-black focus:outline-none focus:border-black shadow-2xs"
               >
                 <option value="nova-2">Nova-2 (Ultra-fast & accurate)</option>
                 <option value="nova-2-general">Nova-2 General</option>
@@ -786,11 +1340,21 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-hairline">
-            <div className="space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-hairline">
+            <div className="p-4 rounded-xl border border-hairline bg-surface-soft/40 space-y-2.5">
               <div className="flex items-center justify-between">
-                <Label className="eyebrow text-neutral-500">UTTERANCE END DELAY (MS)</Label>
-                <span className="font-mono text-xs font-bold text-black">{dgUtteranceEnd} ms</span>
+                <Label className="eyebrow text-neutral-500 flex items-center">
+                  <span>UTTERANCE END DELAY</span>
+                  <GuideTooltip
+                    title="Utterance End Delay"
+                    titleHinglish="Jawab Dene Ka Pause Time"
+                    whatIsIt="How many milliseconds of silence the bot waits after the caller stops speaking before replying."
+                    whatIsItHinglish="Customer ke chup hone ke kitni der baad bot apna jawab bolna shuru kare."
+                    whatToDo="1000ms (1 second) provides the most natural human-like cadence."
+                    whatToDoHinglish="Isko 1000 ms (1 second) par rakhein taaki bot customer ki baat beech me na kaate."
+                  />
+                </Label>
+                <span className="font-mono text-xs font-bold text-black bg-white px-2 py-0.5 rounded border border-hairline shadow-2xs">{dgUtteranceEnd} ms</span>
               </div>
               <input
                 type="range"
@@ -799,14 +1363,28 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
                 step="100"
                 value={dgUtteranceEnd}
                 onChange={(e) => setDgUtteranceEnd(parseInt(e.target.value) || 1000)}
-                className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-black"
               />
+              <div className="flex justify-between text-[10px] text-neutral-400 font-mono">
+                <span>500 ms</span>
+                <span>3000 ms</span>
+              </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="p-4 rounded-xl border border-hairline bg-surface-soft/40 space-y-2.5">
               <div className="flex items-center justify-between">
-                <Label className="eyebrow text-neutral-500">ENDPOINTING (MS)</Label>
-                <span className="font-mono text-xs font-bold text-black">{dgEndpointing} ms</span>
+                <Label className="eyebrow text-neutral-500 flex items-center">
+                  <span>ENDPOINTING SENSITIVITY</span>
+                  <GuideTooltip
+                    title="Endpointing Sensitivity"
+                    titleHinglish="Saans Lene Par Tokne Se Rokna"
+                    whatIsIt="Prevents the bot from interrupting callers if they pause for a quick breath mid-sentence."
+                    whatIsItHinglish="Agar customer bolte hue 1 second ke liye saans le, toh bot beech me tok na de."
+                    whatToDo="Keep between 250ms and 350ms."
+                    whatToDoHinglish="Isko 300 ms ke aas-paas rakhein."
+                  />
+                </Label>
+                <span className="font-mono text-xs font-bold text-black bg-white px-2 py-0.5 rounded border border-hairline shadow-2xs">{dgEndpointing} ms</span>
               </div>
               <input
                 type="range"
@@ -815,38 +1393,44 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
                 step="50"
                 value={dgEndpointing}
                 onChange={(e) => setDgEndpointing(parseInt(e.target.value) || 300)}
-                className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-black"
               />
+              <div className="flex justify-between text-[10px] text-neutral-400 font-mono">
+                <span>100 ms</span>
+                <span>1000 ms</span>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Voice Output Tab (Vomyra Parity) */}
+      {/* Voice Output Tab */}
       {activeTab === "voice" && (
-        <div className="bg-white border border-hairline rounded-[14px] p-6 space-y-6 shadow-sm">
-          <div className="flex items-center justify-between">
+        <div className="bg-white border border-hairline rounded-2xl p-5 sm:p-8 space-y-6 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-hairline pb-4">
             <div>
-              <h3 className="text-xl font-bold text-black">Voice</h3>
-              <p className="text-xs text-neutral-500 mt-1">Configure voice settings for the Assistant.</p>
+              <h3 className="text-xl font-bold text-black">Voice Output & Synthesis</h3>
+              <p className="text-xs text-neutral-500 mt-0.5">Select high-fidelity neural voices, accent profiles, and speech cadence.</p>
             </div>
-            <Button
-              type="button"
-              onClick={handleUpdate}
-              disabled={isUpdating}
-              className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs px-6 py-2 rounded-md shadow-sm"
-            >
-              {isUpdating ? "Updating..." : "Update"}
-            </Button>
           </div>
 
-          <div className="space-y-5">
-            <div className="space-y-2">
-              <Label className="text-sm font-bold text-black">Voice Provider</Label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="p-4 rounded-xl border border-hairline bg-surface-soft/40 space-y-2">
+              <Label className="eyebrow text-neutral-500 flex items-center">
+                <span>VOICE PROVIDER</span>
+                <GuideTooltip
+                  title="Voice Synthesis Provider"
+                  titleHinglish="Aawaz Banane Wala System"
+                  whatIsIt="The sound engine that turns the AI text reply into a real human-sounding voice."
+                  whatIsItHinglish="Ye wo system hai jo AI ke text jawab ko insani aawaz me bolta hai."
+                  whatToDo="Select Azure or ElevenLabs for lifelike audio quality."
+                  whatToDoHinglish="Azure select karein, iski Indian accents bohot natural lagti hain."
+                />
+              </Label>
               <select
                 value={voiceProvider}
                 onChange={(e) => setVoiceProvider(e.target.value)}
-                className="w-full bg-surface-soft border border-hairline rounded-[8px] px-4 py-3 text-sm font-semibold text-black appearance-none"
+                className="w-full bg-white border border-hairline rounded-lg px-3.5 py-2.5 text-xs font-bold text-black focus:outline-none focus:border-black shadow-2xs"
               >
                 {voiceProviderOptions.map((p) => (
                   <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
@@ -854,12 +1438,22 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
               </select>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-bold text-black">Voice</Label>
+            <div className="p-4 rounded-xl border border-hairline bg-surface-soft/40 space-y-2">
+              <Label className="eyebrow text-neutral-500 flex items-center">
+                <span>DEFAULT VOICE</span>
+                <GuideTooltip
+                  title="Voice Persona"
+                  titleHinglish="Aawaz Ka Character"
+                  whatIsIt="The specific human speaker persona (male/female, accent) representing your brand."
+                  whatIsItHinglish="Bot ki aawaz ka character (female ya male aawaz aur accent tone)."
+                  whatToDo="Click the Play button on voice cards below to listen and pick your favorite."
+                  whatToDoHinglish="Voice cards par Play button daba kar suniye aur jo pasand aaye use select karein."
+                />
+              </Label>
               <select
                 value={voiceName}
                 onChange={(e) => setVoiceName(e.target.value)}
-                className="w-full bg-surface-soft border border-hairline rounded-[8px] px-4 py-3 text-sm font-semibold text-black appearance-none"
+                className="w-full bg-white border border-hairline rounded-lg px-3.5 py-2.5 text-xs font-bold text-black focus:outline-none focus:border-black shadow-2xs"
               >
                 {currentVoices.map((v: VoiceOption) => (
                   <option key={v.name} value={v.name}>{v.title || v.name}</option>
@@ -867,240 +1461,45 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
               </select>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-bold text-black">Language <span className="text-red-500">*</span></Label>
+            <div className="p-4 rounded-xl border border-hairline bg-surface-soft/40 space-y-2 sm:col-span-2 lg:col-span-1">
+              <Label className="eyebrow text-neutral-500 flex items-center">
+                <span>LANGUAGE DIALECT</span>
+                <span className="text-rose-500 ml-0.5">*</span>
+                <GuideTooltip
+                  title="Language Dialect"
+                  titleHinglish="Bolne Ka Accent & Bhasha"
+                  whatIsIt="Accent and pronunciation rules for spoken AI answers."
+                  whatIsItHinglish="Bot ke bolne ka accent aur regional bhasha style."
+                  whatToDo="Set to match your customer base e.g. Hindi (India) or Indian English."
+                  whatToDoHinglish="Apne customers ke hisab se Hindi (India) ya English (India) set karein."
+                />
+              </Label>
               <select
                 value={voiceLanguage}
                 onChange={(e) => setVoiceLanguage(e.target.value)}
-                className="w-full bg-surface-soft border border-hairline rounded-[8px] px-4 py-3 text-sm font-semibold text-black appearance-none"
+                className="w-full bg-white border border-hairline rounded-lg px-3.5 py-2.5 text-xs font-bold text-black focus:outline-none focus:border-black shadow-2xs"
               >
                 <option value="hi-IN">Hindi (India)</option>
                 <option value="en-IN">English (India)</option>
                 <option value="en-US">English (US)</option>
               </select>
             </div>
-
-            <div className="space-y-2 pt-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-bold text-black">Voice Rate</Label>
-                <span className="text-black font-bold text-sm">{(voiceSpeed * 20).toFixed(0)}</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="40"
-                step="1"
-                value={voiceSpeed * 20}
-                onChange={(e) => setVoiceSpeed(parseInt(e.target.value) / 20)}
-                className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-              />
-            </div>
           </div>
 
-          {/* Featured Voices Cards */}
-          <div className="pt-6">
-            <h3 className="text-xl font-bold text-black mb-4">Featured Voices</h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-
-              {/* Card 1: Aarti Hindi */}
-              <div className="bg-surface-soft/40 rounded-[12px] p-5 flex flex-col justify-between border border-hairline hover:border-emerald-500/50 transition-colors cursor-pointer group">
-                <div>
-                  <div className="flex items-start justify-between">
-                    <h4 className="font-bold text-lg text-black">Aarti - Azure</h4>
-                    <div className="w-8 h-8 rounded-full bg-white border border-hairline flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Copy className="w-4 h-4 text-neutral-500" />
-                    </div>
-                  </div>
-                  <p className="text-[11px] font-mono text-neutral-500 mt-1">hi-IN-AartiNeural</p>
-
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-[10px] font-bold">Azure</span>
-                    <span className="bg-neutral-200 text-neutral-700 px-2 py-0.5 rounded-full text-[10px] font-bold">Hindi</span>
-                  </div>
-
-                  {voiceName === "hi-IN-AartiNeural" && (
-                    <div className="mt-3 bg-black text-white px-3 py-1 rounded-full w-fit text-[10px] font-bold">
-                      Selected
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-end justify-between mt-6">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      const v = VOMYRA_CATALOG.voice.featured_voices.find((x) => x.name === "hi-IN-AartiNeural");
-                      if (v) handlePlayVoice(v);
-                    }}
-                    className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center hover:bg-emerald-400 transition-colors shadow-sm"
-                  >
-                    {playingVoiceId === "hi-IN-AartiNeural" ? (
-                      <Pause className="w-4 h-4 text-black" />
-                    ) : (
-                      <Play className="w-4 h-4 text-black ml-0.5" />
-                    )}
-                  </button>
-                  <div className="text-right">
-                    <p className="text-[10px] text-neutral-500">Details:</p>
-                    <p className="text-xs font-bold text-black">IN • female</p>
-                    <p className="text-[10px] text-neutral-500">general</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card 2: Arjun Hindi */}
-              <div className="bg-surface-soft/40 rounded-[12px] p-5 flex flex-col justify-between border border-hairline hover:border-emerald-500/50 transition-colors cursor-pointer group">
-                <div>
-                  <div className="flex items-start justify-between">
-                    <h4 className="font-bold text-lg text-black">Arjun - Azure</h4>
-                    <div className="w-8 h-8 rounded-full bg-white border border-hairline flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Copy className="w-4 h-4 text-neutral-500" />
-                    </div>
-                  </div>
-                  <p className="text-[11px] font-mono text-neutral-500 mt-1">hi-IN-ArjunNeural</p>
-
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-[10px] font-bold">Azure</span>
-                    <span className="bg-neutral-200 text-neutral-700 px-2 py-0.5 rounded-full text-[10px] font-bold">Hindi</span>
-                    <span className="bg-neutral-200 text-neutral-700 px-2 py-0.5 rounded-full text-[10px] font-bold">male</span>
-                  </div>
-
-                  {voiceName === "hi-IN-ArjunNeural" && (
-                    <div className="mt-3 bg-black text-white px-3 py-1 rounded-full w-fit text-[10px] font-bold">
-                      Selected
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-end justify-between mt-6">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      const v = VOMYRA_CATALOG.voice.featured_voices.find((x) => x.name === "hi-IN-ArjunNeural");
-                      if (v) handlePlayVoice(v);
-                    }}
-                    className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center hover:bg-emerald-400 transition-colors shadow-sm"
-                  >
-                    {playingVoiceId === "hi-IN-ArjunNeural" ? (
-                      <Pause className="w-4 h-4 text-black" />
-                    ) : (
-                      <Play className="w-4 h-4 text-black ml-0.5" />
-                    )}
-                  </button>
-                  <div className="text-right">
-                    <p className="text-[10px] text-neutral-500">Details:</p>
-                    <p className="text-xs font-bold text-black">IN • male</p>
-                    <p className="text-[10px] text-neutral-500">general</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card 3: Aarti English */}
-              <div className="bg-surface-soft/40 rounded-[12px] p-5 flex flex-col justify-between border border-hairline hover:border-emerald-500/50 transition-colors cursor-pointer group">
-                <div>
-                  <div className="flex items-start justify-between">
-                    <h4 className="font-bold text-lg text-black">Aarti - Azure</h4>
-                    <div className="w-8 h-8 rounded-full bg-white border border-hairline flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Copy className="w-4 h-4 text-neutral-500" />
-                    </div>
-                  </div>
-                  <p className="text-[11px] font-mono text-neutral-500 mt-1">en-IN-AartiNeural</p>
-
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-[10px] font-bold">Azure</span>
-                    <span className="bg-neutral-200 text-neutral-700 px-2 py-0.5 rounded-full text-[10px] font-bold">English</span>
-                    <span className="bg-neutral-200 text-neutral-700 px-2 py-0.5 rounded-full text-[10px] font-bold">female</span>
-                  </div>
-
-                  {voiceName === "en-IN-AartiNeural" && (
-                    <div className="mt-3 bg-black text-white px-3 py-1 rounded-full w-fit text-[10px] font-bold">
-                      Selected
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-end justify-between mt-6">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      const v = VOMYRA_CATALOG.voice.featured_voices.find((x) => x.name === "en-IN-AartiNeural");
-                      if (v) handlePlayVoice(v);
-                    }}
-                    className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center hover:bg-emerald-400 transition-colors shadow-sm"
-                  >
-                    {playingVoiceId === "en-IN-AartiNeural" ? (
-                      <Pause className="w-4 h-4 text-black" />
-                    ) : (
-                      <Play className="w-4 h-4 text-black ml-0.5" />
-                    )}
-                  </button>
-                  <div className="text-right">
-                    <p className="text-[10px] text-neutral-500">Details:</p>
-                    <p className="text-xs font-bold text-black">IN • female</p>
-                    <p className="text-[10px] text-neutral-500">general</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card 4: Arjun English */}
-              <div className="bg-surface-soft/40 rounded-[12px] p-5 flex flex-col justify-between border border-hairline hover:border-emerald-500/50 transition-colors cursor-pointer group">
-                <div>
-                  <div className="flex items-start justify-between">
-                    <h4 className="font-bold text-lg text-black">Arjun - Azure</h4>
-                    <div className="w-8 h-8 rounded-full bg-white border border-hairline flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Copy className="w-4 h-4 text-neutral-500" />
-                    </div>
-                  </div>
-                  <p className="text-[11px] font-mono text-neutral-500 mt-1">en-IN-ArjunNeural</p>
-
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-[10px] font-bold">Azure</span>
-                    <span className="bg-neutral-200 text-neutral-700 px-2 py-0.5 rounded-full text-[10px] font-bold">English</span>
-                    <span className="bg-neutral-200 text-neutral-700 px-2 py-0.5 rounded-full text-[10px] font-bold">male</span>
-                  </div>
-
-                  {voiceName === "en-IN-ArjunNeural" && (
-                    <div className="mt-3 bg-black text-white px-3 py-1 rounded-full w-fit text-[10px] font-bold">
-                      Selected
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-end justify-between mt-6">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      const v = VOMYRA_CATALOG.voice.featured_voices.find((x) => x.name === "en-IN-ArjunNeural");
-                      if (v) handlePlayVoice(v);
-                    }}
-                    className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center hover:bg-emerald-400 transition-colors shadow-sm"
-                  >
-                    {playingVoiceId === "en-IN-ArjunNeural" ? (
-                      <Pause className="w-4 h-4 text-black" />
-                    ) : (
-                      <Play className="w-4 h-4 text-black ml-0.5" />
-                    )}
-                  </button>
-                  <div className="text-right">
-                    <p className="text-[10px] text-neutral-500">Details:</p>
-                    <p className="text-xs font-bold text-black">IN • male</p>
-                    <p className="text-[10px] text-neutral-500">general</p>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-
-          <div className="space-y-2">
+          <div className="p-4 rounded-xl border border-hairline bg-surface-soft/40 space-y-2.5">
             <div className="flex items-center justify-between">
-              <Label className="eyebrow text-neutral-500">SPEED ({voiceSpeed}x)</Label>
-              <span className="font-mono text-xs font-bold text-black">{voiceSpeed}</span>
+              <Label className="eyebrow text-neutral-500 flex items-center">
+                <span>VOICE SPEED ({voiceSpeed}x)</span>
+                <GuideTooltip
+                  title="Voice Talking Speed"
+                  titleHinglish="Bolne Ki Raftaar"
+                  whatIsIt="How fast or slow the bot articulates words out loud."
+                  whatIsItHinglish="Bot kitni tezi ya aaram se bolega."
+                  whatToDo="1.0x is standard human speaking speed. Use 0.95x for clear announcements or 1.05x for fast sales."
+                  whatToDoHinglish="Isko 1.0x (normal) par hi rakhein taaki sabko aasaani se samajh aaye."
+                />
+              </Label>
+              <span className="font-mono text-xs font-bold text-black bg-white px-2 py-0.5 rounded border border-hairline shadow-2xs">{voiceSpeed}x</span>
             </div>
             <input
               type="range"
@@ -1109,13 +1508,82 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
               step="0.05"
               value={voiceSpeed}
               onChange={(e) => setVoiceSpeed(parseFloat(e.target.value) || 1.0)}
-              className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+              className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-black"
             />
+            <div className="flex justify-between text-[10px] text-neutral-400 font-mono">
+              <span>0.5x (Slow)</span>
+              <span>1.0x (Normal)</span>
+              <span>2.0x (Fast)</span>
+            </div>
+          </div>
+
+          {/* Featured Voices Cards */}
+          <div className="pt-4 border-t border-hairline space-y-3">
+            <h4 className="text-xs font-bold text-black uppercase tracking-wider">Featured Neural Voices</h4>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              {[
+                { name: "hi-IN-AartiNeural", title: "Aarti - Azure", lang: "Hindi", tag: "female" },
+                { name: "hi-IN-ArjunNeural", title: "Arjun - Azure", lang: "Hindi", tag: "male" },
+                { name: "en-IN-AartiNeural", title: "Aarti - Azure", lang: "English", tag: "female" },
+                { name: "en-IN-ArjunNeural", title: "Arjun - Azure", lang: "English", tag: "male" }
+              ].map((vCard) => {
+                const isSelected = voiceName === vCard.name;
+                const isPlaying = playingVoiceId === vCard.name;
+
+                return (
+                  <div
+                    key={vCard.name}
+                    className={`rounded-2xl p-4.5 flex flex-col justify-between border transition-all cursor-pointer group shadow-2xs ${
+                      isSelected ? "border-black bg-neutral-50" : "border-hairline bg-surface-soft/40 hover:bg-white"
+                    }`}
+                    onClick={() => {
+                      setVoiceName(vCard.name);
+                    }}
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-2">
+                        <h5 className="font-bold text-sm text-black">{vCard.title}</h5>
+                        {isSelected && (
+                          <span className="bg-black text-white px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0">
+                            Active
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] font-mono text-neutral-500 mt-0.5">{vCard.name}</p>
+
+                      <div className="flex flex-wrap gap-1.5 mt-3">
+                        <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-[10px] font-bold">Azure</span>
+                        <span className="bg-neutral-200 text-neutral-700 px-2 py-0.5 rounded-full text-[10px] font-bold">{vCard.lang}</span>
+                        <span className="bg-neutral-200 text-neutral-700 px-2 py-0.5 rounded-full text-[10px] font-bold">{vCard.tag}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-5 pt-3 border-t border-hairline">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const v = VOMYRA_CATALOG.voice.featured_voices.find((x) => x.name === vCard.name);
+                          if (v) handlePlayVoice(v);
+                        }}
+                        className="w-9 h-9 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black flex items-center justify-center transition-colors shadow-sm shrink-0 cursor-pointer"
+                      >
+                        {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+                      </button>
+                      <div className="text-right">
+                        <p className="text-[10px] text-neutral-400">IN • {vCard.tag}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* Voice Sample List */}
           <div className="space-y-3 pt-4 border-t border-hairline">
-            <Label className="eyebrow text-neutral-500">AVAILABLE VOICES FOR {voiceProvider.toUpperCase()}</Label>
+            <Label className="eyebrow text-neutral-500">ALL VOICES FOR {voiceProvider.toUpperCase()}</Label>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               {currentVoices.map((voice) => {
                 const isSelected = voiceName === voice.name;
@@ -1128,10 +1596,11 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
                       setVoiceName(voice.name);
                       setVoiceLanguage(voice.language);
                     }}
-                    className={`p-3.5 rounded-[12px] border transition-all cursor-pointer flex items-center justify-between ${isSelected
-                        ? "border-emerald-500 bg-emerald-50/30 shadow-xs"
-                        : "border-hairline bg-surface-soft hover:bg-white"
-                      }`}
+                    className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between shadow-2xs ${
+                      isSelected
+                        ? "border-emerald-500 bg-emerald-50/40"
+                        : "border-hairline bg-surface-soft/50 hover:bg-white"
+                    }`}
                   >
                     <div>
                       <p className="text-xs font-bold text-black">{voice.title || voice.name}</p>
@@ -1146,10 +1615,11 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
                         e.stopPropagation();
                         handlePlayVoice(voice);
                       }}
-                      className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isPlaying
+                      className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors shrink-0 cursor-pointer ${
+                        isPlaying
                           ? "bg-emerald-600 text-white"
                           : "bg-white border border-hairline text-black hover:bg-neutral-100"
-                        }`}
+                      }`}
                     >
                       {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
                     </button>
@@ -1163,26 +1633,34 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
 
       {/* Tools & Connectors Tab */}
       {activeTab === "tools" && (
-        <div className="bg-white border border-hairline rounded-[14px] p-6 space-y-6 shadow-sm">
-          <div className="flex items-center justify-between border-b border-hairline pb-4">
+        <div className="bg-white border border-hairline rounded-2xl p-5 sm:p-8 space-y-6 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-hairline pb-4">
             <div>
               <h3 className="text-xl font-bold text-black flex items-center gap-2">
-                <Wrench className="w-5 h-5" />
-                <span>Function Tools & Enterprise Connectors</span>
+                <Wrench className="w-5 h-5 text-amber-600" />
+                <span>Function Tools & Connectors</span>
+                <GuideTooltip
+                  title="Function Tools & Connectors"
+                  titleHinglish="Custom Tools & Apps"
+                  whatIsIt="Allows the AI to interact with live software (check calendar availability, lookup CRM records, create tickets) during calls."
+                  whatIsItHinglish="Bot ko aapke Calendar, CRM ya Database se jodna taaki wo live call me booking ya check-in kar sake."
+                  whatToDo="Click '+ Connect Tool' and configure whether authorization confirmation is needed."
+                  whatToDoHinglish="'+ Connect Tool' par click karein aur apna software tool link karein."
+                />
               </h3>
               <p className="text-xs text-neutral-500 mt-0.5">
-                Attach and configure real-time tools, OAuth connectors, and safety rules for this AI Assistant.
+                Attach and configure real-time tools, OAuth connectors, and safety rules.
               </p>
             </div>
-            <span className="bg-emerald-50 text-emerald-800 text-xs px-3.5 py-1.5 rounded-full font-bold border border-emerald-200 shadow-xs flex items-center gap-1.5">
+            <span className="bg-emerald-50 text-emerald-800 text-xs px-3.5 py-1.5 rounded-full font-bold border border-emerald-200 shadow-2xs flex items-center gap-1.5 w-fit">
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
               <span>{assignedToolIds.length} Connected</span>
             </span>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3.5">
             {workspaceTools.length === 0 ? (
-              <div className="py-12 text-center text-xs text-neutral-500 border-2 border-dashed border-hairline rounded-[14px] bg-surface-soft/50">
+              <div className="py-12 text-center text-xs text-neutral-500 border-2 border-dashed border-hairline rounded-2xl bg-surface-soft/50 p-6">
                 <Wrench className="w-8 h-8 text-neutral-400 mx-auto mb-2" />
                 <p className="font-bold text-neutral-700">No Connectors Found</p>
                 <p className="text-neutral-500 mt-1">Create API Request tools or Knowledge Base connectors to link with this assistant.</p>
@@ -1196,23 +1674,24 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
                 return (
                   <div
                     key={t.id || t.name}
-                    className={`p-5 border rounded-[14px] transition-all ${isAssigned
-                        ? "border-emerald-500/40 bg-emerald-50/20 shadow-xs"
+                    className={`p-4 sm:p-5 border rounded-2xl transition-all shadow-2xs ${
+                      isAssigned
+                        ? "border-emerald-500/40 bg-emerald-50/20"
                         : "border-hairline bg-surface-soft/40 hover:bg-white"
-                      }`}
+                    }`}
                   >
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                       <div className="space-y-2 flex-1">
-                        {/* Title & Metadata Badges (No Internal POST URL exposed to customer) */}
                         <div className="flex items-center flex-wrap gap-2">
                           <h4 className="font-bold text-sm text-black">{t.name}</h4>
 
-                          <Badge className={`text-[10px] font-mono font-bold uppercase ${toolConfig.category === "READ"
+                          <Badge className={`text-[10px] font-mono font-bold uppercase ${
+                            toolConfig.category === "READ"
                               ? "bg-blue-100 text-blue-800 border-blue-200"
                               : toolConfig.category === "WRITE"
                                 ? "bg-amber-100 text-amber-800 border-amber-200"
                                 : "bg-red-100 text-red-800 border-red-200"
-                            }`}>
+                          }`}>
                             {toolConfig.category}
                           </Badge>
 
@@ -1225,19 +1704,12 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
                               Automatic
                             </Badge>
                           )}
-
-                          {toolConfig.sync_status === "failed" && (
-                            <Badge className="bg-rose-100 text-rose-800 border-rose-300 text-[10px] font-mono font-bold gap-1">
-                              <AlertTriangle className="w-3 h-3 text-rose-600" /> SYNC ERROR
-                            </Badge>
-                          )}
                         </div>
 
                         {t.description && (
                           <p className="text-xs text-neutral-600 leading-relaxed">{t.description}</p>
                         )}
 
-                        {/* Connected Account & Authorization Indicator */}
                         <div className="flex items-center gap-3 pt-1 text-xs">
                           {isAuthorized ? (
                             <div className="flex items-center gap-1.5 text-neutral-600 font-mono text-[11px]">
@@ -1261,15 +1733,15 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
                         </div>
                       </div>
 
-                      {/* Right Hand Actions */}
-                      <div className="flex items-center gap-2 shrink-0">
+                      {/* Action Buttons */}
+                      <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-hairline">
                         {isAssigned && (
                           <Button
                             type="button"
                             onClick={() => setActiveDrawerConfig(toolConfig)}
                             variant="outline"
                             size="sm"
-                            className="rounded-full text-xs font-bold gap-1.5 bg-white border-hairline hover:bg-surface-soft shadow-xs"
+                            className="rounded-xl text-xs font-bold gap-1.5 bg-white border-hairline hover:bg-surface-soft shadow-2xs cursor-pointer flex-1 sm:flex-none"
                           >
                             <Settings className="w-3.5 h-3.5" />
                             <span>Configure</span>
@@ -1280,12 +1752,13 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
                           type="button"
                           disabled={!isAuthorized}
                           onClick={() => handleToggleTool(t.id || t.name)}
-                          className={`text-xs font-bold px-4 py-2 rounded-full shrink-0 shadow-xs transition-all ${isAssigned
+                          className={`text-xs font-bold px-4 py-2 rounded-xl shrink-0 shadow-2xs transition-all cursor-pointer flex-1 sm:flex-none ${
+                            isAssigned
                               ? "bg-black hover:bg-neutral-800 text-white"
                               : isAuthorized
                                 ? "bg-emerald-600 hover:bg-emerald-500 text-white"
                                 : "bg-neutral-200 text-neutral-400 cursor-not-allowed"
-                            }`}
+                          }`}
                         >
                           {isAssigned ? "Connected ✓" : "+ Connect Tool"}
                         </Button>
@@ -1314,23 +1787,33 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
         />
       )}
 
-      {/* Advance Settings Tab (1:1 Vomyra UI Parity) */}
+      {/* Advance Settings Tab */}
       {activeTab === "advance" && (
-        <div className="bg-white border border-hairline rounded-[14px] p-6 space-y-6 shadow-sm">
+        <div className="bg-white border border-hairline rounded-2xl p-5 sm:p-8 space-y-6 shadow-xs">
           <div>
             <h3 className="text-xl font-bold text-black">Advance Settings</h3>
             <p className="text-xs text-neutral-500">Configure timeout, silence limits, filler words, and call termination messages.</p>
           </div>
 
-          {/* 1. Wait Time Before Asking Again (Silence Timeout Slider) */}
-          <div className="space-y-2">
+          {/* 1. Wait Time Before Asking Again */}
+          <div className="p-4 rounded-xl border border-hairline bg-surface-soft/40 space-y-2.5">
             <div className="flex items-center justify-between">
               <div>
-                <Label className="text-xs font-bold text-black uppercase tracking-wider">Wait Time Before Asking Again</Label>
-                <p className="text-xs text-neutral-500">How long the system waits when the customer is silent before prompting them.</p>
+                <Label className="text-xs font-bold text-black uppercase tracking-wider flex items-center">
+                  <span>Wait Time Before Asking Again</span>
+                  <GuideTooltip
+                    title="Silence Timeout"
+                    titleHinglish="Silence Timeout"
+                    whatIsIt="How many seconds the bot waits in total silence before asking 'Are you still there?'"
+                    whatIsItHinglish="Agar customer phone par chup ho jaye, toh bot kitne seconds baad poochhega ki 'Kya aap sun rahe hain?'."
+                    whatToDo="Set to 10-15 seconds so callers have time to think without feeling rushed."
+                    whatToDoHinglish="10 se 15 seconds set karein taaki customer aaram se soch sake."
+                  />
+                </Label>
+                <p className="text-xs text-neutral-500">System silence timeout before prompting caller.</p>
               </div>
-              <span className="font-mono text-xs font-bold text-black px-3 py-1 rounded bg-surface-soft border border-hairline">
-                {silenceTimeout} sec
+              <span className="font-mono text-xs font-bold text-black px-2.5 py-0.5 rounded bg-white border border-hairline shadow-2xs">
+                {silenceTimeout}s
               </span>
             </div>
             <input
@@ -1340,23 +1823,33 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
               step="1"
               value={silenceTimeout}
               onChange={(e) => setSilenceTimeout(parseInt(e.target.value) || 12)}
-              className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+              className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-black"
             />
             <div className="flex justify-between text-[10px] font-mono text-neutral-400">
-              <span>2 (sec)</span>
-              <span>60 (sec)</span>
+              <span>2 sec</span>
+              <span>60 sec</span>
             </div>
           </div>
 
-          {/* 2. Max Call Length (Maximum Duration Slider) */}
-          <div className="space-y-2 pt-4 border-t border-hairline">
+          {/* 2. Max Call Length */}
+          <div className="p-4 rounded-xl border border-hairline bg-surface-soft/40 space-y-2.5">
             <div className="flex items-center justify-between">
               <div>
-                <Label className="text-xs font-bold text-black uppercase tracking-wider">Max Call Length</Label>
-                <p className="text-xs text-neutral-500">The longest time a call can last.</p>
+                <Label className="text-xs font-bold text-black uppercase tracking-wider flex items-center">
+                  <span>Max Call Length</span>
+                  <GuideTooltip
+                    title="Max Call Duration"
+                    titleHinglish="Call Ki Maximum Duration"
+                    whatIsIt="The maximum allowable call duration before the bot politely concludes the call."
+                    whatIsItHinglish="Ek call zyada se zyada kitne minute chal sakti hai."
+                    whatToDo="Set to 300-600 seconds (5 to 10 minutes) to prevent accidental endless calls."
+                    whatToDoHinglish="300 se 600 seconds (5 se 10 minute) set karein taaki faltu lambi call na chale."
+                  />
+                </Label>
+                <p className="text-xs text-neutral-500">Longest possible call duration.</p>
               </div>
-              <span className="font-mono text-xs font-bold text-black px-3 py-1 rounded bg-surface-soft border border-hairline">
-                {maximumDuration} sec
+              <span className="font-mono text-xs font-bold text-black px-2.5 py-0.5 rounded bg-white border border-hairline shadow-2xs">
+                {maximumDuration}s
               </span>
             </div>
             <input
@@ -1366,48 +1859,77 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
               step="30"
               value={maximumDuration}
               onChange={(e) => setMaximumDuration(parseInt(e.target.value) || 600)}
-              className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+              className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-black"
             />
             <div className="flex justify-between text-[10px] font-mono text-neutral-400">
-              <span>30 (sec)</span>
-              <span>3600 (sec)</span>
+              <span>30 sec</span>
+              <span>3600 sec</span>
             </div>
           </div>
 
-          {/* 3. Prompt Message */}
-          <div className="space-y-1.5 pt-4 border-t border-hairline">
-            <Label className="text-xs font-bold text-black uppercase tracking-wider">Prompt Message</Label>
-            <p className="text-xs text-neutral-500">The message played to check if the customer is still there, e.g. "Are you there?"</p>
+          {/* 3. Inactivity Prompt Message */}
+          <div className="p-4 rounded-xl border border-hairline bg-surface-soft/40 space-y-2">
+            <Label className="text-xs font-bold text-black uppercase tracking-wider flex items-center">
+              <span>Inactivity Prompt Message</span>
+              <GuideTooltip
+                title="Inactivity Prompt Message"
+                titleHinglish="Chup Rehne Par Check-in Message"
+                whatIsIt="What the bot says out loud when the caller goes silent for longer than the silence timeout."
+                whatIsItHinglish="Jab customer chup ho jaye, to bot unka dhyan kheenchne ke liye kya bolega."
+                whatToDo="Use a polite check-in e.g. 'Are you still there? Let me know if you need any help.'"
+                whatToDoHinglish="Ek aasan check-in likhein jaise 'Kya aap line par hain? Kahiye main aapki kya madad karoon?'."
+              />
+            </Label>
+            <p className="text-xs text-neutral-500">Played to verify caller presence, e.g. "Are you still there?"</p>
             <Input
               value={inactivityMessage}
               onChange={(e) => setInactivityMessage(e.target.value)}
               placeholder="Are you still there?"
-              className="bg-surface-soft border border-hairline rounded-[10px] px-4 py-2.5 text-xs text-black font-semibold"
+              className="bg-white border border-hairline rounded-xl px-4 py-2.5 text-xs text-black font-semibold focus:border-black focus:ring-1 focus:ring-black shadow-2xs"
             />
           </div>
 
-          {/* 4. Goodbye Message & Timeout Delay */}
-          <div className="space-y-3 pt-4 border-t border-hairline">
+          {/* 4. Goodbye Message */}
+          <div className="p-4 rounded-xl border border-hairline bg-surface-soft/40 space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-              <div className="md:col-span-2 space-y-1.5">
-                <Label className="text-xs font-bold text-black uppercase tracking-wider">Goodbye Message</Label>
-                <p className="text-xs text-neutral-500">The final message before the call ends, e.g. "Thank you for calling. Goodbye!"</p>
+              <div className="md:col-span-2 space-y-2">
+                <Label className="text-xs font-bold text-black uppercase tracking-wider flex items-center">
+                  <span>Goodbye Termination Message</span>
+                  <GuideTooltip
+                    title="Goodbye Message"
+                    titleHinglish="Call Kaatne Ki Aakhiri Line"
+                    whatIsIt="The final sign-off line spoken right before the call disconnects."
+                    whatIsItHinglish="Call kaatne se pehle bot aakhiri line kya bolega."
+                    whatToDo="e.g. 'Thank you for reaching out. Have a wonderful day!'"
+                    whatToDoHinglish="Ek meethi alvida line likhein jaise 'Call karne ke liye dhanyawad. Aapka din shubh ho!'."
+                  />
+                </Label>
+                <p className="text-xs text-neutral-500">Final sentence before call disconnects.</p>
                 <Input
                   value={timeoutEndMessage}
                   onChange={(e) => setTimeoutEndMessage(e.target.value)}
                   placeholder="Thank you for calling. Goodbye!"
-                  className="bg-surface-soft border border-hairline rounded-[10px] px-4 py-2.5 text-xs text-black font-semibold"
+                  className="bg-white border border-hairline rounded-xl px-4 py-2.5 text-xs text-black font-semibold focus:border-black focus:ring-1 focus:ring-black shadow-2xs"
                 />
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label className="text-[11px] font-bold text-black uppercase">Timeout End Message Delay</Label>
-                  <span className="font-mono text-[11px] font-bold text-black px-2 py-0.5 rounded bg-surface-soft border border-hairline">
-                    {timeoutEndMessageDelay} sec
+                  <Label className="text-[11px] font-bold text-black uppercase flex items-center">
+                    <span>Timeout Delay</span>
+                    <GuideTooltip
+                      title="Timeout Delay"
+                      titleHinglish="Hangup Delay"
+                      whatIsIt="Wait time in seconds after the goodbye message before concluding the call."
+                      whatIsItHinglish="Goodbye bolne ke kitne seconds baad phone disconnect ho jaye."
+                      whatToDo="Set to 5 seconds."
+                      whatToDoHinglish="Isko 5 seconds par rakhein."
+                    />
+                  </Label>
+                  <span className="font-mono text-[11px] font-bold text-black px-2 py-0.5 rounded bg-white border border-hairline shadow-2xs">
+                    {timeoutEndMessageDelay}s
                   </span>
                 </div>
-                <p className="text-[10px] text-neutral-400">Wait time after prompt before goodbye.</p>
                 <input
                   type="range"
                   min="5"
@@ -1415,78 +1937,52 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
                   step="5"
                   value={timeoutEndMessageDelay}
                   onChange={(e) => setTimeoutEndMessageDelay(parseInt(e.target.value) || 5)}
-                  className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-emerald-500 mt-1"
+                  className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-black"
                 />
                 <div className="flex justify-between text-[9px] font-mono text-neutral-400">
-                  <span>5 sec</span>
-                  <span>300 sec</span>
+                  <span>5s</span>
+                  <span>300s</span>
                 </div>
               </div>
             </div>
           </div>
 
           {/* 5. Instant Filler Words */}
-          <div className="space-y-3 pt-4 border-t border-hairline">
+          <div className="p-4 rounded-xl border border-hairline bg-surface-soft/40 space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <Label className="text-xs font-bold text-black uppercase tracking-wider">Instant Filler Words</Label>
-                <p className="text-xs text-neutral-500">Play short acknowledgements (e.g., "hmm...", "okay...") while the assistant thinks.</p>
+                <Label className="text-xs font-bold text-black uppercase tracking-wider flex items-center">
+                  <span>Instant Filler Words</span>
+                  <GuideTooltip
+                    title="Instant Filler Words"
+                    titleHinglish="Instant Fillers ('Haan ji', 'Accha')"
+                    whatIsIt="Quick conversational acknowledgements (e.g. 'Sure, let me check...') played instantly to mask thinking time."
+                    whatIsItHinglish="Customer ki baat sunte hi turant 'Haan ji', 'Ji bilkul', 'Accha' bolna taaki customer ko lage ki koi sach me sun raha hai."
+                    whatToDo="Keep enabled for fluid, sub-300ms perceived response times."
+                    whatToDoHinglish="Isko ON rakhein, isse bot bohot hi realistic aur active lagta hai."
+                  />
+                </Label>
+                <p className="text-xs text-neutral-500">Play conversational acknowledgements ("hmm...", "okay...") during LLM thinking.</p>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-neutral-600">{fillerWordsEnabled ? "Enabled" : "Disabled"}</span>
                 <button
                   type="button"
                   onClick={() => setFillerWordsEnabled(!fillerWordsEnabled)}
-                  className={`w-11 h-6 rounded-full transition-colors relative p-0.5 ${fillerWordsEnabled ? 'bg-emerald-500' : 'bg-neutral-300'}`}
+                  className={`w-10 h-5 rounded-full transition-colors relative p-0.5 cursor-pointer ${fillerWordsEnabled ? 'bg-emerald-500' : 'bg-neutral-300'}`}
                 >
-                  <span className={`block w-5 h-5 rounded-full bg-white transition-transform ${fillerWordsEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                  <span className={`block w-4 h-4 rounded-full bg-white transition-transform ${fillerWordsEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
                 </button>
               </div>
             </div>
 
             {fillerWordsEnabled && (
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 pt-1">
                 <Textarea
-                  rows={3}
+                  rows={2}
                   value={fillerWords}
                   onChange={(e) => setFillerWords(e.target.value)}
                   placeholder="हाँ, ठीक है जी, ठीक है, बिलकुल, जी, हाँ जी, अच्छा जी, अच्छा, हाँ ठीक hai"
-                  className="bg-surface-soft border border-hairline rounded-[10px] p-3 text-xs text-black font-semibold leading-relaxed resize-y"
-                />
-                <p className="text-[11px] text-neutral-500">
-                  Separate phrases with commas or new lines. Defaults adapt to your transcription language.
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* 6. Call Details Webhook */}
-          <div className="space-y-3 pt-4 border-t border-hairline">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-xs font-bold text-black uppercase tracking-wider">Call Details Webhook</Label>
-                <p className="text-xs text-neutral-500">Send call details to an external webhook after the call ends.</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-neutral-600">{callDetailsWebhookEnabled ? "Enabled" : "Disabled"}</span>
-                <button
-                  type="button"
-                  onClick={() => setCallDetailsWebhookEnabled(!callDetailsWebhookEnabled)}
-                  className={`w-11 h-6 rounded-full transition-colors relative p-0.5 ${callDetailsWebhookEnabled ? 'bg-emerald-500' : 'bg-neutral-300'}`}
-                >
-                  <span className={`block w-5 h-5 rounded-full bg-white transition-transform ${callDetailsWebhookEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
-                </button>
-              </div>
-            </div>
-
-            {callDetailsWebhookEnabled && (
-              <div className="space-y-1.5">
-                <Input
-                  type="url"
-                  value={callDetailsWebhookUrl}
-                  onChange={(e) => setCallDetailsWebhookUrl(e.target.value)}
-                  placeholder="https://your-domain.com/api/webhook"
-                  className="bg-surface-soft border border-hairline rounded-[10px] px-4 py-2.5 text-xs text-black font-semibold"
+                  className="bg-white border border-hairline rounded-xl p-3 text-xs text-black font-semibold leading-relaxed resize-y focus:border-black focus:ring-1 focus:ring-black shadow-2xs"
                 />
               </div>
             )}
@@ -1496,23 +1992,23 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
 
       {/* AI Prompt Generator Modal */}
       {isPromptModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-black/10 rounded-[16px] max-w-lg w-full p-6 shadow-2xl space-y-5 text-black text-left">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white border border-hairline rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-5 text-black text-left max-h-[90vh] overflow-y-auto animate-fadeIn">
             <div className="flex items-start justify-between gap-3 border-b border-hairline pb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
                   <Wand2 className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="font-bold text-base text-black">AI Voice Prompt Generator</h3>
-                  <p className="text-xs text-neutral-500 font-medium">Describe your business or select a preset to auto-generate a structured system prompt.</p>
+                  <p className="text-xs text-neutral-500 font-medium">Select a preset or describe your company to synthesize an optimized voice prompt.</p>
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={() => setIsPromptModalOpen(false)}
-                className="text-neutral-400 hover:text-black p-1 rounded-full hover:bg-surface-soft transition-colors"
+                className="text-neutral-400 hover:text-black p-1.5 rounded-full hover:bg-surface-soft transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1520,12 +2016,12 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
 
             <div className="space-y-2">
               <Label className="eyebrow text-neutral-500">QUICK BUSINESS PRESETS</Label>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {[
-                  { label: "🏨 Hotel Reservation", topic: "Hotel Reservation Desk Agent for Jolly Hotel Delhi" },
-                  { label: "🏠 Real Estate Sales", topic: "Real Estate Sales Representative qualifying leads for 2BHK and 3BHK luxury apartments" },
-                  { label: "📞 Customer Support", topic: "Tech Support Representative resolving customer queries" },
-                  { label: "🩺 Clinic Booking", topic: "Dental Clinic Assistant scheduling patient appointments" },
+                  { label: "🏨 Hotel Reservation", topic: "Hotel Reservation Desk Agent handling room bookings" },
+                  { label: "🏠 Real Estate", topic: "Real Estate Sales Representative qualifying leads" },
+                  { label: "📞 Support", topic: "Customer Support Representative resolving inquiries" },
+                  { label: "🩺 Clinic", topic: "Clinic Assistant scheduling patient appointments" },
                   { label: "🛍️ E-Commerce", topic: "Online Store Assistant checking order tracking status" }
                 ].map((preset) => (
                   <button
@@ -1535,7 +2031,7 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
                       setPromptTopic(preset.topic);
                       handleGeneratePrompt(preset.topic);
                     }}
-                    className="px-3 py-1.5 rounded-full bg-surface-soft hover:bg-black hover:text-white border border-hairline text-xs font-semibold transition-colors"
+                    className="px-3 py-1.5 rounded-lg bg-surface-soft hover:bg-black hover:text-white border border-hairline text-xs font-semibold transition-colors cursor-pointer"
                   >
                     {preset.label}
                   </button>
@@ -1548,17 +2044,17 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
               <Textarea
                 value={promptTopic}
                 onChange={(e) => setPromptTopic(e.target.value)}
-                placeholder="e.g. Call center agent for Jolly Hotel handling room reservations, INR 5400/night prices..."
-                className="min-h-[90px] bg-surface-soft border border-hairline rounded-[10px] p-3 text-xs text-black font-medium"
+                placeholder="e.g. Call center agent handling room reservations at INR 5400/night..."
+                className="min-h-[90px] bg-white border border-hairline rounded-xl p-3.5 text-xs text-black font-medium focus:border-black focus:ring-1 focus:ring-black shadow-2xs"
               />
             </div>
 
-            <div className="flex items-center gap-3 pt-2">
+            <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-2">
               <button
                 type="button"
                 disabled={isGeneratingPrompt}
                 onClick={() => setIsPromptModalOpen(false)}
-                className="flex-1 py-2.5 rounded-[10px] border border-hairline text-xs font-semibold hover:bg-surface-soft text-neutral-700 transition-colors"
+                className="w-full sm:flex-1 py-2.5 rounded-xl border border-hairline text-xs font-semibold hover:bg-surface-soft text-neutral-700 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -1566,10 +2062,10 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
                 type="button"
                 disabled={isGeneratingPrompt}
                 onClick={() => handleGeneratePrompt()}
-                className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-[10px] text-xs py-2.5 shadow-md flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+                className="w-full sm:flex-1 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs py-2.5 shadow-md flex items-center justify-center gap-2 transition-colors disabled:opacity-50 cursor-pointer"
               >
                 <Wand2 className={`w-3.5 h-3.5 ${isGeneratingPrompt ? 'animate-spin' : ''}`} />
-                {isGeneratingPrompt ? "Synthesizing AI Prompt..." : "✨ Synthesize System Prompt"}
+                {isGeneratingPrompt ? "Synthesizing..." : "✨ Synthesize Prompt"}
               </button>
             </div>
           </div>
@@ -1578,14 +2074,14 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
 
       {/* Transfer Call Setting Modal */}
       {isTransferModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-hairline rounded-[16px] max-w-lg w-full p-6 shadow-2xl space-y-6 text-black text-left">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white border border-hairline rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-5 text-black text-left max-h-[90vh] overflow-y-auto animate-fadeIn">
             <div className="flex items-center justify-between border-b border-hairline pb-4">
-              <h3 className="font-bold text-lg text-black">Transfer Call Setting</h3>
+              <h3 className="font-bold text-lg text-black">Transfer Call Settings</h3>
               <button
                 type="button"
                 onClick={() => setIsTransferModalOpen(false)}
-                className="text-neutral-400 hover:text-black p-1 rounded-full hover:bg-surface-soft transition-colors"
+                className="text-neutral-400 hover:text-black p-1.5 rounded-full hover:bg-surface-soft transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1596,42 +2092,45 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
               <button
                 type="button"
                 onClick={() => setExcludeWhatsappSummaryNumber(!excludeWhatsappSummaryNumber)}
-                className={`w-11 h-6 rounded-full transition-colors relative p-0.5 ${excludeWhatsappSummaryNumber ? 'bg-emerald-500' : 'bg-neutral-300'}`}
+                className={`w-10 h-5 rounded-full transition-colors relative p-0.5 cursor-pointer ${excludeWhatsappSummaryNumber ? 'bg-emerald-500' : 'bg-neutral-300'}`}
               >
-                <span className={`block w-5 h-5 rounded-full bg-white transition-transform ${excludeWhatsappSummaryNumber ? 'translate-x-5' : 'translate-x-0'}`} />
+                <span className={`block w-4 h-4 rounded-full bg-white transition-transform ${excludeWhatsappSummaryNumber ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>
             </div>
 
-            <div className="flex items-center gap-2">
-              <select
-                value={countryCode}
-                onChange={(e) => setCountryCode(e.target.value)}
-                className="bg-surface-soft border border-hairline rounded-[10px] px-3 py-2.5 text-xs font-bold text-black focus:outline-none focus:border-black"
-              >
-                <option value="+91">IN +91</option>
-                <option value="+1">US +1</option>
-                <option value="+44">UK +44</option>
-                <option value="+971">UAE +971</option>
-              </select>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div className="flex items-center gap-2 flex-1">
+                <select
+                  value={countryCode}
+                  onChange={(e) => setCountryCode(e.target.value)}
+                  className="bg-white border border-hairline rounded-xl px-3 py-2.5 text-xs font-bold text-black focus:outline-none focus:border-black shadow-2xs"
+                >
+                  <option value="+91">IN +91</option>
+                  <option value="+1">US +1</option>
+                  <option value="+44">UK +44</option>
+                  <option value="+971">UAE +971</option>
+                </select>
 
-              <Input
-                type="text"
-                value={transferPhoneInput}
-                onChange={(e) => setTransferPhoneInput(e.target.value)}
-                placeholder="Phone number"
-                className="bg-surface-soft border border-hairline rounded-[10px] px-4 py-2.5 text-xs text-black placeholder-neutral-400 focus:border-black flex-1 font-semibold"
-              />
+                <Input
+                  type="text"
+                  value={transferPhoneInput}
+                  onChange={(e) => setTransferPhoneInput(e.target.value)}
+                  placeholder="Phone number"
+                  className="bg-white border border-hairline rounded-xl px-4 py-2.5 text-xs text-black placeholder-neutral-400 focus:border-black flex-1 font-semibold shadow-2xs"
+                />
+              </div>
 
               <button
                 type="button"
                 onClick={handleAddTransferNumber}
-                className="w-10 h-10 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black flex items-center justify-center shrink-0 font-bold transition-all shadow-md"
+                className="w-full sm:w-10 h-10 rounded-xl sm:rounded-full bg-emerald-500 hover:bg-emerald-400 text-black flex items-center justify-center shrink-0 font-bold transition-all shadow-md cursor-pointer"
               >
                 <Plus className="w-5 h-5" />
+                <span className="sm:hidden text-xs ml-1 font-bold">Add Number</span>
               </button>
             </div>
 
-            <div className="border border-hairline rounded-[10px] overflow-hidden bg-surface-soft">
+            <div className="border border-hairline rounded-xl overflow-hidden bg-surface-soft">
               <div className="flex items-center justify-between px-4 py-2.5 border-b border-hairline text-xs font-bold text-neutral-600">
                 <span>Phone Number</span>
                 <span>Action</span>
@@ -1649,7 +2148,7 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
                       <button
                         type="button"
                         onClick={() => handleRemoveTransferNumber(num)}
-                        className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-surface-soft transition-colors"
+                        className="text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-surface-soft transition-colors cursor-pointer"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -1662,7 +2161,7 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
             <button
               type="button"
               onClick={() => setIsTransferModalOpen(false)}
-              className="w-full bg-black hover:bg-neutral-800 text-white font-bold rounded-full py-3 text-xs shadow-md transition-all"
+              className="w-full bg-black hover:bg-neutral-800 text-white font-bold rounded-xl py-3 text-xs shadow-md transition-all cursor-pointer"
             >
               Save Transfer Settings
             </button>
@@ -1672,14 +2171,14 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
 
       {/* Whatsapp Summary Phone Modal */}
       {isWhatsappModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-hairline rounded-[16px] max-w-md w-full p-6 shadow-2xl space-y-4 text-black text-left">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white border border-hairline rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4 text-black text-left max-h-[90vh] overflow-y-auto animate-fadeIn">
             <div className="flex items-center justify-between border-b border-hairline pb-3">
-              <h3 className="font-bold text-base text-black">Whatsapp Summary Phone Number</h3>
+              <h3 className="font-bold text-base text-black">WhatsApp Summary Phone</h3>
               <button
                 type="button"
                 onClick={() => setIsWhatsappModalOpen(false)}
-                className="text-neutral-400 hover:text-black p-1 rounded-full hover:bg-surface-soft"
+                className="text-neutral-400 hover:text-black p-1.5 rounded-full hover:bg-surface-soft cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1692,7 +2191,7 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
                 value={whatsappSummaryPhone}
                 onChange={(e) => setWhatsappSummaryPhone(e.target.value)}
                 placeholder="e.g. +919876543210"
-                className="bg-surface-soft border border-hairline rounded-[10px] px-3 py-2 text-xs text-black font-semibold"
+                className="bg-white border border-hairline rounded-xl px-3.5 py-2.5 text-xs text-black font-semibold focus:border-black focus:ring-1 focus:ring-black shadow-2xs"
               />
             </div>
 
@@ -1700,14 +2199,14 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
               <button
                 type="button"
                 onClick={() => setIsWhatsappModalOpen(false)}
-                className="flex-1 py-2 rounded-[10px] border border-hairline text-xs font-semibold text-neutral-700"
+                className="flex-1 py-2.5 rounded-xl border border-hairline text-xs font-semibold text-neutral-700 cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={() => setIsWhatsappModalOpen(false)}
-                className="flex-1 bg-black hover:bg-neutral-800 text-white font-bold rounded-[10px] text-xs py-2 shadow-sm"
+                className="flex-1 bg-black hover:bg-neutral-800 text-white font-bold rounded-xl text-xs py-2.5 shadow-sm cursor-pointer"
               >
                 Save Number
               </button>
@@ -1716,32 +2215,6 @@ export function EditAssistantForm({ assistant, workspaceTools = [] }: EditAssist
         </div>
       )}
 
-      {/* Assistant Voice & Phone Test Modal */}
-      <AssistantTestModal
-        isOpen={isTestModalOpen}
-        onClose={() => setIsTestModalOpen(false)}
-        assistant={{
-          id: assistant.id,
-          name: name,
-          provider_resource_id: assistant.provider_resource_id,
-          config_snapshot: {
-            welcome_message: dynamicWelcomeEnabled ? dynamicWelcomeMessage : welcomeMessage,
-            system_prompt: systemPrompt,
-            voice: { name: voiceName, language: voiceLanguage, provider: voiceProvider }
-          },
-          welcome_message: dynamicWelcomeEnabled ? dynamicWelcomeMessage : welcomeMessage,
-          system_prompt: systemPrompt
-        }}
-      />
-      {/* Floating Action Button (Vomyra Parity) */}
-      <button
-        type="button"
-        onClick={() => setIsTestModalOpen(true)}
-        className="fixed bottom-8 right-8 w-14 h-14 bg-[#10b981] hover:bg-[#059669] text-white rounded-full flex items-center justify-center shadow-[0_4px_20px_rgba(16,185,129,0.4)] transition-all hover:scale-110 z-40 group border-2 border-emerald-400/30"
-        title="Test Assistant"
-      >
-        <Bot className="w-6 h-6 text-white group-hover:animate-pulse" />
-      </button>
       <audio ref={audioRef} className="hidden" />
     </form>
   );
