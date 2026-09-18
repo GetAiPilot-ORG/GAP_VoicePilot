@@ -203,6 +203,16 @@ export default function AuthSectionOne({ mode = "signup", error }: AuthSectionOn
                 placeholder="••••••••••••"
                 type="password"
                 required
+                rightAction={
+                  isLogin ? (
+                    <a
+                      href="https://getaipilot.in/login?forgot=true&returnTo=voice"
+                      className="text-xs font-semibold text-[#ff4b2f] hover:underline"
+                    >
+                      Forgot password?
+                    </a>
+                  ) : undefined
+                }
               />
 
               {!isLogin && (
@@ -281,6 +291,7 @@ function FieldBox({
   placeholder,
   type = "text",
   required = false,
+  rightAction,
 }: {
   label: string;
   name: string;
@@ -288,6 +299,7 @@ function FieldBox({
   placeholder?: string;
   type?: string;
   required?: boolean;
+  rightAction?: ReactNode;
 }) {
   const [inputValue, setInputValue] = useState(defaultValue);
   const [showPassword, setShowPassword] = useState(false);
@@ -297,9 +309,12 @@ function FieldBox({
 
   return (
     <div className="space-y-1.5 text-left">
-      <label className="block text-xs font-semibold uppercase tracking-wider text-black/60 dark:text-white/60">
-        {label}
-      </label>
+      <div className="flex items-center justify-between">
+        <label className="block text-xs font-semibold uppercase tracking-wider text-black/60 dark:text-white/60">
+          {label}
+        </label>
+        {rightAction}
+      </div>
       <div className="relative flex items-center">
         <input
           type={activeInputType}
