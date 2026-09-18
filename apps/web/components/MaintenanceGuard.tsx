@@ -89,6 +89,9 @@ export default function MaintenanceGuard({ children, productKey }: MaintenanceGu
     
     const checkStatus = async () => {
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+
         const headers = {
           "apikey": SUPABASE_ANON_KEY,
           "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
@@ -96,9 +99,10 @@ export default function MaintenanceGuard({ children, productKey }: MaintenanceGu
         };
 
         const [globalRes, productRes] = await Promise.all([
-          fetch(`${SUPABASE_URL}/rest/v1/system_settings?select=*`, { headers }),
-          fetch(`${SUPABASE_URL}/rest/v1/system_products?product_key=eq.${productKey}&select=*`, { headers })
+          fetch(`${SUPABASE_URL}/rest/v1/system_settings?select=*`, { headers, signal: controller.signal }),
+          fetch(`${SUPABASE_URL}/rest/v1/system_products?product_key=eq.${productKey}&select=*`, { headers, signal: controller.signal })
         ]);
+        clearTimeout(timeoutId);
 
         if (!globalRes.ok || !productRes.ok) throw new Error("Failed to fetch maintenance status");
 

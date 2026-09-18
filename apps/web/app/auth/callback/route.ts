@@ -7,7 +7,8 @@ export async function GET(request: NextRequest) {
   const code = requestUrl.searchParams.get("code");
   const tokenHash = requestUrl.searchParams.get("token_hash") || requestUrl.searchParams.get("token");
   const type = (requestUrl.searchParams.get("type") || "magiclink") as any;
-  const next = requestUrl.searchParams.get("next") ?? "/dashboard";
+  const rawNext = requestUrl.searchParams.get("next");
+  const next = rawNext || (type === "recovery" ? "/reset-password" : "/dashboard");
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
