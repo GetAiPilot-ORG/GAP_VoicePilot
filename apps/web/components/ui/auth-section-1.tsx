@@ -492,21 +492,23 @@ export default function AuthSectionOne({ mode = "signup", error }: AuthSectionOn
               </div>
             )}
 
-            {/* VIEW 2: RESET PASSWORD */}
-            {currentMode === "reset-password" && (
-              <div className="space-y-6">
-                <div>
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs font-bold mb-3 border border-emerald-500/20">
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>SET NEW PASSWORD</span>
-                  </div>
-                  <h1 className="text-2xl font-bold tracking-tight text-black dark:text-white sm:text-3xl">
-                    Create new password
-                  </h1>
-                  <p className="mt-2 text-sm text-black/60 dark:text-white/60 sm:text-base">
-                    Choose a strong password to secure your VoicePilot account.
-                  </p>
-                </div>
+            {/* GetAiPilot Hub SSO button */}
+            <button
+              type="button"
+              onClick={() => {
+                const hubUrl = "https://getaipilot.in";
+                window.location.href = `${hubUrl}/login?sso=voice`;
+              }}
+              className="mt-6 flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-black/10 bg-gradient-to-r from-[#031b4e] to-[#0d3880] px-4 text-xs font-semibold text-white shadow-sm transition-all hover:opacity-95 hover:shadow-md sm:text-sm active:scale-[0.99] cursor-pointer"
+            >
+              <img src="https://getaipilot.in/logo.png" alt="GetAiPilot Logo" className="h-5 w-5 rounded object-contain" />
+              <span>Continue with GetAiPilot</span>
+            </button>
+
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <SocialButton icon={<GoogleIcon />} label={isLogin ? "Sign in with Google" : "Sign up with Google"} />
+              <SocialButton icon={<AppleIcon />} label={isLogin ? "Sign in with Apple" : "Sign up with Apple"} />
+            </div>
 
                 {activeError && (
                   <div className="flex items-start gap-3 rounded-2xl border border-red-500/25 bg-red-500/10 p-4 text-red-700 dark:border-red-500/30 dark:bg-red-500/15 dark:text-red-300 animate-in fade-in duration-200 shadow-sm">
@@ -576,30 +578,39 @@ export default function AuthSectionOne({ mode = "signup", error }: AuthSectionOn
                     {currentMode === "login" ? "Sign in to manage your AI voice agents and call flows" : "Brainstorm in chat, build autonomous AI voice agents"}
                   </p>
                 </div>
+              )}
 
-                {/* Alert Banner */}
-                {activeError && (
-                  <div className="mt-5 flex items-start gap-3 rounded-2xl border border-red-500/25 bg-red-500/10 p-4 text-red-700 dark:border-red-500/30 dark:bg-red-500/15 dark:text-red-300 animate-in fade-in slide-in-from-top-1 duration-200 shadow-sm">
-                    <AlertCircle className="h-5 w-5 shrink-0 text-red-600 dark:text-red-400 mt-0.5" />
-                    <div className="flex-1 text-xs leading-relaxed sm:text-sm font-medium">
-                      <p className="font-semibold text-red-800 dark:text-red-200">Authentication Alert</p>
-                      <p className="mt-0.5 text-red-700/90 dark:text-red-300/90">{activeError}</p>
-                    </div>
-                  </div>
-                )}
+              <FieldBox
+                label="Email address"
+                name="email"
+                type="email"
+                placeholder="name@example.com"
+                required
+              />
 
-                <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                  <SocialButton icon={<GoogleIcon />} label={currentMode === "login" ? "Sign in with Google" : "Sign up with Google"} />
-                  <SocialButton icon={<AppleIcon />} label={currentMode === "login" ? "Sign in with Apple" : "Sign up with Apple"} />
-                </div>
+              <FieldBox
+                label="Password"
+                name="password"
+                placeholder="••••••••••••"
+                type="password"
+                required
+                rightAction={
+                  isLogin ? (
+                    <a
+                      href="https://getaipilot.in/login?forgot=true&returnTo=voice"
+                      className="text-xs font-semibold text-[#ff4b2f] hover:underline"
+                    >
+                      Forgot password?
+                    </a>
+                  ) : undefined
+                }
+              />
 
-                <div className="relative my-6 flex items-center justify-center">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-black/10 dark:border-white/10" />
-                  </div>
-                  <span className="relative bg-white px-3 text-[11px] font-semibold uppercase tracking-wider text-black/40 dark:bg-[#0a0a0a] dark:text-white/40">
-                    Or continue with email
-                  </span>
+              {!isLogin && (
+                <div className="space-y-2 pt-1 text-xs leading-relaxed text-black/60 dark:text-white/60">
+                  <CheckboxLine>
+                    I agree to the <a href="#" className="font-semibold text-black underline hover:text-[#ff4b2f] dark:text-white">Terms of Service</a> & <a href="#" className="font-semibold text-black underline hover:text-[#ff4b2f] dark:text-white">Privacy Policy</a>
+                  </CheckboxLine>
                 </div>
 
                 <form action={currentMode === "login" ? login : signup} onSubmit={handleSubmit} className="space-y-4">
@@ -721,6 +732,7 @@ function FieldBox({
   placeholder,
   type = "text",
   required = false,
+  rightAction,
 }: {
   label?: string;
   name: string;
@@ -728,6 +740,7 @@ function FieldBox({
   placeholder?: string;
   type?: string;
   required?: boolean;
+  rightAction?: ReactNode;
 }) {
   const [inputValue, setInputValue] = useState(defaultValue);
   const [showPassword, setShowPassword] = useState(false);
@@ -737,11 +750,12 @@ function FieldBox({
 
   return (
     <div className="space-y-1.5 text-left">
-      {label ? (
+      <div className="flex items-center justify-between">
         <label className="block text-xs font-semibold uppercase tracking-wider text-black/60 dark:text-white/60">
           {label}
         </label>
-      ) : null}
+        {rightAction}
+      </div>
       <div className="relative flex items-center">
         <input
           type={activeInputType}
