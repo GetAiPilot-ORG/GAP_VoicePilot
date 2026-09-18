@@ -162,7 +162,7 @@ export default function AuthSectionOne({ mode = "signup", error }: AuthSectionOn
               }}
               className="mt-6 flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-black/10 bg-gradient-to-r from-[#031b4e] to-[#0d3880] px-4 text-xs font-semibold text-white shadow-sm transition-all hover:opacity-95 hover:shadow-md sm:text-sm active:scale-[0.99] cursor-pointer"
             >
-              <Image src="/logo.png" alt="GetAiPilot Logo" width={20} height={20} className="rounded object-contain" />
+              <img src="https://getaipilot.in/logo.png" alt="GetAiPilot Logo" className="h-5 w-5 rounded object-contain" />
               <span>Continue with GetAiPilot</span>
             </button>
 
