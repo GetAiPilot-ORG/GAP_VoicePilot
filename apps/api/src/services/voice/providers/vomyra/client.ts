@@ -15,6 +15,7 @@ export class VomyraClient implements VoiceProvider {
     const headers = {
       'Content-Type': 'application/json',
       'x-api-key': this.apiKey,
+      'Authorization': `Bearer ${this.apiKey}`,
       ...options.headers,
     };
 
@@ -114,6 +115,23 @@ export class VomyraClient implements VoiceProvider {
     });
   }
 
+  async getToolTypes(): Promise<any[]> {
+    const res = await this.request<any>('/v1/tool-types', { method: 'GET' });
+    return Array.isArray(res) ? res : res.data || [];
+  }
+
+  async listTools(): Promise<any[]> {
+    const res = await this.request<any>('/v1/tools', { method: 'GET' });
+    return Array.isArray(res) ? res : res.data || [];
+  }
+
+  async createTool(payload: any): Promise<any> {
+    return await this.request<any>('/v1/tools', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
   async initiateCall(input: InitiateCallInput): Promise<ProviderCall> {
     const payload: any = {
       customer_number: String(input.customer_number).trim(),
@@ -176,4 +194,24 @@ export class VomyraClient implements VoiceProvider {
       method: 'DELETE',
     });
   }
+
+  async getWhatsAppNumbers(): Promise<any[]> {
+    const res = await this.request<any>('/v1/whatsapp/numbers', { method: 'GET' });
+    return Array.isArray(res) ? res : res.data || [];
+  }
+
+  async initiateWhatsAppCall(payload: {
+    customer_number: string;
+    customer_country_code?: string;
+    customer_name?: string;
+    whatsapp_number: string;
+    additional_data?: Record<string, any>;
+  }): Promise<any> {
+    const res = await this.request<any>('/v1/whatsapp/calls', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return res.data || res;
+  }
 }
+

@@ -7,23 +7,57 @@ import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
+  LucideIcon,
   LayoutDashboard,
   Bot,
+  GitBranch,
+  Share2,
   Users,
   Megaphone,
   PhoneCall,
+  Phone,
   Headphones,
+  FileText,
   TrendingUp,
+  BarChart3,
   CreditCard,
   Webhook,
   ShieldCheck,
+  Shield,
+  Lock,
   X,
+  MessageSquare,
+  Settings,
+  HelpCircle,
 } from "lucide-react";
 
 import SidebarNavItem from "@/components/sidebar/SidebarNavItem";
 import SidebarHeader from "@/components/sidebar/SidebarHeader";
 import SidebarUserProfileTile, { UserProfileData } from "@/components/sidebar/SidebarUserProfileTile";
 import SidebarEngineCard from "@/components/sidebar/SidebarEngineCard";
+import { ALL_SIDEBAR_MODULES, SidebarPermissionsConfig } from "@/lib/sidebarPermissions";
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  LayoutDashboard,
+  Bot,
+  Share2,
+  GitBranch,
+  Users,
+  Megaphone,
+  MessageSquare,
+  PhoneCall,
+  Phone,
+  Headphones,
+  FileText,
+  TrendingUp,
+  BarChart3,
+  CreditCard,
+  Webhook,
+  Settings,
+  ShieldCheck,
+  Shield,
+  Lock,
+};
 
 const sidebarVariants = {
   open: { width: "15.5rem" },
@@ -60,8 +94,10 @@ export function SessionNavBar({
     isAdmin: false,
   });
 
+  const [sidebarPermissions, setSidebarPermissions] = useState<SidebarPermissionsConfig>({});
+
   useEffect(() => {
-    const fetchUser = async () => {
+    const fetchUserAndPermissions = async () => {
       try {
         const { createClient } = await import("@/utils/supabase/client");
         const supabase = createClient();
@@ -72,7 +108,7 @@ export function SessionNavBar({
             user.user_metadata?.full_name ||
             user.user_metadata?.name ||
             (email ? email.split("@")[0] : "User");
-          
+
           let initials = "GV";
           if (name && name !== "User") {
             const parts = name.trim().split(" ");
@@ -90,33 +126,93 @@ export function SessionNavBar({
 
           setUserProfile({ email, name, initials, isAdmin });
         }
+
+        const { getSidebarPermissionsAction } = await import("@/app/actions/adminSidebarPermissions");
+        const perms = await getSidebarPermissionsAction();
+        setSidebarPermissions(perms);
       } catch (e) {
-        console.warn("Could not load user profile in sidebar:", e);
+        console.warn("Could not load user profile or sidebar permissions in sidebar:", e);
       }
     };
-    fetchUser();
+    fetchUserAndPermissions();
   }, []);
 
-  const mainNav = [
-    { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Assistants", href: "/dashboard/assistants", icon: Bot },
-    { name: "Contacts & Sync", href: "/dashboard/contacts", icon: Users },
-    { name: "Campaigns", href: "/dashboard/campaigns", icon: Megaphone },
-    { name: "Phone Numbers", href: "/dashboard/phone-numbers", icon: PhoneCall },
-    { name: "Call Logs & Audio", href: "/dashboard/calls", icon: Headphones },
-    { name: "Analytics", href: "/dashboard/analytics", icon: TrendingUp },
-    { name: "Plans & Billing", href: "/dashboard/billing", icon: CreditCard },
-  ];
+  // 1. Build Navigation items from master registry
+  const navItems: Array<{
+    name: string;
+    href: string;
+    icon: LucideIcon;
+    badge?: string;
+    badgeVariant?: "live" | "new" | "default";
+  }> = ALL_SIDEBAR_MODULES
+    .filter((mod) => mod.category === "navigation")
+    .map((mod) => ({
+      name: mod.name,
+      href: mod.href,
+      icon: ICON_MAP[mod.iconName] || HelpCircle,
+      badge: mod.badge,
+      badgeVariant: mod.badgeVariant,
+    }));
 
+  // 2. Add Admin-specific links if admin
   if (userProfile.isAdmin) {
-    mainNav.push({
-      name: "Admin Dashboard",
-      href: "/dashboard/admin/kyc",
-      icon: ShieldCheck,
-      badge: "ADMIN",
-      badgeVariant: "new",
-    } as any);
+    navItems.push(
+      {
+        name: "Admin KYC Portal",
+        href: "/dashboard/admin/kyc",
+        icon: ShieldCheck,
+        badge: "ADMIN",
+        badgeVariant: "new",
+      },
+      {
+        name: "Integration Admin",
+        href: "/dashboard/admin/integrations",
+        icon: Shield,
+        badge: "ADMIN",
+        badgeVariant: "new",
+      },
+      {
+        name: "Sidebar Permissions",
+        href: "/dashboard/admin/sidebar-permissions",
+        icon: Lock,
+        badge: "ADMIN",
+        badgeVariant: "new",
+      }
+    );
   }
+
+  // 3. Filter Navigation items by role permissions
+  const filteredNav = navItems.filter((item) => {
+    const perm = sidebarPermissions[item.href] || "user";
+    if (perm === "admin" && !userProfile.isAdmin) {
+      return false;
+    }
+    return true;
+  });
+
+  // 4. Build & Filter System items from master registry
+  const systemItems: Array<{
+    name: string;
+    href: string;
+    icon: LucideIcon;
+    badge?: string;
+    badgeVariant?: "live" | "new" | "default";
+  }> = ALL_SIDEBAR_MODULES
+    .filter((mod) => mod.category === "system")
+    .map((mod) => ({
+      name: mod.name,
+      href: mod.href,
+      icon: ICON_MAP[mod.iconName] || HelpCircle,
+      badge: mod.badge,
+      badgeVariant: mod.badgeVariant,
+    }))
+    .filter((item) => {
+      const perm = sidebarPermissions[item.href] || "user";
+      if (perm === "admin" && !userProfile.isAdmin) {
+        return false;
+      }
+      return true;
+    });
 
   return (
     <>
@@ -145,7 +241,7 @@ export function SessionNavBar({
                 <p className="px-3 text-[10px] font-sans font-bold uppercase tracking-wider text-neutral-400 mb-2">
                   NAVIGATION
                 </p>
-                {mainNav.map((item) => {
+                {filteredNav.map((item) => {
                   const isActive =
                     pathname === item.href ||
                     (item.href !== "/dashboard" && pathname?.startsWith(item.href));
@@ -156,27 +252,36 @@ export function SessionNavBar({
                       href={item.href}
                       icon={item.icon}
                       isActive={isActive}
-                      badge={(item as any).badge}
-                      badgeVariant={(item as any).badgeVariant}
+                      badge={item.badge}
+                      badgeVariant={item.badgeVariant}
                       onClick={() => setMobileOpen?.(false)}
                     />
                   );
                 })}
 
-                <Separator className="my-3 bg-neutral-100" />
-
-                <p className="px-3 text-[10px] font-sans font-bold uppercase tracking-wider text-neutral-400 mb-2">
-                  SYSTEM
-                </p>
-                <SidebarNavItem
-                  name="API & Webhooks"
-                  href="/dashboard/settings"
-                  icon={Webhook}
-                  isActive={pathname === "/dashboard/settings"}
-                  badge="LIVE"
-                  badgeVariant="live"
-                  onClick={() => setMobileOpen?.(false)}
-                />
+                {systemItems.length > 0 && (
+                  <>
+                    <Separator className="my-3 bg-neutral-100" />
+                    <p className="px-3 text-[10px] font-sans font-bold uppercase tracking-wider text-neutral-400 mb-2">
+                      SYSTEM
+                    </p>
+                    {systemItems.map((item) => {
+                      const isActive = pathname === item.href;
+                      return (
+                        <SidebarNavItem
+                          key={item.name}
+                          name={item.name}
+                          href={item.href}
+                          icon={item.icon}
+                          isActive={isActive}
+                          badge={item.badge}
+                          badgeVariant={item.badgeVariant}
+                          onClick={() => setMobileOpen?.(false)}
+                        />
+                      );
+                    })}
+                  </>
+                )}
               </div>
             </ScrollArea>
 
@@ -216,7 +321,7 @@ export function SessionNavBar({
                 </p>
               )}
 
-              {mainNav.map((item) => {
+              {filteredNav.map((item) => {
                 const isActive =
                   pathname === item.href ||
                   (item.href !== "/dashboard" && pathname?.startsWith(item.href));
@@ -228,29 +333,37 @@ export function SessionNavBar({
                     icon={item.icon}
                     isActive={isActive}
                     isCollapsed={isCollapsed}
-                    badge={(item as any).badge}
-                    badgeVariant={(item as any).badgeVariant}
+                    badge={item.badge}
+                    badgeVariant={item.badgeVariant}
                   />
                 );
               })}
 
-              <Separator className="my-2.5 bg-neutral-100" />
-
-              {!isCollapsed && (
-                <p className="px-3 text-[10px] font-sans font-bold uppercase tracking-wider text-neutral-400 mb-2 transition-opacity">
-                  SYSTEM
-                </p>
+              {systemItems.length > 0 && (
+                <>
+                  <Separator className="my-2.5 bg-neutral-100" />
+                  {!isCollapsed && (
+                    <p className="px-3 text-[10px] font-sans font-bold uppercase tracking-wider text-neutral-400 mb-2 transition-opacity">
+                      SYSTEM
+                    </p>
+                  )}
+                  {systemItems.map((item) => {
+                    const isActive = pathname === item.href;
+                    return (
+                      <SidebarNavItem
+                        key={item.name}
+                        name={item.name}
+                        href={item.href}
+                        icon={item.icon}
+                        isActive={isActive}
+                        isCollapsed={isCollapsed}
+                        badge={item.badge}
+                        badgeVariant={item.badgeVariant}
+                      />
+                    );
+                  })}
+                </>
               )}
-
-              <SidebarNavItem
-                name="API & Webhooks"
-                href="/dashboard/settings"
-                icon={Webhook}
-                isActive={pathname === "/dashboard/settings"}
-                isCollapsed={isCollapsed}
-                badge="LIVE"
-                badgeVariant="live"
-              />
             </div>
           </ScrollArea>
 

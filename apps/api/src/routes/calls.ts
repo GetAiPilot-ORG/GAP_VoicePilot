@@ -105,6 +105,86 @@ callRouter.post('/', requireMinCredits(1.0), async (req, res) => {
   }
 });
 
+// GET /api/v1/calls/whatsapp/numbers - Get Available WhatsApp Business Numbers
+callRouter.get('/whatsapp/numbers', async (req, res) => {
+  try {
+    const numbers = await voiceProvider.getWhatsAppNumbers();
+    res.json({ success: true, data: numbers });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to fetch WhatsApp numbers' });
+  }
+});
+
+// POST /api/v1/calls/whatsapp - Initiate Outbound WhatsApp Voice Call
+callRouter.post('/whatsapp', requireMinCredits(1.0), async (req, res) => {
+  try {
+    const {
+      customer_number,
+      customer_name,
+      customer_country_code,
+      whatsapp_number,
+      additional_data,
+      idempotencyKey,
+      workspaceId
+    } = req.body;
+
+    const targetCustomerNumber = (customer_number || '').toString().trim();
+    const targetCustomerName = (customer_name || 'Customer').toString().trim();
+    const targetCountryCode = customer_country_code || (targetCustomerNumber.startsWith('+91') ? '+91' : undefined);
+    const targetWhatsAppNumber = (whatsapp_number || '').toString().trim();
+
+    if (!targetCustomerNumber) {
+      return res.status(400).json({ success: false, error: 'customer_number is required for WhatsApp Voice Call' });
+    }
+
+    if (!targetWhatsAppNumber) {
+      return res.status(400).json({ success: false, error: 'whatsapp_number (connected caller ID) is required' });
+    }
+
+    const refKey = idempotencyKey || `wa_call_${Date.now()}`;
+    if (workspaceId) {
+      const creditReservation = await reserveCredits(workspaceId, 1.0, refKey, 'WhatsApp voice call hold');
+      if (!creditReservation.success) {
+        return res.status(402).json({
+          success: false,
+          error: creditReservation.error || 'Insufficient credit balance'
+        });
+      }
+    }
+
+    let waCallResponse: any;
+    try {
+      waCallResponse = await voiceProvider.initiateWhatsAppCall({
+        customer_number: targetCustomerNumber,
+        customer_country_code: targetCountryCode,
+        customer_name: targetCustomerName,
+        whatsapp_number: targetWhatsAppNumber,
+        additional_data: additional_data || { source: 'VoicePilot_WhatsApp_Voice' }
+      });
+    } catch (providerErr: any) {
+      if (workspaceId) {
+        await settleCallBilling({
+          workspaceId,
+          reservedAmount: 1.0,
+          durationSeconds: 0,
+          referenceId: refKey
+        });
+      }
+      const rawMsg = providerErr.message || '';
+      const cleanMsg = rawMsg.replace(/Vomyra/gi, 'WhatsApp Voice Cloud');
+      throw new Error(cleanMsg || 'Failed to dispatch WhatsApp call');
+    }
+
+    res.status(201).json({
+      success: true,
+      data: waCallResponse
+    });
+  } catch (error: any) {
+    console.error('[API /calls/whatsapp] Error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to initiate WhatsApp call' });
+  }
+});
+
 // GET /api/v1/calls/:id - Get Call Details
 callRouter.get('/:id', async (req, res) => {
   try {
@@ -126,3 +206,4 @@ callRouter.get('/:id/transcript', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+

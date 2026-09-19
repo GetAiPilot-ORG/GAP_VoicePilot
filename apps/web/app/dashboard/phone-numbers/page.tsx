@@ -3,7 +3,10 @@ import { PhoneNumbersClient, PhoneNumberRecord, AssistantOption } from "./PhoneN
 
 export const dynamic = "force-dynamic";
 
+import { verifyRouteAccess } from "@/app/actions/adminSidebarPermissions";
+
 export default async function PhoneNumbersPage() {
+  await verifyRouteAccess("/dashboard/phone-numbers");
   let initialMyNumbers: PhoneNumberRecord[] = [];
   let assistantOptions: AssistantOption[] = [];
   let workspaceBalance = 0;

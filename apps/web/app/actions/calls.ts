@@ -135,10 +135,37 @@ export interface TriggerTestCallParams {
   countryCode?: string;
   to?: string;
   from?: string;
+  callChannel?: 'phone' | 'whatsapp';
+  whatsappNumber?: string;
 }
 
 /**
- * Trigger an outbound PSTN phone call via Vomyra specification
+ * Fetch available WhatsApp Business numbers for workspace
+ */
+export async function fetchWhatsAppNumbersAction() {
+  try {
+    const vomyraApiKey = process.env.VOMYRA_API_KEY || "0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx";
+    const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || "https://api.vomyra.com";
+
+    const res = await fetch(`${vomyraBaseUrl}/v1/whatsapp/numbers`, {
+      headers: { 'x-api-key': vomyraApiKey },
+      cache: 'no-store'
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const numbers = Array.isArray(data) ? data : (data.data || []);
+      return { success: true, numbers };
+    }
+
+    return { success: true, numbers: [] };
+  } catch (err: any) {
+    return { success: true, numbers: [] };
+  }
+}
+
+/**
+ * Trigger an outbound call via Phone (PSTN) or WhatsApp Voice
  */
 export async function triggerTestCallAction(params: TriggerTestCallParams) {
   try {
@@ -158,6 +185,72 @@ export async function triggerTestCallAction(params: TriggerTestCallParams) {
       return { success: false, error: "Please enter a valid customer phone number." };
     }
 
+    const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || 'https://api.vomyra.com';
+    const vomyraApiKey = process.env.VOMYRA_API_KEY || '0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx';
+
+    // Channel: WhatsApp Voice
+    if (params.callChannel === 'whatsapp') {
+      const targetWhatsAppNumber = (params.whatsappNumber || "").trim();
+      if (!targetWhatsAppNumber) {
+        return {
+          success: false,
+          error: "No connected WhatsApp Business number selected. Please link a WhatsApp Business number in Settings."
+        };
+      }
+
+      const waPayload = {
+        customer_number: targetCustomerNumber,
+        customer_name: targetCustomerName,
+        customer_country_code: targetCountryCode,
+        whatsapp_number: targetWhatsAppNumber,
+        workspaceId,
+        idempotencyKey,
+        additional_data: {
+          source: "VoicePilot_WhatsApp_Voice",
+          dispatched_at: new Date().toISOString()
+        }
+      };
+
+      console.log("[triggerTestCallAction:WhatsApp] Dispatching call:", JSON.stringify(waPayload));
+
+      const res = await fetch(`${vomyraBaseUrl}/v1/whatsapp/calls`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': vomyraApiKey
+        },
+        body: JSON.stringify(waPayload)
+      });
+
+      const responseText = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        data = { error: responseText };
+      }
+
+      if (!res.ok) {
+        const rawErr = data.error || data.message;
+        let errorMsg = typeof rawErr === "object" ? (rawErr.message || JSON.stringify(rawErr)) : (rawErr || `WhatsApp Service returned status ${res.status}`);
+        // White-label sanitizer
+        errorMsg = String(errorMsg).replace(/Vomyra/gi, 'WhatsApp Voice Cloud');
+        return {
+          success: false,
+          error: errorMsg
+        };
+      }
+
+      const callData = data.data || data;
+      return {
+        success: true,
+        call: callData,
+        idempotencyKey,
+        callId: callData?.id || idempotencyKey
+      };
+    }
+
+    // Default Channel: Standard Phone Call (PSTN)
     const adminClient = await getAdminClient();
     let realVomyraAssistantId: string | undefined = undefined;
     let verifiedAssignedNumber: string | undefined = undefined;
@@ -266,9 +359,12 @@ export async function triggerTestCallAction(params: TriggerTestCallParams) {
     }
 
     if (!res.ok) {
+      const rawErr = data.error || data.message;
+      let errorMsg = typeof rawErr === "object" ? (rawErr.message || JSON.stringify(rawErr)) : (rawErr || `Telephony Server returned ${res.status}: ${responseText.slice(0, 150)}`);
+      errorMsg = String(errorMsg).replace(/Vomyra/gi, 'VoicePilot Engine');
       return {
         success: false,
-        error: data.error || data.message || `Telephony Server returned ${res.status}: ${responseText.slice(0, 150)}`
+        error: errorMsg
       };
     }
 
@@ -281,9 +377,11 @@ export async function triggerTestCallAction(params: TriggerTestCallParams) {
     };
   } catch (err: any) {
     console.error("Trigger test call error:", err);
+    let errMsg = typeof err === "object" ? (err.message || JSON.stringify(err)) : String(err || "Failed to connect to telephony backend");
+    errMsg = errMsg.replace(/Vomyra/gi, 'VoicePilot Engine');
     return {
       success: false,
-      error: err.message || "Failed to connect to telephony backend"
+      error: errMsg
     };
   }
 }

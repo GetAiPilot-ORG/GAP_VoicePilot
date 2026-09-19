@@ -4,8 +4,12 @@ import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 import { Plus, Bot, Mic, Activity, ArrowUpRight, Zap } from "lucide-react";
 import AssistantActionMenu from "./AssistantActionMenu";
+import SyncAssistantsButton from "./SyncAssistantsButton";
+
+import { verifyRouteAccess } from "@/app/actions/adminSidebarPermissions";
 
 export default async function AssistantsPage() {
+  await verifyRouteAccess("/dashboard/assistants");
   const cookieStore = await cookies();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -63,7 +67,8 @@ export default async function AssistantsPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <SyncAssistantsButton />
           <Link href="/dashboard/assistants/create" className="btn-pill-primary text-base px-6 py-2.5 shadow-md hover:scale-[1.02] transition-transform">
             <Plus className="w-4 h-4" />
             Create Assistant
@@ -104,7 +109,7 @@ export default async function AssistantsPage() {
             <Mic className="w-5 h-5 text-black/80" />
           </div>
           <div>
-            <div className="text-3xl font-bold tracking-tight">Cartesia / 11Labs</div>
+            <div className="text-3xl font-bold tracking-tight">Azure / Cartesia</div>
             <p className="text-xs text-black/70 mt-1 font-medium">Ultra-low latency voices</p>
           </div>
         </div>
@@ -147,8 +152,34 @@ export default async function AssistantsPage() {
             </thead>
             <tbody className="divide-y divide-hairline">
               {assistants.map((ast) => {
-                const voiceName = ast.config_snapshot?.voice?.name || ast.config_snapshot?.voice || ast.config_snapshot?.voice_provider || 'Cartesia Neural';
-                const cleanAgentId = String(ast.provider_resource_id || 'gap_agent_8f92a1').replace(/vomyra/gi, 'gap');
+                const voiceObj = ast.config_snapshot?.voice;
+                let provider = typeof voiceObj === "object" && voiceObj?.provider
+                  ? voiceObj.provider
+                  : ast.config_snapshot?.voice_provider || (typeof voiceObj === "string" && voiceObj.includes("Neural") ? "Azure" : "Azure");
+                
+                provider = String(provider).charAt(0).toUpperCase() + String(provider).slice(1);
+
+                const rawVoiceName = typeof voiceObj === "object" ? (voiceObj.name || "") : String(voiceObj || "");
+
+                // Friendly voice label
+                let displayVoice = "";
+                if (rawVoiceName.includes("Aarti")) displayVoice = "Aarti (Hindi)";
+                else if (rawVoiceName.includes("Arjun")) displayVoice = "Arjun (Hindi)";
+                else if (rawVoiceName.includes("Aarav")) displayVoice = "Aarav (English)";
+                else if (rawVoiceName.includes("Neerja")) displayVoice = "Neerja (English)";
+                else if (rawVoiceName.includes("Swara")) displayVoice = "Swara (Hindi)";
+                else if (rawVoiceName.includes("Jenny")) displayVoice = "Jenny (US)";
+                else if (rawVoiceName.includes("Aria")) displayVoice = "Aria (US)";
+                else if (rawVoiceName.includes("Guy")) displayVoice = "Guy (US)";
+                else if (typeof voiceObj === "object" && voiceObj?.title) {
+                  displayVoice = voiceObj.title;
+                } else if (rawVoiceName && !rawVoiceName.match(/^[0-9a-f]{8}-/i)) {
+                  displayVoice = rawVoiceName.replace(/Neural(HD)?$/, "").replace(/^[a-z]{2}-[A-Z]{2}-/, "");
+                } else {
+                  displayVoice = "Aarti (Hindi)";
+                }
+
+                const cleanAgentId = String(ast.provider_resource_id || "gap_agent_8f92a1").replace(/vomyra/gi, "gap");
                 return (
                   <tr key={ast.id} className="hover:bg-surface-soft/60 transition-colors group">
                     <td className="py-4 px-6 font-semibold text-black">
@@ -163,11 +194,18 @@ export default async function AssistantsPage() {
                     <td className="py-4 px-6 text-xs font-mono text-neutral-500 font-semibold">
                       {cleanAgentId}
                     </td>
-                    <td className="py-4 px-6 text-xs font-medium capitalize text-neutral-800">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-soft border border-hairline font-sans font-semibold">
-                        <Mic className="w-3 h-3 text-black" />
-                        {voiceName}
-                      </span>
+                    <td className="py-4 px-6 text-xs font-medium text-neutral-800">
+                      <div className="inline-flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-soft border border-hairline font-sans font-bold capitalize text-black">
+                          <Mic className="w-3 h-3 text-emerald-600 shrink-0" />
+                          {provider}
+                        </span>
+                        {displayVoice && (
+                          <span className="text-[11px] text-neutral-500 font-medium">
+                            {displayVoice}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-4 px-6 text-xs">
                       <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${

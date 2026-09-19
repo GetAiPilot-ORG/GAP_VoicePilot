@@ -74,6 +74,7 @@ export async function getBillingDataAction() {
   const { data: allPlans } = await adminClient
     .from("plans")
     .select("*")
+    .neq("id", "sidebar_permissions")
     .order("price_monthly", { ascending: true });
 
   // 4. Get Ledger History

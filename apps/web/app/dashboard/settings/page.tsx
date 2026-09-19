@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BadgeCheck, KeyRound, Link2, ShieldCheck } from "lucide-react";
+import { verifyRouteAccess } from "@/app/actions/adminSidebarPermissions";
 
 const settingsSections = [
   {
@@ -16,7 +17,7 @@ const settingsSections = [
   },
   {
     title: "Integrations",
-    description: "Supabase, Vomyra, Razorpay, and AI provider configuration.",
+    description: "Database, Payment Gateways, and AI Telephony configuration.",
     status: "Env",
     icon: Link2,
   },
@@ -28,7 +29,9 @@ const settingsSections = [
   },
 ];
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  await verifyRouteAccess("/dashboard/settings");
+
   return (
     <div className="space-y-6 sm:space-y-8 animate-fadeIn">
       <div className="space-y-1 border-b border-hairline pb-5 sm:pb-6">
