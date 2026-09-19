@@ -6,6 +6,12 @@ const app = express();
 const port = process.env.PORT || 8000;
 
 app.use(cors());
+
+import { webhookRouter, razorpayWebhookHandler } from './routes/webhooks';
+
+// Mount Razorpay webhook BEFORE express.json() with raw body parsing
+app.post('/api/v1/webhooks/razorpay', express.raw({ type: 'application/json' }), razorpayWebhookHandler);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -14,7 +20,6 @@ import { campaignRouter } from './routes/campaigns';
 import { assistantRouter } from './routes/assistants';
 import { phoneNumberRouter } from './routes/phoneNumbers';
 import { paymentRouter } from './routes/payments';
-import { webhookRouter } from './routes/webhooks';
 import { connectorRouter } from './routes/connectors';
 import { workflowRouter } from './routes/workflows';
 import { vomyraToolsRouter } from './routes/vomyraTools';

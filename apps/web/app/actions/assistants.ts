@@ -1,9 +1,9 @@
 "use server";
 
 import { createServerClient } from "@supabase/ssr";
-import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { createClient } from "@supabase/supabase-js";
 import { getCurrentWorkspace, getAdminClient } from "@/lib/workspace";
 
 async function getOrCreateWorkspace(supabase: any, user: any): Promise<string> {
@@ -401,9 +401,7 @@ export async function updateAssistantAction(id: string, payload: any) {
   );
 
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return { success: false, error: "Unauthorized: Please log in again.", code: "UNAUTHORIZED" };
-  }
+  if (!user) throw new Error("Unauthorized");
 
   let rawApiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'http://127.0.0.1:8000';
   if (rawApiUrl.includes('localhost')) {
@@ -752,10 +750,7 @@ export async function duplicateAssistantAction(assistantId: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
-  const adminClient = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  const adminClient = await getAdminClient();
 
   const { data: target } = await adminClient
     .from('assistants')
@@ -765,7 +760,11 @@ export async function duplicateAssistantAction(assistantId: string) {
 
   if (!target) throw new Error("Assistant not found");
 
-  const workspaceId = await getOrCreateWorkspace(supabase, user);
+  const workspace = await getCurrentWorkspace();
+  if (!workspace || workspace.userId !== user.id) {
+    throw new Error("No workspace is provisioned for this user.");
+  }
+  const workspaceId = workspace.workspaceId;
 
   const payload = {
     ...(target.config_snapshot || {}),

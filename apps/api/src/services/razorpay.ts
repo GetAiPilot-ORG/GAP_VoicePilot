@@ -1,9 +1,9 @@
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
-import { optionalEnv } from '../config/env';
+import { requireEnv } from '../config/env';
 
-const key_id = optionalEnv('RAZORPAY_KEY_ID', 'rzp_test_placeholder')!;
-const key_secret = optionalEnv('RAZORPAY_KEY_SECRET', 'placeholder_secret')!;
+const key_id = requireEnv('RAZORPAY_KEY_ID');
+const key_secret = requireEnv('RAZORPAY_KEY_SECRET');
 
 export const razorpayInstance = new Razorpay({
   key_id,
@@ -31,6 +31,10 @@ export async function createOrder(amountInRupees: number, notes: Record<string, 
   };
 }
 
+export async function fetchPayment(paymentId: string) {
+  return razorpayInstance.payments.fetch(paymentId);
+}
+
 /**
  * Verify Razorpay HMAC SHA256 Signature
  */
@@ -45,5 +49,7 @@ export function verifySignature(
     .update(body.toString())
     .digest('hex');
 
-  return expectedSignature === signature;
+  const expected = Buffer.from(expectedSignature, 'utf8');
+  const received = Buffer.from(signature, 'utf8');
+  return expected.length === received.length && crypto.timingSafeEqual(expected, received);
 }

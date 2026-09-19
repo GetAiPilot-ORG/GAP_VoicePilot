@@ -1,66 +1,8 @@
 "use server";
 
-import { createServerClient } from "@supabase/ssr";
-import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-
-async function getAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-}
-
-async function getWorkspaceId(): Promise<string> {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: (cookiesToSet) => {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {}
-        },
-      },
-    }
-  );
-
-  const adminClient = await getAdminClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (user) {
-    const { data: member } = await adminClient
-      .from('workspace_members')
-      .select('workspace_id')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
-    if (member?.workspace_id) return member.workspace_id;
-  }
-
-  // Fallback to ANY workspace removed to prevent random assignment
-
-  const { data: newWs } = await adminClient.from('workspaces').insert({ name: `${user?.email?.split('@')[0] || 'Default'}'s Workspace`, owner_id: user?.id || '00000000-0000-0000-0000-000000000000' }).select().single();
-  
-  if (newWs?.id && user?.id) {
-    try {
-      await adminClient.from('workspace_members').insert({
-        workspace_id: newWs.id,
-        user_id: user.id,
-        role: 'owner'
-      });
-    } catch(e) {}
-  }
-  return newWs.id;
-}
+import { getAdminClient, requireCurrentWorkspace } from "@/lib/workspace";
+import { fetchVomyraNumbers, vomyraRequest } from "@/lib/vomyra";
 
 export async function assignPhoneNumberAction(numberId: string, assistantId: string | null) {
   const adminClient = await getAdminClient();
@@ -76,9 +18,6 @@ export async function assignPhoneNumberAction(numberId: string, assistantId: str
     return { success: false, error: "Phone number not found." };
   }
 
-  const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || "https://api.vomyra.com";
-  const vomyraApiKey = process.env.VOMYRA_API_KEY || "";
-
   // If assigning to an assistant, sync with Vomyra using PUT
   if (assistantId) {
     const { data: assistantData, error: assistantError } = await adminClient
@@ -91,13 +30,10 @@ export async function assignPhoneNumberAction(numberId: string, assistantId: str
       return { success: false, error: "Assistant not found or missing provider ID." };
     }
 
-    if (vomyraApiKey) {
-      try {
-        const vRes = await fetch(`${vomyraBaseUrl}/v1/numbers/assignment`, {
+    try {
+        const vRes = await vomyraRequest('/v1/numbers/assignment', {
           method: "PUT",
           headers: {
-            "Authorization": `Bearer ${vomyraApiKey}`,
-            "x-api-key": vomyraApiKey,
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
@@ -111,20 +47,16 @@ export async function assignPhoneNumberAction(numberId: string, assistantId: str
           console.error("Vomyra assignment failed:", text);
           // Allow local assignment to succeed for test/manual numbers
         }
-      } catch (e: any) {
+    } catch (e: any) {
         console.error("Vomyra sync error:", e);
         return { success: false, error: "Error communicating with Vomyra API." };
-      }
     }
   } else {
     // If unassigning, sync with Vomyra using DELETE
-    if (vomyraApiKey) {
-      try {
-        const vRes = await fetch(`${vomyraBaseUrl}/v1/numbers/assignment`, {
+    try {
+        const vRes = await vomyraRequest('/v1/numbers/assignment', {
           method: "DELETE",
           headers: {
-            "Authorization": `Bearer ${vomyraApiKey}`,
-            "x-api-key": vomyraApiKey,
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
@@ -137,10 +69,9 @@ export async function assignPhoneNumberAction(numberId: string, assistantId: str
           console.error("Vomyra unassignment failed:", text);
           // Allow local unassignment to succeed
         }
-      } catch (e: any) {
+    } catch (e: any) {
         console.error("Vomyra sync error:", e);
         return { success: false, error: "Error communicating with Vomyra API." };
-      }
     }
   }
 
@@ -162,24 +93,14 @@ export async function assignPhoneNumberAction(numberId: string, assistantId: str
  */
 export async function fetchAndSyncVomyraNumbersAction() {
   const adminClient = await getAdminClient();
-  const workspaceId = await getWorkspaceId();
+  const { workspaceId } = await requireCurrentWorkspace();
 
   let fetchedNumbersCount = 0;
   let errorMsg: string | null = null;
 
   try {
-    const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || "https://api.vomyra.com";
-    const vomyraApiKey = process.env.VOMYRA_API_KEY || "";
-
     // Fetch all numbers from Vomyra API directly to ensure perfect sync
-    if (vomyraApiKey) {
-      const vRes = await fetch(`${vomyraBaseUrl}/v1/numbers`, {
-        headers: { "x-api-key": vomyraApiKey }
-      });
-      
-      if (vRes.ok) {
-        const vData = await vRes.json();
-        const vomyraNumbers = Array.isArray(vData) ? vData : (vData.phone_numbers || vData.data || []);
+      const vomyraNumbers = await fetchVomyraNumbers();
         
         // 1. Fetch workspace assistants from Supabase to map them
         const { data: workspaceAssistants } = await adminClient
@@ -228,20 +149,20 @@ export async function fetchAndSyncVomyraNumbersAction() {
 
           // We also update the number if it already belongs to our workspace
           if (workspaceNumberSet.has(cleanPhone) || shouldImportToWorkspace) {
+            const providerResourceId = `vomyra_${cleanPhone.replace(/[^\d+]/g, "")}`;
+
             await adminClient.from("phone_numbers").upsert({
               workspace_id: workspaceId,
               phone_number: cleanPhone,
               provider: "vomyra",
-              provider_resource_id: `vomyra_${cleanPhone.replace(/[^\d+]/g, "")}`,
+              provider_resource_id: providerResourceId,
               assigned_assistant_id: localAssignedAssistantId,
               status: localAssignedAssistantId ? "active" : "unassigned"
-            }, { onConflict: "phone_number" });
+            }, { onConflict: "provider,provider_resource_id" });
             
             fetchedNumbersCount++;
           }
         }
-      }
-    }
   } catch (err: any) {
     errorMsg = err.message;
   }
@@ -255,55 +176,9 @@ export async function fetchAndSyncVomyraNumbersAction() {
   };
 }
 
-export async function buyPhoneNumberAction(availableNumberId: string, phoneNumber: string, provider: string) {
-  const adminClient = await getAdminClient();
-  const workspaceId = await getWorkspaceId();
-
-  const { data: existing } = await adminClient
-    .from("phone_numbers")
-    .select("id")
-    .eq("id", availableNumberId)
-    .maybeSingle();
-
-  let resultNumber: any = null;
-
-  if (existing) {
-    const { data, error } = await adminClient
-      .from("phone_numbers")
-      .update({
-        workspace_id: workspaceId,
-        status: 'active'
-      })
-      .eq("id", availableNumberId)
-      .select()
-      .single();
-
-    if (error) return { success: false, error: error.message };
-    resultNumber = data;
-  } else {
-    const { data, error } = await adminClient
-      .from("phone_numbers")
-      .insert({
-        workspace_id: workspaceId,
-        phone_number: phoneNumber,
-        provider: provider || 'vomyra',
-        provider_resource_id: `pn_${Date.now()}`,
-        status: 'active'
-      })
-      .select()
-      .single();
-
-    if (error) return { success: false, error: error.message };
-    resultNumber = data;
-  }
-
-  revalidatePath("/dashboard/phone-numbers");
-  return { success: true, newNumber: resultNumber };
-}
-
 export async function fetchPhoneNumbersAction() {
   const adminClient = await getAdminClient();
-  const workspaceId = await getWorkspaceId();
+  const { workspaceId } = await requireCurrentWorkspace();
 
   const { data: myNumbers } = await adminClient
     .from("phone_numbers")
@@ -327,7 +202,8 @@ export async function fetchPhoneNumbersAction() {
       assigned_assistant_id: n.assigned_assistant_id,
       assistants: n.assistants ? { id: n.assistants.id, name: n.assistants.name } : null,
       status: (n.assigned_assistant_id ? "active" : "unassigned") as "active" | "unassigned" | "purchased",
-      created_at: n.created_at
+      created_at: n.created_at,
+      current_period_end: n.current_period_end || null
     })),
     availableNumbers: (availableNumbers || []).map((n: any) => ({
       id: n.id,
@@ -338,4 +214,188 @@ export async function fetchPhoneNumbersAction() {
       monthly_price: 2.00
     }))
   };
+}
+
+export async function claimPhoneNumberAction() {
+  const adminClient = await getAdminClient();
+  const { workspaceId } = await requireCurrentWorkspace();
+
+  try {
+    // 1. Verify KYC is approved
+    const { getWorkspaceKycStatus } = await import("@/app/actions/kyc");
+    const kycRes = await getWorkspaceKycStatus();
+    if (!kycRes.success || !kycRes.kyc || kycRes.kyc.status !== "approved") {
+      return { success: false, error: "You must complete business KYC before claiming a number." };
+    }
+
+    // 2. Atomically reserve entitlement
+    const { data: claimData, error: claimError } = await adminClient.rpc("reserve_number_entitlement", {
+      p_workspace_id: workspaceId
+    });
+
+    if (claimError || !claimData) {
+      return { success: false, error: claimError?.message || "No available dedicated number entitlements." };
+    }
+
+    const claimId = claimData;
+
+    // 3. Fetch all unassigned Vomyra numbers locally
+    const { data: availableDbNumbers, error: dbNumError } = await adminClient
+      .from("phone_numbers")
+      .select("*")
+      .is("workspace_id", null)
+      .is("deleted_at", null)
+      .limit(10);
+
+    let numberToAssign = null;
+    let provider = "vomyra";
+    let providerResourceId = "";
+
+    // 4. Try to pick from local DB unassigned pool first
+    if (availableDbNumbers && availableDbNumbers.length > 0) {
+      numberToAssign = availableDbNumbers[0].phone_number;
+      providerResourceId = availableDbNumbers[0].provider_resource_id;
+    } else {
+      // 5. Fallback: Fetch directly from Vomyra API
+      try {
+        const vomyraNumbers = await fetchVomyraNumbers();
+        // find one that isn't in our system
+        const { data: allAssigned } = await adminClient.from("phone_numbers").select("phone_number").is("deleted_at", null);
+        const assignedSet = new Set(allAssigned?.map(n => n.phone_number) || []);
+        
+        const unassignedVomyra = vomyraNumbers.filter((n: any) => {
+          const cleanPhone = String(n.phone_number || n.number).trim();
+          return !assignedSet.has(cleanPhone);
+        });
+
+        if (unassignedVomyra.length > 0) {
+          numberToAssign = String(unassignedVomyra[0].phone_number || unassignedVomyra[0].number).trim();
+          providerResourceId = `vomyra_${numberToAssign.replace(/[^\d+]/g, "")}`;
+        }
+      } catch (e: any) {
+        console.warn("Failed to fetch from Vomyra API during claim:", e.message);
+      }
+    }
+
+    if (!numberToAssign) {
+      // Provisioning failed - Refund entitlement
+      await adminClient.rpc("refund_number_entitlement", {
+        p_claim_id: claimId
+      });
+      return { success: false, error: "No available numbers in the pool right now. Please try again later or contact support." };
+    }
+
+    // 6. Assign it to the user's workspace
+    const currentPeriodEnd = new Date();
+    currentPeriodEnd.setDate(currentPeriodEnd.getDate() + 30); // 30 day validity
+
+    const { data: newNumber, error: assignError } = await adminClient.from("phone_numbers").upsert({
+      workspace_id: workspaceId,
+      phone_number: numberToAssign,
+      provider: provider,
+      provider_resource_id: providerResourceId,
+      status: "unassigned",
+      current_period_start: new Date().toISOString(),
+      current_period_end: currentPeriodEnd.toISOString()
+    }, { onConflict: "provider,provider_resource_id" }).select().single();
+
+    if (assignError) {
+      // Provisioning failed - Refund entitlement
+      await adminClient.rpc("refund_number_entitlement", {
+        p_claim_id: claimId
+      });
+      return { success: false, error: "Failed to allocate number to your workspace." };
+    }
+
+    // 7. Update claim status
+    await adminClient.from("number_claims").update({
+      status: "claimed",
+      provider_number_id: providerResourceId,
+      phone_number: numberToAssign
+    }).eq("id", claimId);
+
+    revalidatePath("/dashboard/phone-numbers");
+    return { success: true, newNumber };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Admin: Assign/Reassign a phone number to a specific workspace
+ */
+export async function adminAssignNumberAction(params: {
+  phoneNumber: string;
+  workspaceId: string;
+  provider?: string;
+}) {
+  try {
+    const { checkIsAdminAction } = await import("@/app/actions/kyc");
+    const isAdmin = await checkIsAdminAction();
+    if (!isAdmin) return { success: false, error: "Unauthorized. Admin access required." };
+
+    const adminClient = await getAdminClient();
+    const provider = params.provider || "vomyra";
+    const cleanNum = params.phoneNumber.trim();
+    const providerResourceId = `${provider}_${cleanNum.replace(/[^\d+]/g, "")}`;
+
+    const currentPeriodEnd = new Date();
+    currentPeriodEnd.setDate(currentPeriodEnd.getDate() + 30);
+
+    const { data: updated, error } = await adminClient
+      .from("phone_numbers")
+      .upsert({
+        phone_number: cleanNum,
+        provider,
+        provider_resource_id: providerResourceId,
+        workspace_id: params.workspaceId,
+        status: "unassigned",
+        current_period_start: new Date().toISOString(),
+        current_period_end: currentPeriodEnd.toISOString(),
+        deleted_at: null
+      }, { onConflict: "provider,provider_resource_id" })
+      .select()
+      .single();
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/dashboard/admin/phone-numbers");
+    revalidatePath("/dashboard/phone-numbers");
+    return { success: true, number: updated };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Admin: Release a phone number back to unassigned pool
+ */
+export async function adminReleaseNumberAction(phoneId: string) {
+  try {
+    const { checkIsAdminAction } = await import("@/app/actions/kyc");
+    const isAdmin = await checkIsAdminAction();
+    if (!isAdmin) return { success: false, error: "Unauthorized. Admin access required." };
+
+    const adminClient = await getAdminClient();
+    const { error } = await adminClient
+      .from("phone_numbers")
+      .update({
+        workspace_id: null,
+        assigned_assistant_id: null,
+        status: "unassigned"
+      })
+      .eq("id", phoneId);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/dashboard/admin/phone-numbers");
+    revalidatePath("/dashboard/phone-numbers");
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
 }

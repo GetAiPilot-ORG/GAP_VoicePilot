@@ -4,10 +4,10 @@ import { cookies } from "next/headers";
 
 export async function getAdminClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !serviceRoleKey) {
-    return null;
+    throw new Error("Supabase admin credentials are not configured.");
   }
 
   return createClient(supabaseUrl, serviceRoleKey, {
@@ -52,7 +52,6 @@ export async function getCurrentWorkspace(): Promise<{
     if (!user) return null;
 
     const adminClient = await getAdminClient();
-    if (!adminClient) return null;
 
     // 1. Check existing workspace membership
     const { data: member } = await adminClient
@@ -158,4 +157,12 @@ export async function getCurrentWorkspace(): Promise<{
     console.error("Error resolving workspace:", err);
     return null;
   }
+}
+
+export async function requireCurrentWorkspace() {
+  const workspace = await getCurrentWorkspace();
+  if (!workspace) {
+    throw new Error("No workspace is provisioned for this user.");
+  }
+  return workspace;
 }
