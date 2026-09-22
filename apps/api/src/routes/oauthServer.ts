@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { OAuthServerService } from '../services/oauth-server/OAuthServerService';
 import { ConnectorError } from '../services/connectors/core/errors';
 import { supabaseAdmin as supabase } from '../config/supabase';
+import { AuthenticatedUserRequest, authenticateToken } from '../middleware/auth';
 
 export const oauthServerRouter = Router();
 import { IntegrationAvailabilityManager } from '../services/connectors/core/IntegrationAvailabilityManager';
@@ -50,25 +51,8 @@ export async function handleOAuthAuthorize(req: Request, res: Response) {
     // Validate client and exact redirect_uri match
     const client = await oauthService.validateClient(client_id, undefined, redirect_uri);
 
-    // If client requested JSON response directly (testing mode or headless auth)
+    // If client requested JSON metadata response directly (metadata/discovery)
     if (req.headers.accept?.includes('application/json') || req.query.json === 'true') {
-      // If workspaceId and userId provided, generate code directly
-      if (workspaceId && userId) {
-        const code = await oauthService.createAuthorizationCode({
-          clientId: client_id,
-          userId,
-          workspaceId,
-          redirectUri: redirect_uri,
-          scope,
-        });
-
-        const callbackUrl = new URL(redirect_uri);
-        callbackUrl.searchParams.set('code', code);
-        if (state) callbackUrl.searchParams.set('state', state);
-
-        return res.redirect(callbackUrl.toString());
-      }
-
       return res.json({
         success: true,
         client: { id: client.client_id, name: client.name },
@@ -78,25 +62,8 @@ export async function handleOAuthAuthorize(req: Request, res: Response) {
       });
     }
 
-    // Direct automated flow if workspaceId and userId provided via query
-    if (workspaceId && userId) {
-      const code = await oauthService.createAuthorizationCode({
-        clientId: client_id,
-        userId,
-        workspaceId,
-        redirectUri: redirect_uri,
-        scope,
-      });
-
-      const callbackUrl = new URL(redirect_uri);
-      callbackUrl.searchParams.set('code', code);
-      if (state) callbackUrl.searchParams.set('state', state);
-
-      return res.redirect(callbackUrl.toString());
-    }
-
-    // Render Web Consent UI page
-    const webUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    // Render Web Consent UI page so the authenticated user can explicitly consent
+    const webUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3002';
     const consentUrl = new URL(`${webUrl}/oauth/authorize`);
     consentUrl.searchParams.set('client_id', client_id);
     consentUrl.searchParams.set('redirect_uri', redirect_uri);
@@ -116,34 +83,32 @@ export async function handleOAuthAuthorize(req: Request, res: Response) {
 /**
  * POST /oauth/approve Handler
  */
-export async function handleOAuthApprove(req: Request, res: Response) {
+export async function handleOAuthApprove(req: AuthenticatedUserRequest, res: Response) {
   try {
-    const { clientId, userId, workspaceId, redirectUri, state, scope } = req.body;
+    const { clientId, redirectUri, state, scope } = req.body;
+    const userId = req.user?.id;
+    const workspaceId = req.workspaceId;
 
-    if (!clientId || !redirectUri) {
-      return res.status(400).json({ error: 'invalid_request', error_description: 'clientId and redirectUri are required' });
+    if (!clientId || !redirectUri || !userId || !workspaceId) {
+      return res.status(400).json({ error: 'invalid_request', error_description: 'clientId, userId, workspaceId, and redirectUri are required' });
     }
 
-    // If workspaceId not provided, fallback to user's first workspace
-    let targetWorkspaceId = workspaceId;
-    let targetUserId = userId;
+    // Verify user is a member of the requested workspace
+    const { data: membership } = await supabase
+      .from('workspace_members')
+      .select('role')
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', userId)
+      .maybeSingle();
 
-    if (!targetWorkspaceId || !targetUserId) {
-      const { data: ws } = await supabase.from('workspaces').select('id, owner_id').limit(1).single();
-      if (ws) {
-        targetWorkspaceId = targetWorkspaceId || ws.id;
-        targetUserId = targetUserId || ws.owner_id;
-      }
-    }
-
-    if (!targetWorkspaceId || !targetUserId) {
-      return res.status(400).json({ error: 'invalid_request', error_description: 'Valid workspace and user identity required' });
+    if (!membership) {
+      return res.status(403).json({ error: 'access_denied', error_description: 'User is not a member of the specified workspace' });
     }
 
     const code = await oauthService.createAuthorizationCode({
       clientId,
-      userId: targetUserId,
-      workspaceId: targetWorkspaceId,
+      userId,
+      workspaceId,
       redirectUri,
       scope,
     });
@@ -258,6 +223,6 @@ export async function handleOAuthToken(req: Request, res: Response) {
 // Router mounts
 oauthServerRouter.get('/', handleOAuthAuthorize);
 oauthServerRouter.get('/authorize', handleOAuthAuthorize);
-oauthServerRouter.post('/approve', handleOAuthApprove);
+oauthServerRouter.post('/approve', authenticateToken, handleOAuthApprove);
 oauthServerRouter.post('/token', handleOAuthToken);
 oauthServerRouter.post('/', handleOAuthToken);

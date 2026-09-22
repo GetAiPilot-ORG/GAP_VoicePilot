@@ -61,24 +61,9 @@ async function getOrCreateWorkspace(supabase: any, user: any): Promise<string> {
       return newWs.id;
     }
 
-    // 4. Any existing workspace as safety fallback
-    const { data: anyWs } = await adminClient
-      .from('workspaces')
-      .select('id')
-      .limit(1)
-      .maybeSingle();
-
-    if (anyWs?.id) {
-      await adminClient.from('workspace_members').upsert({
-        workspace_id: anyWs.id,
-        user_id: user.id,
-        role: 'owner'
-      });
-      return anyWs.id;
-    }
   }
 
-  throw new Error("Unable to locate or provision a workspace for your account. Please log in again.");
+  throw new Error("Unable to locate or provision a dedicated workspace for your account. Please log in again.");
 }
 
 function buildDomainSpecificVoicePrompt(topic: string, name: string = 'Virtual Assistant'): string {
@@ -298,7 +283,7 @@ export async function createAssistantAction(formData: FormData) {
         process.env.SUPABASE_SERVICE_ROLE_KEY!
       );
 
-      const vomyraApiKey = process.env.VOMYRA_API_KEY || '0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx';
+      const vomyraApiKey = process.env.VOMYRA_API_KEY || '';
       const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || 'https://api.vomyra.com';
 
       const sanitizedPayload = { ...payload };
@@ -605,7 +590,7 @@ export async function deleteAssistantAction(assistantId: string) {
   const vomyraId = dbAssistant?.provider_resource_id || assistantId;
 
   // 2. Archive / cleanup on Vomyra API directly
-  const vomyraApiKey = process.env.VOMYRA_API_KEY || '0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx';
+  const vomyraApiKey = process.env.VOMYRA_API_KEY || '';
   const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || 'https://api.vomyra.com';
 
   if (vomyraApiKey && vomyraId && /^[0-9a-fA-F]{24}$/.test(vomyraId)) {
@@ -665,7 +650,7 @@ export async function syncAssistantsWithVomyraAction() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  const vomyraApiKey = process.env.VOMYRA_API_KEY || '0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx';
+  const vomyraApiKey = process.env.VOMYRA_API_KEY || '';
   const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || 'https://api.vomyra.com';
 
   const res = await fetch(`${vomyraBaseUrl}/v1/assistants`, {
@@ -803,7 +788,7 @@ export async function duplicateAssistantAction(assistantId: string) {
 
   // Attempt 2: Direct Supabase insert
   try {
-    const vomyraApiKey = process.env.VOMYRA_API_KEY || '0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx';
+    const vomyraApiKey = process.env.VOMYRA_API_KEY || '';
     const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || 'https://api.vomyra.com';
     let realVomyraId = '';
 

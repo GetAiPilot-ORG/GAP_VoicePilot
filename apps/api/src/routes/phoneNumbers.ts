@@ -131,19 +131,13 @@ phoneNumberRouter.post('/buy', async (req: Request, res: Response) => {
       const isDefiniteFailure = provisioningError.message === 'Number already claimed';
 
       if (isDefiniteFailure) {
-        // DEFINITE FAILURE -> Refund entitlement
+        // DEFINITE FAILURE -> Refund entitlement atomically via RPC
         await supabase.from('number_claims').update({ 
           status: 'failed',
           error_message: provisioningError.message 
         }).eq('id', claimId);
 
         await supabase.rpc('refund_number_entitlement', { p_workspace_id: workspaceId });
-        
-        // Let's do a direct REST update for the refund (simplified for this plan, though RPC is safer)
-        const { data: ws } = await supabase.from('workspaces').select('dedicated_number_entitlements').eq('id', workspaceId).single();
-        if (ws) {
-          await supabase.from('workspaces').update({ dedicated_number_entitlements: ws.dedicated_number_entitlements + 1 }).eq('id', workspaceId);
-        }
 
         return res.status(400).json({ success: false, error: 'Provisioning failed definitively: ' + provisioningError.message });
       } else {
@@ -169,23 +163,32 @@ phoneNumberRouter.post('/buy', async (req: Request, res: Response) => {
 // PUT /api/v1/phone-numbers/assign - Assign Owned Phone Number to Assistant
 phoneNumberRouter.put('/assign', async (req: Request, res: Response) => {
   try {
-    const { numberId, assistantId } = req.body;
+    const { numberId, assistantId, workspaceId } = req.body;
+    const targetWsId = workspaceId || (req as any).workspaceId;
 
     if (!numberId || !assistantId) {
       return res.status(400).json({ error: 'numberId and assistantId are required' });
     }
 
-    const { data: num, error } = await supabase
+    let updateQuery = supabase
       .from('phone_numbers')
       .update({
         assigned_assistant_id: assistantId,
         status: 'active'
       })
-      .eq('id', numberId)
+      .eq('id', numberId);
+
+    if (targetWsId) {
+      updateQuery = updateQuery.eq('workspace_id', targetWsId);
+    }
+
+    const { data: num, error } = await updateQuery
       .select('*, assistants(id, name)')
       .single();
 
-    if (error) throw error;
+    if (error || !num) {
+      return res.status(404).json({ success: false, error: error?.message || 'Phone number not found in this workspace' });
+    }
 
     await vomyraClient.assignPhoneNumber(num.provider_resource_id || numberId, assistantId);
 
@@ -200,18 +203,27 @@ phoneNumberRouter.put('/assign', async (req: Request, res: Response) => {
 phoneNumberRouter.delete('/unassign/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const targetWsId = (req.query.workspaceId || (req as any).workspaceId) as string;
 
-    const { data: num, error } = await supabase
+    let updateQuery = supabase
       .from('phone_numbers')
       .update({
         assigned_assistant_id: null,
         status: 'unassigned'
       })
-      .eq('id', id)
+      .eq('id', id);
+
+    if (targetWsId) {
+      updateQuery = updateQuery.eq('workspace_id', targetWsId);
+    }
+
+    const { data: num, error } = await updateQuery
       .select('*, assistants(id, name)')
       .single();
 
-    if (error) throw error;
+    if (error || !num) {
+      return res.status(404).json({ success: false, error: error?.message || 'Phone number not found in this workspace' });
+    }
 
     await vomyraClient.unassignPhoneNumber(num.provider_resource_id || id);
 

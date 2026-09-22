@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { 
   createRazorpayOrderAction, 
   verifyRazorpayPaymentAction 
@@ -17,7 +18,8 @@ import {
   CreditCard,
   Check,
   ShieldAlert,
-  Loader2
+  Loader2,
+  Sparkles
 } from "lucide-react";
 
 interface BillingClientProps {
@@ -36,6 +38,7 @@ interface BillingClientProps {
 }
 
 export default function BillingClient({ initialData }: BillingClientProps) {
+  const router = useRouter();
   const [data, setData] = useState(initialData);
   const [historyTab, setHistoryTab] = useState<"payments" | "ledger">("payments");
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
@@ -48,6 +51,11 @@ export default function BillingClient({ initialData }: BillingClientProps) {
     email: "",
     name: "Customer"
   });
+
+  // Sync state whenever server revalidates initialData
+  useEffect(() => {
+    setData(initialData);
+  }, [initialData]);
 
   // Load Razorpay Script & Auth User dynamically on mount
   useEffect(() => {
@@ -74,10 +82,11 @@ export default function BillingClient({ initialData }: BillingClientProps) {
   const hasActiveSub = Boolean(
     data.subscription &&
     data.subscription.status === 'active' &&
-    new Date(data.subscription.current_period_end).getTime() > Date.now()
+    (!data.subscription.current_period_end || new Date(data.subscription.current_period_end).getTime() > Date.now())
   );
   const isExpiredSub = Boolean(
     data.subscription &&
+    data.subscription.current_period_end &&
     new Date(data.subscription.current_period_end).getTime() <= Date.now()
   );
   const activePlanId = hasActiveSub ? (data.subscription?.plans?.id || data.subscription?.plan_id) : null;
@@ -162,14 +171,14 @@ export default function BillingClient({ initialData }: BillingClientProps) {
                 ...prev.ledger
               ]
             }));
+            router.refresh();
           } else {
             setMessage({ type: 'error', text: verifyRes.error || 'Payment verification failed' });
           }
         },
         prefill: {
-          name: userProfile.name,
-          email: userProfile.email,
-          contact: ''
+          name: userProfile.name || undefined,
+          email: userProfile.email || undefined,
         },
         theme: {
           color: '#7c3aed'
@@ -215,16 +224,22 @@ export default function BillingClient({ initialData }: BillingClientProps) {
 
           setLoadingPlanId(null);
           if (verifyRes.success) {
-            const selectedPlan = pricingTiers.find(p => p.id === planId);
+            const selectedPlan = pricingTiers.find(p => p.id === planId) || data.plans?.find(p => p.id === planId);
+            const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+            const granted = verifyRes.minutesGranted || (selectedPlan ? (selectedPlan.included_credits || 2000) : 2000);
             setMessage({ type: 'success', text: verifyRes.message || `Successfully activated ${planName}!` });
             setData(prev => ({
               ...prev,
+              balance: (prev.balance || 0) + granted,
               subscription: {
                 status: 'active',
                 plan_id: planId,
+                current_period_start: new Date().toISOString(),
+                current_period_end: periodEnd,
                 plans: selectedPlan
               }
             }));
+            router.refresh();
           } else {
             setMessage({ type: 'error', text: verifyRes.error || 'Payment verification failed' });
           }
@@ -235,9 +250,8 @@ export default function BillingClient({ initialData }: BillingClientProps) {
           }
         },
         prefill: {
-          name: userProfile.name,
-          email: userProfile.email,
-          contact: ''
+          name: userProfile.name || undefined,
+          email: userProfile.email || undefined,
         },
         theme: {
           color: '#7c3aed'
@@ -281,11 +295,13 @@ export default function BillingClient({ initialData }: BillingClientProps) {
 
           setLoadingPlanId(null);
           if (verifyRes.success) {
-            setMessage({ type: 'success', text: verifyRes.message || 'Payment successful! You can now claim your number.' });
+            setMessage({ type: 'success', text: verifyRes.message || 'Payment successful! Dedicated number line activated.' });
             setData(prev => ({
               ...prev,
-              dedicatedNumberEntitlements: (prev.dedicatedNumberEntitlements || 0) + 1
+              dedicatedNumberEntitlements: (prev.dedicatedNumberEntitlements || 0) + 1,
+              activePhoneNumbersCount: (prev.activePhoneNumbersCount || 0) + 1
             }));
+            router.refresh();
           } else {
             setMessage({ type: 'error', text: verifyRes.error || 'Payment verification failed' });
           }
@@ -296,9 +312,8 @@ export default function BillingClient({ initialData }: BillingClientProps) {
           }
         },
         prefill: {
-          name: userProfile.name,
-          email: userProfile.email,
-          contact: ''
+          name: userProfile.name || undefined,
+          email: userProfile.email || undefined,
         },
         theme: {
           color: '#7c3aed'
@@ -338,6 +353,35 @@ export default function BillingClient({ initialData }: BillingClientProps) {
           </button>
         </div>
       </div>
+
+      {/* Active Subscription Banner */}
+      {hasActiveSub && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-950 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs shadow-xs animate-in fade-in duration-200">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-700 shrink-0 shadow-xs border border-emerald-300">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-extrabold text-emerald-950 text-sm">
+                  Active Plan: {data.subscription?.plans?.name || (data.subscription?.plan_id ? data.subscription.plan_id.toUpperCase().replace('_', ' ') : "Voice Plan")}
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-600 text-white shadow-2xs">
+                  Active
+                </span>
+              </div>
+              <p className="text-emerald-800 text-xs mt-0.5">
+                Valid until <strong>{data.subscription?.current_period_end ? new Date(data.subscription.current_period_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : "30 Days"}</strong> • Unlimited AI Voice Agents & Full Analytics included.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="px-3.5 py-1.5 rounded-xl bg-white border border-emerald-200 text-emerald-900 font-bold text-xs shadow-2xs">
+              {Math.floor(data.balance)} AI Mins Available
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Expired Subscription Warning Banner */}
       {isExpiredSub && (
@@ -410,23 +454,35 @@ export default function BillingClient({ initialData }: BillingClientProps) {
             return (
               <div 
                 key={plan.id}
-                className={`rounded-2xl p-6 flex flex-col justify-between transition-all ${
-                  isDark 
+                className={`rounded-2xl p-6 flex flex-col justify-between transition-all relative ${
+                  isCurrent
+                    ? "bg-white text-black ring-4 ring-emerald-600 shadow-2xl scale-[1.02]"
+                    : isDark 
                     ? "bg-black text-white shadow-2xl ring-2 ring-black" 
-                    : "bg-white text-black shadow-sm"
+                    : "bg-white text-black shadow-sm hover:shadow-md"
                 }`}
               >
                 <div>
+                  {/* Current Active Plan Badge */}
+                  {isCurrent && (
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-600 text-white mb-3 shadow-xs">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-white shrink-0" />
+                      <span>Current Active Plan</span>
+                    </div>
+                  )}
+
                   {/* Audience & Name */}
                   <div className="mb-4 text-left">
-                    <p className={`text-[10px] font-mono tracking-widest uppercase mb-1 font-bold ${isDark ? "text-amber-400" : "text-black/50"}`}>
+                    <p className={`text-[10px] font-mono tracking-widest uppercase mb-1 font-bold ${
+                      isCurrent ? "text-emerald-700" : isDark ? "text-amber-400" : "text-black/50"
+                    }`}>
                       {plan.audience}
                     </p>
                     <h3 className="text-xl font-extrabold tracking-tight">
                       {plan.name}
                     </h3>
                     {plan.description && (
-                      <p className={`text-[11px] mt-1 font-normal ${isDark ? "text-neutral-300" : "text-black/60"}`}>
+                      <p className={`text-[11px] mt-1 font-normal ${isDark && !isCurrent ? "text-neutral-300" : "text-black/60"}`}>
                         {plan.description}
                       </p>
                     )}
@@ -439,30 +495,30 @@ export default function BillingClient({ initialData }: BillingClientProps) {
                         {plan.price}
                       </span>
                       {plan.period && (
-                        <span className={`text-xs font-semibold ${isDark ? "text-neutral-400" : "text-black/60"}`}>
+                        <span className={`text-xs font-semibold ${isDark && !isCurrent ? "text-neutral-400" : "text-black/60"}`}>
                           {plan.period}
                         </span>
                       )}
                     </div>
                     {plan.feeNote && (
-                      <p className={`text-[10px] font-medium mt-1 ${isDark ? "text-neutral-400" : "text-black/50"}`}>
+                      <p className={`text-[10px] font-medium mt-1 ${isDark && !isCurrent ? "text-neutral-400" : "text-black/50"}`}>
                         {plan.feeNote}
                       </p>
                     )}
                   </div>
 
-                  <hr className={`my-4 ${isDark ? "border-neutral-800" : "border-hairline"}`} />
+                  <hr className={`my-4 ${isDark && !isCurrent ? "border-neutral-800" : "border-hairline"}`} />
 
                   {/* Feature Checklist */}
                   <div className="space-y-2.5 mb-6 text-left">
                     {plan.features.map((feat: string, fidx: number) => (
                       <div key={fidx} className="flex items-start gap-2 text-[11px] font-medium">
                         <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
-                          isDark ? "border-white/40 text-white" : "border-black/30 text-black"
+                          isDark && !isCurrent ? "border-white/40 text-white" : "border-black/30 text-black"
                         }`}>
                           <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
-                        <span className={isDark ? "text-neutral-200" : "text-neutral-800"}>
+                        <span className={isDark && !isCurrent ? "text-neutral-200" : "text-neutral-800"}>
                           {feat}
                         </span>
                       </div>
@@ -482,7 +538,7 @@ export default function BillingClient({ initialData }: BillingClientProps) {
                   }}
                   className={`w-full py-2.5 px-4 rounded-full font-bold text-xs transition-all shadow-md flex items-center justify-center gap-2 ${
                     isCurrent
-                      ? "bg-emerald-600 text-white cursor-default"
+                      ? "bg-emerald-600 text-white cursor-default shadow-emerald-600/30"
                       : isDowngrade
                       ? "bg-neutral-200 text-neutral-500 cursor-not-allowed shadow-none border border-neutral-300"
                       : isDark

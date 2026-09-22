@@ -6,7 +6,7 @@ export class VomyraClient implements VoiceProvider {
   private baseUrl: string;
 
   constructor() {
-    this.apiKey = optionalEnv('VOMYRA_API_KEY', '0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx')!;
+    this.apiKey = optionalEnv('VOMYRA_API_KEY', process.env.VOMYRA_API_KEY || '')!;
     this.baseUrl = optionalEnv('VOMYRA_BASE_URL', 'https://api.vomyra.com')!;
   }
 

@@ -1,7 +1,6 @@
 "use server";
 
 import { getCurrentWorkspace, getAdminClient } from "@/lib/workspace";
-import { vomyraRequest } from "@/lib/vomyra";
 import { revalidatePath } from "next/cache";
 
 export interface LaunchBatchCampaignParams {
@@ -83,6 +82,23 @@ export async function launchBatchCampaignAction({ name, assistantId, phoneNumber
 
     const actualPhoneNumberId = campaignNumber.id;
     const assignedNumber = campaignNumber.phone_number.trim();
+
+    // Check credit balance upfront
+    const requiredCredits = cleanContacts.length * 1.0;
+    const { data: wsData } = await adminClient
+      .from("workspaces")
+      .select("balance")
+      .eq("id", workspaceId)
+      .maybeSingle();
+
+    const currentBalance = wsData?.balance ?? 0;
+    if (currentBalance < requiredCredits) {
+      return {
+        success: false,
+        error: `Insufficient credit balance (${currentBalance.toFixed(2)} available). You need at least ${requiredCredits} credits to launch ${cleanContacts.length} calls. Please top up your wallet.`
+      };
+    }
+
     let campaignId = `camp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
     // 1. Insert campaign into Supabase
@@ -106,67 +122,25 @@ export async function launchBatchCampaignAction({ name, assistantId, phoneNumber
 
     campaignId = dbCampaign.id;
 
-    // 2. Dispatch calls directly to Vomyra Voice API
-    const dispatchPromises = cleanContacts.map(async (contact, index) => {
-      // Stagger calls by 800ms
-      await new Promise((resolve) => setTimeout(resolve, index * 800));
-
+    // Queue durable jobs; a dedicated API worker dispatches them independently.
+    const dispatchJobs = cleanContacts.map((contact) => {
       const cleanNumber = contact.phone.startsWith("+")
         ? contact.phone
         : `+91${contact.phone.replace(/^0+/, "")}`;
-
-      const payload: any = {
-        customer_number: cleanNumber,
-        customer_name: contact.name || "Customer",
-        customer_country_code: cleanNumber.startsWith("+91") ? "+91" : "+1",
-        additional_data: {
-          campaign_id: campaignId,
-          campaign_name: name,
-          workspaceId,
-          followUpDate: contact.followUpDate,
-          details: contact.details,
-          dispatched_at: new Date().toISOString()
+      return {
+        campaign_id: campaignId,
+        workspace_id: workspaceId,
+        call_payload: {
+          customer_number: cleanNumber,
+          customer_name: contact.name || "Customer",
+          customer_country_code: cleanNumber.startsWith("+91") ? "+91" : "+1",
+          assigned_number: assignedNumber,
+          additional_data: { campaign_id: campaignId, campaign_name: name, workspaceId, followUpDate: contact.followUpDate, details: contact.details }
         }
       };
-
-      payload.assigned_number = assignedNumber;
-
-      try {
-        const res = await vomyraRequest('/v1/calls', {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(payload)
-        });
-
-        if (res.ok) {
-          const callData = await res.json();
-          return { success: true, callId: callData?.data?.id || callData?.id, contact };
-        } else {
-          const errText = await res.text();
-          console.warn(`[Campaign] Call failed for ${cleanNumber}:`, errText);
-          return { success: false, error: errText, contact };
-        }
-      } catch (err: any) {
-        console.warn(`[Campaign] Call network error for ${cleanNumber}:`, err.message);
-        return { success: false, error: err.message, contact };
-      }
     });
-
-    // Run dispatches in background
-    Promise.allSettled(dispatchPromises).then(async (results) => {
-      if (adminClient) {
-        try {
-          await adminClient
-            .from("campaigns")
-            .update({
-              status: "completed"
-            })
-            .eq("id", campaignId);
-        } catch (e) {}
-      }
-    });
+    const { error: queueError } = await adminClient.from("campaign_dispatch_jobs").insert(dispatchJobs);
+    if (queueError) return { success: false, error: `Could not queue campaign calls: ${queueError.message}` };
 
     revalidatePath("/dashboard/campaigns");
 

@@ -21,7 +21,7 @@ async function testLifecycle() {
 
   try {
     const clientId = 'vp_client_zapier_app245289_cli';
-    const clientSecret = '7547957957589547hunvjfdbfjnubunufdu';
+    const clientSecret = process.env.ZAPIER_OAUTH_CLIENT_SECRET || 'test-only-zapier-secret';
     const redirectUri = 'https://zapier.com/dashboard/auth/oauth/return/App245289CLIAPI/';
 
     // 1. GET /oauth/authorize -> redirect with code

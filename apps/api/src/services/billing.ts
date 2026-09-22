@@ -62,30 +62,20 @@ export async function reserveCredits(
   referenceId?: string,
   description?: string
 ): Promise<{ success: boolean; currentBalance: number; error?: string }> {
-  const currentBalance = await getWorkspaceBalance(workspaceId);
-
-  if (currentBalance < amount) {
-    return {
-      success: false,
-      currentBalance,
-      error: `Insufficient credit balance. Required: ${amount}, Available: ${currentBalance}`
-    };
-  }
-
-  const { error } = await supabaseAdmin.from('credit_ledger').insert({
-    workspace_id: workspaceId,
-    type: 'reservation',
-    amount: -Math.abs(amount),
-    description: description || 'Call credit reservation',
-    reference_id: referenceId
+  const { data, error } = await supabaseAdmin.rpc('reserve_workspace_credits', {
+    p_workspace_id: workspaceId,
+    p_amount: Math.abs(amount),
+    p_reference_id: referenceId || null,
+    p_description: description || 'Call credit reservation'
   });
 
   if (error) {
-    console.error('Failed to insert credit reservation:', error);
-    return { success: false, currentBalance, error: error.message };
+    console.error('Failed to reserve workspace credits:', error);
+    return { success: false, currentBalance: 0, error: error.message };
   }
 
-  return { success: true, currentBalance: currentBalance - amount };
+  const result = data as { success?: boolean; current_balance?: number; error?: string } | null;
+  return { success: result?.success === true, currentBalance: Number(result?.current_balance || 0), error: result?.error };
 }
 
 /**

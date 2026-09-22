@@ -2,7 +2,8 @@ import { createClient } from "@supabase/supabase-js";
 
 const url = "https://gkyilicraflkgcfgqypc.supabase.co";
 const serviceKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdreWlsaWNyYWZsa2djZmdxeXBjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjA4Mzc0NiwiZXhwIjoyMTAxNjU5NzQ2fQ.DYf3RkJp3F8WFPNio6XiUVCYv2Fc7WztfKeLwI4N3eI";
-const vomyraApiKey = "0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx";
+const vomyraApiKey = process.env.VOMYRA_API_KEY;
+if (!vomyraApiKey) throw new Error("VOMYRA_API_KEY is required");
 const vomyraBaseUrl = "https://api.vomyra.com";
 
 const supabase = createClient(url, serviceKey);

@@ -143,10 +143,13 @@ export async function getCurrentWorkspace(): Promise<{
       await adminClient.from("credit_ledger").insert({
         workspace_id: newWs.id,
         amount: 50.00,
-        type: "top_up",
-        notes: "Welcome free trial credits (50 AI Mins)"
+        type: "grant",
+        description: "Welcome free trial credits (50 AI Mins)",
+        reference_id: `trial_${newWs.id}`
       });
-    } catch (e) {}
+    } catch (e) {
+      console.warn("Trial credit seeding notice:", e);
+    }
 
     return {
       workspaceId: newWs.id,

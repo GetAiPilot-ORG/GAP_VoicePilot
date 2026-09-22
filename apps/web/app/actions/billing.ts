@@ -14,7 +14,7 @@ function requireEnv(name: string): string {
 }
 
 function getRazorpayKeyId(): string {
-  return requireEnv("NEXT_PUBLIC_RAZORPAY_KEY_ID");
+  return process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "";
 }
 
 // Get the user's session token to pass to the Express backend
@@ -152,7 +152,7 @@ export async function createRazorpayOrderAction(params: {
       orderId: data.data.orderId,
       amount: data.data.amount,
       currency: data.data.currency,
-      keyId: getRazorpayKeyId(),
+      keyId: data.data.keyId || getRazorpayKeyId(),
     };
   } catch (err: any) {
     console.error("Proxy create-order error:", err);

@@ -13,7 +13,7 @@ const SETU_DIGILOCKER_PRODUCT_INSTANCE_ID =
 const SETU_PAN_PRODUCT_INSTANCE_ID =
   process.env.SETU_PAN_PRODUCT_INSTANCE_ID ||
   "YOUR_PAN_PRODUCT_INSTANCE_ID_HERE";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3002";
 
 type DigiLockerStatusResponse = {
   status?: string;
@@ -232,10 +232,12 @@ export async function handleDigiLockerCallback(
       };
     }
 
-    // Mark identity as verified, but leave status as 'pending' for manual admin review/assignment.
+    // Mark identity as approved automatically once both PAN & DigiLocker are authenticated
     const { error: updateError } = await adminClient
       .from("kyc_requests")
       .update({
+        status: "approved",
+        reviewed_at: new Date().toISOString(),
         digilocker_verified: true,
         verification_method: "setu_pan_and_digilocker",
         digilocker_status: digilockerStatus,
