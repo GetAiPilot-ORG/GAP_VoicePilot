@@ -18,16 +18,21 @@ interface ContactInput {
   details?: string;
 }
 
+import { reserveCredits } from '../services/billing';
+import { AuthenticatedUserRequest } from '../middleware/auth';
+
 // POST /api/v1/campaigns - Create & Launch Outbound Bulk Campaign
 campaignRouter.post(
   '/',
   requireMinCredits(1.0),
-  async (req: Request, res: Response) => {
+  async (req: AuthenticatedUserRequest, res: Response) => {
     try {
-      const { name, assistantId, phoneNumberId, contacts, numbers, workspaceId, createdBy } = req.body;
+      const { name, assistantId, phoneNumberId, contacts, numbers } = req.body;
+      const workspaceId = req.workspaceId;
+      const createdBy = req.user?.id;
 
       if (!workspaceId || !createdBy || !name || !assistantId) {
-        return res.status(400).json({ error: 'workspac,, eId, createdBy, name, and assistantId are required.' });
+        return res.status(400).json({ error: 'workspaceId, createdBy, name, and assistantId are required.' });
       }
 
       let contactList: ContactInput[] = [];
@@ -53,6 +58,17 @@ campaignRouter.post(
 
       if (contactList.length === 0) {
         return res.status(400).json({ error: 'No valid phone numbers found in contact list.' });
+      }
+
+      // Check and reserve credits for the batch
+      const requiredCredits = contactList.length * 1.0;
+      const campaignBatchRef = `camp_batch_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      const creditReservation = await reserveCredits(workspaceId, requiredCredits, campaignBatchRef, `Campaign batch hold for ${contactList.length} calls`);
+      if (!creditReservation.success) {
+        return res.status(402).json({
+          error: 'Insufficient Credits',
+          message: `Insufficient credit balance to launch ${contactList.length} calls. Required: ${requiredCredits} credits.`
+        });
       }
 
       // Resolve real Vomyra Assistant ID and phone_number_id
@@ -129,19 +145,14 @@ campaignRouter.post(
         })
       );
 
-      const dispatchPromises = contactList.map(async (contact, index) => {
-        await new Promise((resolve) => setTimeout(resolve, index * 800));
-
+      const dispatchJobs = contactList.map((contact) => {
         const cleanNumber = contact.phone.startsWith('+')
           ? contact.phone
           : `+91${contact.phone.replace(/^0+/, '')}`;
-
-        try {
-          console.log(
-            `[Campaigns] Calling contact ${index + 1}/${contactList.length}: ${contact.name} (${cleanNumber})`
-          );
-
-          const callResult = await voiceProvider.initiateCall({
+        return {
+          campaign_id: campaignId,
+          workspace_id: workspaceId,
+          call_payload: {
             customer_number: cleanNumber,
             customer_name: contact.name || 'Valued Customer',
             assistant_id: realVomyraAssistantId,
@@ -154,34 +165,11 @@ campaignRouter.post(
               details: contact.details,
               dispatched_at: new Date().toISOString(),
             },
-          });
-
-          console.log(`[Campaigns] Call initiated for ${contact.name}: ID ${callResult.id}`);
-          return { success: true, contact, callId: callResult.id };
-        } catch (callErr: any) {
-          console.error(`[Campaigns] Failed to call ${contact.phone}:`, callErr.message);
-          return { success: false, contact, error: callErr.message };
-        }
+          }
+        };
       });
-
-      Promise.allSettled(dispatchPromises).then(async (results) => {
-        const succeeded = results.filter(
-          (result) => result.status === 'fulfilled' && (result.value as any).success
-        ).length;
-
-        console.log(
-          `[Campaigns] Campaign "${name}" dispatch finished. Succeeded: ${succeeded}/${contactList.length}`
-        );
-
-        try {
-          await supabase
-            .from('campaigns')
-            .update({
-              status: 'completed'
-            })
-            .eq('id', campaignId);
-        } catch {}
-      });
+      const { error: queueError } = await supabase.from('campaign_dispatch_jobs').insert(dispatchJobs);
+      if (queueError) throw new Error(`Could not queue campaign calls: ${queueError.message}`);
 
       return res.status(200).json({
         success: true,
@@ -192,7 +180,7 @@ campaignRouter.post(
           status: 'running',
           created_at: new Date().toISOString(),
         },
-        message: `Campaign initiated! Dispatching ${contactList.length} automated calls in real-time.`,
+        message: `Campaign queued. ${contactList.length} calls will be dispatched by the campaign worker.`,
       });
     } catch (error: any) {
       console.error('Failed to create campaign:', error);

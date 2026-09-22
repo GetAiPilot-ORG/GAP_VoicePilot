@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import * as XLSX from "xlsx";
+import readXlsxFile from "read-excel-file";
 import { Button } from "@/components/ui/button";
 import {
   Upload,
@@ -112,21 +112,16 @@ export function CampaignsClient({ initialCampaigns, assistants }: CampaignsClien
     if (!selectedFile) return;
 
     try {
-      const data = await selectedFile.arrayBuffer();
-      const workbook = XLSX.read(data, { type: "array" });
-      const firstSheetName = workbook.SheetNames[0];
-      if (!firstSheetName) {
+      const spreadsheetRows = await readXlsxFile(selectedFile);
+      if (spreadsheetRows.length < 2) {
         alert("The uploaded spreadsheet is empty.");
         return;
       }
 
-      const worksheet = workbook.Sheets[firstSheetName];
-      if (!worksheet) {
-        alert("The worksheet could not be read.");
-        return;
-      }
-
-      const rawRows = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet, { defval: "" });
+      const headers = spreadsheetRows[0].map((value) => String(value ?? "").trim());
+      const rawRows = spreadsheetRows.slice(1).map((values) =>
+        Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ""]))
+      );
 
       if (rawRows.length === 0) {
         alert("No valid rows found in the uploaded file.");

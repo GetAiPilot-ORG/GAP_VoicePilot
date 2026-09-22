@@ -3,6 +3,7 @@
 import React, { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { ShieldCheck, ArrowRight, Zap, CheckCircle2, AlertCircle, Lock } from "lucide-react";
+import { createClient } from "@/utils/supabase/client";
 
 function OAuthAuthorizeContent() {
   const searchParams = useSearchParams();
@@ -31,12 +32,18 @@ function OAuthAuthorizeContent() {
     setError(null);
 
     try {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error("Please sign in before authorizing this integration.");
+      }
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
       const response = await fetch(`${apiUrl}/api/v1/oauth/approve`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Accept": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           clientId,

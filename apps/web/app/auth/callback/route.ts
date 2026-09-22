@@ -8,7 +8,8 @@ export async function GET(request: NextRequest) {
   const tokenHash = requestUrl.searchParams.get("token_hash") || requestUrl.searchParams.get("token");
   const type = (requestUrl.searchParams.get("type") || "magiclink") as any;
   const rawNext = requestUrl.searchParams.get("next");
-  const next = rawNext || (type === "recovery" ? "/reset-password" : "/dashboard");
+  const defaultNext = type === "recovery" ? "/reset-password" : "/dashboard";
+  const safeNext = (rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//")) ? rawNext : defaultNext;
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      return NextResponse.redirect(`${requestUrl.origin}${next}`);
+      return NextResponse.redirect(`${requestUrl.origin}${safeNext}`);
     }
     console.error("[Auth Callback] Error exchanging code for session:", error.message);
   }
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
       type: type,
     });
     if (!error) {
-      return NextResponse.redirect(`${requestUrl.origin}${next}`);
+      return NextResponse.redirect(`${requestUrl.origin}${safeNext}`);
     }
     console.error("[Auth Callback] Error verifying OTP token_hash:", error.message);
   }
@@ -80,9 +81,9 @@ export async function GET(request: NextRequest) {
     <script type="module">
       import { createBrowserClient } from "https://esm.sh/@supabase/ssr@0.5.2";
       
-      const supabaseUrl = "${supabaseUrl}";
-      const supabaseKey = "${supabaseKey}";
-      const nextTarget = "${next}";
+      const supabaseUrl = ${JSON.stringify(supabaseUrl)};
+      const supabaseKey = ${JSON.stringify(supabaseKey)};
+      const nextTarget = ${JSON.stringify(safeNext)};
 
       try {
         const supabase = createBrowserClient(supabaseUrl, supabaseKey);

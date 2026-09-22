@@ -45,9 +45,10 @@ export class OAuthServerService {
 
   private constructor() {
     // Register canonical Zapier clients as fallback
-    const defaultZapierSecret = process.env.ZAPIER_OAUTH_CLIENT_SECRET || '7547957957589547hunvjfdbfjnubunufdu';
-    const secretHash = this.hashSecret(defaultZapierSecret);
-    const zapierRecord: OAuthClientRecord = {
+    const defaultZapierSecret = process.env.ZAPIER_OAUTH_CLIENT_SECRET;
+    if (defaultZapierSecret) {
+      const secretHash = this.hashSecret(defaultZapierSecret);
+      const zapierRecord: OAuthClientRecord = {
       id: 'zapier_client_id_static_123',
       client_id: 'vp_client_zapier_app245289_cli',
       client_secret_hash: secretHash,
@@ -56,19 +57,20 @@ export class OAuthServerService {
       is_active: true,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    };
-    this.memoryClients.set('vp_client_zapier_app245289_cli', zapierRecord);
-    this.memoryClients.set('vpiornvknovernovhoe804hiffrcv', {
-      ...zapierRecord,
-      client_id: 'vpiornvknovernovhoe804hiffrcv',
-    });
-
-    if (process.env.ZAPIER_OAUTH_CLIENT_ID) {
-      this.memoryClients.set(process.env.ZAPIER_OAUTH_CLIENT_ID, {
+      };
+      this.memoryClients.set('vp_client_zapier_app245289_cli', zapierRecord);
+      this.memoryClients.set('vpiornvknovernovhoe804hiffrcv', {
         ...zapierRecord,
-        client_id: process.env.ZAPIER_OAUTH_CLIENT_ID,
-        redirect_uris: process.env.ZAPIER_OAUTH_REDIRECT_URI ? [process.env.ZAPIER_OAUTH_REDIRECT_URI, ...zapierRecord.redirect_uris] : zapierRecord.redirect_uris,
+        client_id: 'vpiornvknovernovhoe804hiffrcv',
       });
+
+      if (process.env.ZAPIER_OAUTH_CLIENT_ID) {
+        this.memoryClients.set(process.env.ZAPIER_OAUTH_CLIENT_ID, {
+          ...zapierRecord,
+          client_id: process.env.ZAPIER_OAUTH_CLIENT_ID,
+          redirect_uris: process.env.ZAPIER_OAUTH_REDIRECT_URI ? [process.env.ZAPIER_OAUTH_REDIRECT_URI, ...zapierRecord.redirect_uris] : zapierRecord.redirect_uris,
+        });
+      }
     }
   }
 

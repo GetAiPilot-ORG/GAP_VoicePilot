@@ -6,6 +6,12 @@ const app = express();
 const port = process.env.PORT || 8000;
 
 app.use(cors());
+
+import { webhookRouter, razorpayWebhookHandler } from './routes/webhooks';
+
+// Mount Razorpay webhook BEFORE express.json() with raw body parsing
+app.post('/api/v1/webhooks/razorpay', express.raw({ type: 'application/json' }), razorpayWebhookHandler);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -14,20 +20,20 @@ import { campaignRouter } from './routes/campaigns';
 import { assistantRouter } from './routes/assistants';
 import { phoneNumberRouter } from './routes/phoneNumbers';
 import { paymentRouter } from './routes/payments';
-import { webhookRouter } from './routes/webhooks';
 import { connectorRouter } from './routes/connectors';
 import { workflowRouter } from './routes/workflows';
 import { vomyraToolsRouter } from './routes/vomyraTools';
 import { oauthServerRouter, handleOAuthAuthorize, handleOAuthApprove, handleOAuthToken } from './routes/oauthServer';
 import { zapierAuthRouter } from './routes/zapierAuth';
 import { WorkflowEngine } from './services/workflows/WorkflowEngine';
+import { authenticateToken } from './middleware/auth';
 
 // Direct top-level OAuth 2.0 Provider routes
 app.get('/oauth/authorize', handleOAuthAuthorize);
 app.get('/api/v1/oauth/authorize', handleOAuthAuthorize);
 
-app.post('/oauth/approve', handleOAuthApprove);
-app.post('/api/v1/oauth/approve', handleOAuthApprove);
+app.post('/oauth/approve', authenticateToken, handleOAuthApprove);
+app.post('/api/v1/oauth/approve', authenticateToken, handleOAuthApprove);
 
 app.post('/oauth/token', handleOAuthToken);
 app.post('/api/v1/oauth/token', handleOAuthToken);
@@ -36,15 +42,18 @@ app.use('/oauth', oauthServerRouter);
 app.use('/api/v1/oauth', oauthServerRouter);
 app.use('/api/v1/zapier', zapierAuthRouter);
 
-app.use('/api/v1/calls', callRouter);
-app.use('/api/v1/campaigns', campaignRouter);
-app.use('/api/v1/assistants', assistantRouter);
-app.use('/api/v1/phone-numbers', phoneNumberRouter);
-app.use('/api/v1/payments', paymentRouter);
+// Public/Webhook endpoints (Webhook verification handled within router)
 app.use('/api/v1/webhooks', webhookRouter);
-app.use('/api/v1/connectors', connectorRouter);
-app.use('/api/v1/workflows', workflowRouter);
 app.use('/api/v1/vomyra-tools', vomyraToolsRouter);
+
+// Protected API routes requiring Supabase Bearer token
+app.use('/api/v1/calls', authenticateToken, callRouter);
+app.use('/api/v1/campaigns', authenticateToken, campaignRouter);
+app.use('/api/v1/assistants', authenticateToken, assistantRouter);
+app.use('/api/v1/phone-numbers', authenticateToken, phoneNumberRouter);
+app.use('/api/v1/payments', authenticateToken, paymentRouter);
+app.use('/api/v1/connectors', authenticateToken, connectorRouter);
+app.use('/api/v1/workflows', authenticateToken, workflowRouter);
 
 import { ZapierSubscriptionManager } from './services/zapier/ZapierSubscriptionManager';
 

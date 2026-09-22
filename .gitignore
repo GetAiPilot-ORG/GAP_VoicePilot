@@ -38,3 +38,5 @@ yarn-error.log*
 .antigravity/
 .vscode/
 .idea/
+.oauth_token_store.json
+.zapier_subscriptions.json
