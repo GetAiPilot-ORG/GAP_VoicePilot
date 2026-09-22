@@ -8,6 +8,7 @@ export interface LaunchBatchCampaignParams {
   assistantId: string;
   phoneNumberId?: string;
   assignedNumber?: string;
+  idempotencyKey?: string;
   contacts: Array<{
     name: string;
     phone: string;
@@ -16,7 +17,7 @@ export interface LaunchBatchCampaignParams {
   }>;
 }
 
-export async function launchBatchCampaignAction({ name, assistantId, phoneNumberId, contacts }: LaunchBatchCampaignParams) {
+export async function launchBatchCampaignAction({ name, assistantId, phoneNumberId, idempotencyKey, contacts }: LaunchBatchCampaignParams) {
   try {
     const workspace = await getCurrentWorkspace();
     if (!workspace) {
@@ -46,6 +47,25 @@ export async function launchBatchCampaignAction({ name, assistantId, phoneNumber
 
     if (cleanContacts.length === 0) {
       return { success: false, error: "Please provide valid phone numbers." };
+    }
+
+    // 1. Idempotency Check: Prevent duplicate campaign creation on double-click
+    const effectiveIdempotencyKey = idempotencyKey || `camp_${workspaceId}_${assistantId}_${cleanContacts.map(c => c.phone).sort().join('_').slice(0, 40)}_${Math.floor(Date.now() / 30000)}`;
+    
+    const { data: existingCampaign } = await adminClient
+      .from("campaigns")
+      .select("id, name, total_contacts, status")
+      .eq("workspace_id", workspaceId)
+      .eq("idempotency_key", effectiveIdempotencyKey)
+      .maybeSingle();
+
+    if (existingCampaign) {
+      console.log(`[CampaignAction] Duplicate campaign submission detected for key ${effectiveIdempotencyKey}. Returning existing campaign.`);
+      return {
+        success: true,
+        campaign: existingCampaign,
+        message: "Campaign already created and processing."
+      };
     }
 
     const { data: assistant } = await adminClient
@@ -83,15 +103,39 @@ export async function launchBatchCampaignAction({ name, assistantId, phoneNumber
     const actualPhoneNumberId = campaignNumber.id;
     const assignedNumber = campaignNumber.phone_number.trim();
 
+    // 2. Active Recipient Concurrency Guard: Check for in-flight pending/processing calls to same numbers
+    const formattedNumbers = cleanContacts.map(c => c.phone.startsWith("+") ? c.phone : `+91${c.phone.replace(/^0+/, "")}`);
+    const { data: inFlightJobs } = await adminClient
+      .from("campaign_dispatch_jobs")
+      .select("call_payload")
+      .eq("workspace_id", workspaceId)
+      .in("status", ["pending", "processing"]);
+
+    const inFlightNumbers = new Set(
+      (inFlightJobs || []).map(j => (j.call_payload as any)?.customer_number).filter(Boolean)
+    );
+
+    const eligibleContacts = cleanContacts.filter(c => {
+      const num = c.phone.startsWith("+") ? c.phone : `+91${c.phone.replace(/^0+/, "")}`;
+      return !inFlightNumbers.has(num);
+    });
+
+    if (eligibleContacts.length === 0) {
+      return {
+        success: false,
+        error: "All selected recipients already have an active call in progress or pending dispatch."
+      };
+    }
+
     // Reserve credits atomically using database RPC
-    const requiredCredits = cleanContacts.length * 1.0;
+    const requiredCredits = eligibleContacts.length * 1.0;
     const refKey = `camp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     
     const { data: resData, error: resErr } = await adminClient.rpc("reserve_workspace_credits", {
       p_workspace_id: workspaceId,
       p_amount: requiredCredits,
       p_reference_id: refKey,
-      p_description: `Campaign "${name}" hold for ${cleanContacts.length} calls`
+      p_description: `Campaign "${name}" hold for ${eligibleContacts.length} calls`
     });
 
     if (resErr || (resData && (resData as any).success === false)) {
@@ -101,7 +145,7 @@ export async function launchBatchCampaignAction({ name, assistantId, phoneNumber
 
     let campaignId = `camp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
-    // 1. Insert campaign into Supabase
+    // Insert campaign into Supabase with idempotency key
     const { data: dbCampaign, error: campaignError } = await adminClient
       .from("campaigns")
       .insert({
@@ -110,8 +154,9 @@ export async function launchBatchCampaignAction({ name, assistantId, phoneNumber
         assistant_id: assistantId,
         phone_number_id: actualPhoneNumberId,
         name,
-        total_contacts: cleanContacts.length,
-        status: "running"
+        total_contacts: eligibleContacts.length,
+        status: "running",
+        idempotency_key: effectiveIdempotencyKey
       })
       .select()
       .single();
@@ -122,8 +167,8 @@ export async function launchBatchCampaignAction({ name, assistantId, phoneNumber
 
     campaignId = dbCampaign.id;
 
-    // Queue durable jobs; a dedicated API worker dispatches them independently.
-    const dispatchJobs = cleanContacts.map((contact) => {
+    // Queue durable jobs
+    const dispatchJobs = eligibleContacts.map((contact) => {
       const cleanNumber = contact.phone.startsWith("+")
         ? contact.phone
         : `+91${contact.phone.replace(/^0+/, "")}`;
@@ -135,7 +180,14 @@ export async function launchBatchCampaignAction({ name, assistantId, phoneNumber
           customer_name: contact.name || "Customer",
           customer_country_code: cleanNumber.startsWith("+91") ? "+91" : "+1",
           assigned_number: assignedNumber,
-          additional_data: { campaign_id: campaignId, campaign_name: name, workspaceId, followUpDate: contact.followUpDate, details: contact.details }
+          additional_data: { 
+            campaign_id: campaignId, 
+            campaign_name: name, 
+            workspaceId, 
+            followUpDate: contact.followUpDate, 
+            details: contact.details,
+            idempotency_key: `contact_${campaignId}_${cleanNumber}`
+          }
         }
       };
     });
@@ -149,10 +201,10 @@ export async function launchBatchCampaignAction({ name, assistantId, phoneNumber
       campaign: {
         id: campaignId,
         name,
-        total_contacts: cleanContacts.length,
+        total_contacts: eligibleContacts.length,
         status: "running"
       },
-      message: `Campaign initiated! Dispatching ${cleanContacts.length} automated calls in real-time.`
+      message: `Campaign initiated! Dispatching ${eligibleContacts.length} automated calls in real-time.`
     };
   } catch (err: any) {
     console.error("Failed to launch batch campaign action:", err);
