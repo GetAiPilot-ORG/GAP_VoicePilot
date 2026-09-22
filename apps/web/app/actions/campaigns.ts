@@ -83,20 +83,20 @@ export async function launchBatchCampaignAction({ name, assistantId, phoneNumber
     const actualPhoneNumberId = campaignNumber.id;
     const assignedNumber = campaignNumber.phone_number.trim();
 
-    // Check credit balance upfront
+    // Reserve credits atomically using database RPC
     const requiredCredits = cleanContacts.length * 1.0;
-    const { data: wsData } = await adminClient
-      .from("workspaces")
-      .select("balance")
-      .eq("id", workspaceId)
-      .maybeSingle();
+    const refKey = `camp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    
+    const { data: resData, error: resErr } = await adminClient.rpc("reserve_workspace_credits", {
+      p_workspace_id: workspaceId,
+      p_amount: requiredCredits,
+      p_reference_id: refKey,
+      p_description: `Campaign "${name}" hold for ${cleanContacts.length} calls`
+    });
 
-    const currentBalance = wsData?.balance ?? 0;
-    if (currentBalance < requiredCredits) {
-      return {
-        success: false,
-        error: `Insufficient credit balance (${currentBalance.toFixed(2)} available). You need at least ${requiredCredits} credits to launch ${cleanContacts.length} calls. Please top up your wallet.`
-      };
+    if (resErr || (resData && (resData as any).success === false)) {
+      const errMsg = (resData as any)?.error || resErr?.message || "Insufficient credit balance to launch campaign.";
+      return { success: false, error: errMsg };
     }
 
     let campaignId = `camp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
