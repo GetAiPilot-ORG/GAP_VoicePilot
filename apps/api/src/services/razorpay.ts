@@ -1,22 +1,33 @@
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
-import { requireEnv } from '../config/env';
+import { optionalEnv } from '../config/env';
 
-const key_id = requireEnv('RAZORPAY_KEY_ID');
-const key_secret = requireEnv('RAZORPAY_KEY_SECRET');
+let _razorpayInstance: Razorpay | null = null;
 
-export const razorpayInstance = new Razorpay({
-  key_id,
-  key_secret
-});
+export function getRazorpay(): Razorpay {
+  if (!_razorpayInstance) {
+    const key_id = optionalEnv('RAZORPAY_KEY_ID');
+    const key_secret = optionalEnv('RAZORPAY_KEY_SECRET');
+    if (!key_id || !key_secret) {
+      throw new Error('Razorpay credentials not configured (RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET)');
+    }
+    _razorpayInstance = new Razorpay({
+      key_id,
+      key_secret
+    });
+  }
+  return _razorpayInstance;
+}
 
 /**
  * Create a Razorpay Order in INR paise
  */
 export async function createOrder(amountInRupees: number, notes: Record<string, any> = {}) {
+  const rzp = getRazorpay();
+  const key_id = optionalEnv('RAZORPAY_KEY_ID') || '';
   const amountInPaise = Math.round(amountInRupees * 100);
   
-  const order = await razorpayInstance.orders.create({
+  const order = await rzp.orders.create({
     amount: amountInPaise,
     currency: 'INR',
     receipt: `rcpt_${Date.now()}`,
@@ -32,7 +43,8 @@ export async function createOrder(amountInRupees: number, notes: Record<string, 
 }
 
 export async function fetchPayment(paymentId: string) {
-  return razorpayInstance.payments.fetch(paymentId);
+  const rzp = getRazorpay();
+  return rzp.payments.fetch(paymentId);
 }
 
 /**
@@ -43,6 +55,10 @@ export function verifySignature(
   paymentId: string,
   signature: string
 ): boolean {
+  const key_secret = optionalEnv('RAZORPAY_KEY_SECRET');
+  if (!key_secret) {
+    throw new Error('Missing RAZORPAY_KEY_SECRET');
+  }
   const body = orderId + '|' + paymentId;
   const expectedSignature = crypto
     .createHmac('sha256', key_secret)
