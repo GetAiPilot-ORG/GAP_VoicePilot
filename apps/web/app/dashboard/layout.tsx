@@ -3,17 +3,17 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { 
-  Plus, 
-  Search, 
-  Bell, 
-  Menu, 
-  ChevronDown, 
-  Bot, 
-  Megaphone, 
-  PhoneCall, 
-  Headphones, 
-  CreditCard 
+import {
+  Plus,
+  Search,
+  Bell,
+  Menu,
+  ChevronDown,
+  Bot,
+  Megaphone,
+  PhoneCall,
+  Headphones,
+  CreditCard
 } from "lucide-react";
 import { SessionNavBar } from "@/components/ui/sidebar";
 import HeaderBalanceBadge from "@/components/HeaderBalanceBadge";
@@ -45,7 +45,7 @@ export default function DashboardLayout({
         <header className="h-[64px] border-b border-neutral-200/80 px-4 sm:px-6 flex items-center justify-between bg-white/85 backdrop-blur-md sticky top-0 z-30 gap-3 transition-all">
           <div className="flex items-center gap-3 flex-1 max-w-md">
             {/* Mobile Hamburger Toggle */}
-            <button 
+            <button
               onClick={() => setMobileOpen(true)}
               className="md:hidden p-2 rounded-[10px] border border-neutral-200 bg-neutral-50 hover:bg-neutral-200/70 text-neutral-700 shrink-0 transition-colors"
               aria-label="Open mobile menu"
@@ -53,23 +53,14 @@ export default function DashboardLayout({
               <Menu className="w-4 h-4" />
             </button>
 
-            {/* Mobile Brand Logo Header */}
-            <div className="flex md:hidden items-center gap-2 shrink-0">
-              <div className="w-7 h-7 rounded-[8px] overflow-hidden">
-                <Image src="/logo.png" alt="GAP Logo" width={28} height={28} className="w-full h-full object-cover" />
-              </div>
-              <div className="flex flex-col leading-none">
-                <span className="font-bold text-xs">GAP</span>
-                <span className="text-[9px] font-mono tracking-widest text-neutral-400 font-semibold uppercase">VOICEPILOT</span>
-              </div>
-            </div>
+
 
             {/* Command-Bar Styled Search Input */}
             <div className="relative w-full hidden sm:block group">
               <Search className="w-4 h-4 text-neutral-400 group-focus-within:text-black absolute left-3 top-1/2 -translate-y-1/2 transition-colors" />
-              <input 
+              <input
                 type="text"
-                placeholder="Search assistants, campaigns, calls..." 
+                placeholder="Search assistants, campaigns, calls..."
                 className="w-full h-[38px] pl-9 pr-12 text-xs bg-neutral-100/70 hover:bg-neutral-100 focus:bg-white border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black/30 transition-all font-medium placeholder:text-neutral-400"
               />
               <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none hidden lg:flex items-center gap-0.5 px-1.5 py-0.5 rounded-[5px] bg-white border border-black/10 text-[10px] font-mono font-medium text-neutral-400 shadow-2xs">
@@ -84,8 +75,8 @@ export default function DashboardLayout({
             <HeaderBalanceBadge />
 
             {/* Notifications Button */}
-            <button 
-              className="hidden sm:flex h-[38px] w-[38px] items-center justify-center rounded-xl hover:bg-neutral-100 text-neutral-600 border border-neutral-200 transition-all active:scale-95 relative" 
+            <button
+              className="hidden sm:flex h-[38px] w-[38px] items-center justify-center rounded-xl hover:bg-neutral-100 text-neutral-600 border border-neutral-200 transition-all active:scale-95 relative"
               title="Notifications"
             >
               <Bell className="w-4 h-4" />

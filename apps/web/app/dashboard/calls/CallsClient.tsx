@@ -132,7 +132,7 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
             };
           });
         }
-      } catch (e) {} finally {
+      } catch (e) { } finally {
         setIsLoadingAudio(false);
       }
     }
@@ -161,8 +161,8 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
 
     if (isHindi) {
       // 1. Hindi Natural Voices
-      const hindiVoices = voices.filter(v => 
-        v.lang.toLowerCase().startsWith("hi") || 
+      const hindiVoices = voices.filter(v =>
+        v.lang.toLowerCase().startsWith("hi") ||
         v.name.toLowerCase().includes("hindi") ||
         v.name.toLowerCase().includes("swara") ||
         v.name.toLowerCase().includes("madhur")
@@ -385,8 +385,8 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
             <thead>
               <tr className="border-b border-hairline bg-surface-soft text-black/70">
                 <th className="py-3 px-4 eyebrow text-[11px]">CALL ID</th>
-                <th className="py-3 px-4 eyebrow text-[11px]">CALL TIME</th>
-                <th className="py-3 px-4 eyebrow text-[11px]">CUSTOMER NUMBER</th>
+                <th className="py-3 px-4 eyebrow text-[11px] w-36 whitespace-nowrap">CALL TIME</th>
+                <th className="py-3 px-4 eyebrow text-[11px] w-36 whitespace-nowrap">CUSTOMER NUMBER</th>
                 <th className="py-3 px-4 eyebrow text-[11px]">ASSIGNED NUMBER</th>
                 <th className="py-3 px-4 eyebrow text-[11px]">DURATION</th>
                 <th className="py-3 px-4 eyebrow text-[11px]">STATUS</th>
@@ -402,17 +402,16 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
                   className="hover:bg-surface-soft/60 transition-colors cursor-pointer"
                 >
                   <td className="py-3.5 px-4 font-mono text-neutral-600 font-semibold">{c.id.slice(0, 10)}...</td>
-                  <td className="py-3.5 px-4 text-neutral-700">{c.time}</td>
-                  <td className="py-3.5 px-4 font-mono font-bold text-black">{c.customerNumber}</td>
+                  <td className="py-3.5 px-4 text-neutral-700 w-36 whitespace-nowrap">{c.time}</td>
+                  <td className="py-3.5 px-4 font-mono font-bold text-black w-36 whitespace-nowrap">{c.customerNumber}</td>
                   <td className="py-3.5 px-4 font-mono text-neutral-500">{c.assignedNumber}</td>
                   <td className="py-3.5 px-4 font-medium">{c.duration}</td>
                   <td className="py-3.5 px-4">
                     <span
-                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
-                        c.status === "completed"
+                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${c.status === "completed"
                           ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                           : "bg-red-50 text-red-700 border border-red-200"
-                      }`}
+                        }`}
                     >
                       {c.status === "completed" ? (
                         <CheckCircle2 className="w-3 h-3" />
@@ -441,7 +440,7 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
                           e.stopPropagation();
                           handleOpenCallDetail(c);
                         }}
-                        className="btn-pill-primary rounded-[8px] text-[11px] px-3 py-1.5 inline-flex items-center gap-1.5 shadow-xs"
+                        className="btn-pill-primary rounded-[8px] text-[11px] px-3 py-1.5 inline-flex items-center gap-1.5 shadow-xs whitespace-nowrap"
                       >
                         <FileText className="w-3.5 h-3.5" />
                         Inspect Transcript
@@ -467,13 +466,12 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
                   <span className="font-mono text-xs bg-surface-soft border border-hairline px-2 py-0.5 rounded text-neutral-600">
                     {selectedCall.id}
                   </span>
-                  <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold uppercase ${
-                    selectedCall.outcome === "POSITIVE"
+                  <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold uppercase ${selectedCall.outcome === "POSITIVE"
                       ? "bg-emerald-100 text-emerald-800"
                       : selectedCall.outcome === "NEGATIVE"
-                      ? "bg-red-100 text-red-800"
-                      : "bg-neutral-100 text-neutral-700"
-                  }`}>
+                        ? "bg-red-100 text-red-800"
+                        : "bg-neutral-100 text-neutral-700"
+                    }`}>
                     {selectedCall.outcome}
                   </span>
                 </div>
@@ -512,9 +510,8 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
                   selectedCall.transcriptMessages.map((msg, idx) => (
                     <div
                       key={idx}
-                      className={`flex gap-3 text-xs ${
-                        msg.role === "assistant" ? "items-start" : "items-start justify-end"
-                      }`}
+                      className={`flex gap-3 text-xs ${msg.role === "assistant" ? "items-start" : "items-start justify-end"
+                        }`}
                     >
                       {msg.role === "assistant" && (
                         <div className="w-7 h-7 rounded-full bg-black text-white flex items-center justify-center shrink-0 mt-0.5">
@@ -523,15 +520,13 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
                       )}
 
                       <div
-                        className={`rounded-[12px] p-3 max-w-[80%] space-y-1 transition-all duration-300 ${
-                          activePlayingIndex === idx
+                        className={`rounded-[12px] p-3 max-w-[80%] space-y-1 transition-all duration-300 ${activePlayingIndex === idx
                             ? "ring-2 ring-emerald-500 shadow-md scale-[1.01]"
                             : ""
-                        } ${
-                          msg.role === "assistant"
+                          } ${msg.role === "assistant"
                             ? "bg-white border border-hairline text-neutral-800"
                             : "bg-emerald-600 text-white"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center justify-between gap-4 text-[10px] opacity-70">
                           <span className="font-bold uppercase tracking-wider flex items-center gap-1">

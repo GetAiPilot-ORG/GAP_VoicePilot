@@ -577,9 +577,9 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
             <video src="/assets/ai-agent-avatar.webm" autoPlay loop muted playsInline className="w-full h-full object-cover" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-black">{name || "Sales Representative Bot"}</h2>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-block-lime text-black border border-black/10">
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+              <h2 className="text-base sm:text-xl font-bold text-black">{name || "Sales Representative Bot"}</h2>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-block-lime text-black border border-black/10 whitespace-nowrap">
                 New Draft
               </span>
             </div>
@@ -590,11 +590,11 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
         </div>
 
         {/* Vomyra Parity Action Buttons */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 w-full sm:w-auto mt-2 sm:mt-0">
           <button
             type="button"
             onClick={() => setIsTestCallModalOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-[10px] bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-all"
+            className="inline-flex flex-1 sm:flex-none items-center justify-center whitespace-nowrap gap-2 px-4 py-2 rounded-[10px] bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-all"
           >
             <PhoneCall className="w-4 h-4 text-white" />
             Test Web Call
@@ -603,7 +603,7 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
           <button
             type="button"
             onClick={handleCopyDemoLink}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-[10px] bg-surface-soft hover:bg-black hover:text-white border border-hairline text-neutral-800 font-bold text-xs transition-colors"
+            className="inline-flex flex-1 sm:flex-none items-center justify-center whitespace-nowrap gap-2 px-4 py-2 rounded-[10px] bg-surface-soft hover:bg-black hover:text-white border border-hairline text-neutral-800 font-bold text-xs transition-colors"
           >
             <Copy className="w-3.5 h-3.5" />
             {isCopiedDemo ? "Copied Link!" : "Assistant Demo"}
@@ -612,7 +612,7 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
           <Button
             type="submit"
             disabled={isPending}
-            className="btn-pill-primary text-xs font-bold px-6 py-2 shadow-sm ml-2"
+            className="btn-pill-primary w-full sm:w-auto whitespace-nowrap text-xs font-bold px-6 py-2 shadow-sm sm:ml-2"
           >
             {isPending ? "Creating Assistant..." : "Save & Create Assistant"}
           </Button>
@@ -645,7 +645,7 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
       {topNav === "configuration" ? (
         <>
           {/* Configuration Secondary Navigation Tabs */}
-          <div className="flex border-b border-hairline bg-surface-soft p-1 rounded-[12px] gap-1">
+          <div className="flex overflow-x-auto whitespace-nowrap border-b border-hairline bg-surface-soft p-1 rounded-[12px] gap-1 no-scrollbar">
             <button
               type="button"
               onClick={() => setActiveTab("model")}
@@ -802,19 +802,19 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
 
               {/* 2. System Prompt */}
               <div className="space-y-2 pt-4 border-t border-hairline">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                     <Label className="text-sm font-bold text-black">System Prompt <span className="text-red-500 font-bold">*</span></Label>
-                    <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-[6px] font-semibold italic normal-case flex items-center gap-1 shadow-sm shrink-0">
+                    <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-[6px] font-semibold italic normal-case flex items-center gap-1 shadow-sm shrink-0 whitespace-nowrap">
                       Required Field
                     </span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setIsPromptModalOpen(true)}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs shadow-md transition-all"
+                    className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs shadow-md transition-all whitespace-nowrap"
                   >
-                    <Wand2 className="w-3.5 h-3.5" />
+                    <Wand2 className="w-3.5 h-3.5 shrink-0" />
                     Generate Prompt
                   </button>
                 </div>
@@ -1336,7 +1336,7 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
 
             {/* 1. CRM */}
             <div className="p-5 border border-hairline rounded-[12px] bg-surface-soft/60 space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600 shrink-0 shadow-sm">
                     <svg className="w-5 h-5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1352,18 +1352,18 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                   <button
                     type="button"
                     onClick={handleDownloadSampleCsv}
-                    className="px-3 py-1.5 rounded-[8px] bg-black text-white text-xs font-bold hover:bg-neutral-800 transition-colors"
+                    className="flex-1 sm:flex-none whitespace-nowrap text-center px-3 py-1.5 rounded-[8px] bg-black text-white text-xs font-bold hover:bg-neutral-800 transition-colors"
                   >
                     Download Sample CSV
                   </button>
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="px-3.5 py-1.5 rounded-[8px] bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold transition-colors"
+                    className="flex-1 sm:flex-none whitespace-nowrap text-center px-3.5 py-1.5 rounded-[8px] bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold transition-colors"
                   >
                     Upload
                   </button>
@@ -1373,7 +1373,7 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
 
             {/* 2. Pet Pooja */}
             <div className="p-5 border border-hairline rounded-[12px] bg-surface-soft/60 space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-lg bg-[#E31E25] flex items-center justify-center shrink-0 shadow-sm p-1">
                     <span className="font-extrabold text-[11px] text-white tracking-tighter italic">PetPooja</span>
@@ -1394,7 +1394,7 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
                 <button
                   type="button"
                   onClick={() => setIsPetPoojaModalOpen(true)}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                  className={`w-full sm:w-auto whitespace-nowrap text-center px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${
                     petPoojaConnected ? "bg-black text-white" : "bg-emerald-500 hover:bg-emerald-400 text-black"
                   }`}
                 >
