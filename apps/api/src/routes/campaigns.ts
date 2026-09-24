@@ -27,7 +27,7 @@ campaignRouter.post(
   requireMinCredits(1.0),
   async (req: AuthenticatedUserRequest, res: Response) => {
     try {
-      const { name, assistantId, phoneNumberId, contacts, numbers } = req.body;
+      const { name, assistantId, phoneNumberId, contacts, numbers, idempotencyKey } = req.body;
       const workspaceId = req.workspaceId;
       const createdBy = req.user?.id;
 
@@ -60,14 +60,58 @@ campaignRouter.post(
         return res.status(400).json({ error: 'No valid phone numbers found in contact list.' });
       }
 
-      // Check and reserve credits for the batch
-      const requiredCredits = contactList.length * 1.0;
+      // 1. Idempotency Check: Prevent duplicate campaign creation on double-submit
+      const effectiveIdempotencyKey = idempotencyKey || `camp_${workspaceId}_${assistantId}_${contactList.map(c => c.phone).sort().join('_').slice(0, 40)}_${Math.floor(Date.now() / 30000)}`;
+
+      const { data: existingCampaign } = await supabase
+        .from('campaigns')
+        .select('id, name, total_contacts, status, created_at')
+        .eq('workspace_id', workspaceId)
+        .eq('idempotency_key', effectiveIdempotencyKey)
+        .maybeSingle();
+
+      if (existingCampaign) {
+        console.log(`[API /campaigns] Duplicate submission detected for key ${effectiveIdempotencyKey}. Returning existing campaign.`);
+        return res.status(200).json({
+          success: true,
+          campaign: existingCampaign,
+          message: `Campaign already submitted and active.`
+        });
+      }
+
+      // 2. Active Recipient Concurrency Guard: Skip numbers already in-flight (pending/processing)
+      const { data: inFlightJobs } = await supabase
+        .from('campaign_dispatch_jobs')
+        .select('call_payload')
+        .eq('workspace_id', workspaceId)
+        .in('status', ['pending', 'processing']);
+
+      const inFlightNumbers = new Set(
+        (inFlightJobs || []).map((j: any) => j.call_payload?.customer_number).filter(Boolean)
+      );
+
+      const eligibleContacts = contactList.filter((contact) => {
+        const cleanNumber = contact.phone.startsWith('+')
+          ? contact.phone
+          : `+91${contact.phone.replace(/^0+/, '')}`;
+        return !inFlightNumbers.has(cleanNumber);
+      });
+
+      if (eligibleContacts.length === 0) {
+        return res.status(409).json({
+          error: 'Active calls in progress',
+          message: 'All recipients in this batch currently have an active call in progress or pending in the queue.'
+        });
+      }
+
+      // Check and reserve credits for the eligible batch
+      const requiredCredits = eligibleContacts.length * 1.0;
       const campaignBatchRef = `camp_batch_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-      const creditReservation = await reserveCredits(workspaceId, requiredCredits, campaignBatchRef, `Campaign batch hold for ${contactList.length} calls`);
+      const creditReservation = await reserveCredits(workspaceId, requiredCredits, campaignBatchRef, `Campaign batch hold for ${eligibleContacts.length} calls`);
       if (!creditReservation.success) {
         return res.status(402).json({
           error: 'Insufficient Credits',
-          message: `Insufficient credit balance to launch ${contactList.length} calls. Required: ${requiredCredits} credits.`
+          message: `Insufficient credit balance to launch ${eligibleContacts.length} calls. Required: ${requiredCredits} credits.`
         });
       }
 
@@ -108,8 +152,9 @@ campaignRouter.post(
             assistant_id: assistantId,
             phone_number_id: actualPhoneNumberId,
             name,
-            total_contacts: contactList.length,
+            total_contacts: eligibleContacts.length,
             status: 'running',
+            idempotency_key: effectiveIdempotencyKey
           })
           .select()
           .single();
@@ -121,12 +166,12 @@ campaignRouter.post(
       }
 
       console.log(
-        `[Campaigns] Launching campaign "${name}" with ${contactList.length} contacts using assistant ${realVomyraAssistantId}`
+        `[Campaigns] Launching campaign "${name}" with ${eligibleContacts.length} contacts using assistant ${realVomyraAssistantId}`
       );
 
       const localContacts = new Map<string, string>();
       await Promise.allSettled(
-        contactList.map(async (contact) => {
+        eligibleContacts.map(async (contact) => {
           const cleanNumber = contact.phone.startsWith('+')
             ? contact.phone
             : `+91${contact.phone.replace(/^0+/, '')}`;
@@ -145,7 +190,7 @@ campaignRouter.post(
         })
       );
 
-      const dispatchJobs = contactList.map((contact) => {
+      const dispatchJobs = eligibleContacts.map((contact) => {
         const cleanNumber = contact.phone.startsWith('+')
           ? contact.phone
           : `+91${contact.phone.replace(/^0+/, '')}`;
@@ -164,6 +209,7 @@ campaignRouter.post(
               followUpDate: contact.followUpDate,
               details: contact.details,
               dispatched_at: new Date().toISOString(),
+              idempotency_key: `contact_${campaignId}_${cleanNumber}`
             },
           }
         };
@@ -176,11 +222,11 @@ campaignRouter.post(
         campaign: {
           id: campaignId,
           name,
-          total_contacts: contactList.length,
+          total_contacts: eligibleContacts.length,
           status: 'running',
           created_at: new Date().toISOString(),
         },
-        message: `Campaign queued. ${contactList.length} calls will be dispatched by the campaign worker.`,
+        message: `Campaign queued. ${eligibleContacts.length} calls will be dispatched by the campaign worker.`,
       });
     } catch (error: any) {
       console.error('Failed to create campaign:', error);
