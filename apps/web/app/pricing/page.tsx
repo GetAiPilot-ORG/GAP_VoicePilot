@@ -600,6 +600,98 @@ export default function PricingPage() {
               </Link>
             </div>
           </div>
+
+          {/* GAP Pro & Enterprise All-in-One Bundles */}
+          <div className="mt-12 rounded-[32px] border-2 border-[#ff4b2f]/30 bg-gradient-to-br from-neutral-900 via-neutral-950 to-black p-8 md:p-12 text-white shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 -mr-16 -mt-16 w-80 h-80 bg-[#ff4b2f]/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="relative z-10 flex flex-col items-center text-center max-w-3xl mx-auto mb-10">
+              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#ff4b2f]/20 text-[#ff4b2f] text-xs font-bold tracking-widest uppercase border border-[#ff4b2f]/30">
+                <Sparkles className="w-3.5 h-3.5" /> Full Growth Ecosystem
+              </span>
+              <h2 className="mt-4 text-3xl md:text-4xl font-extrabold tracking-tight">
+                Want AI Calling + WhatsApp + Telegram + Social + CRM in One Plan?
+              </h2>
+              <p className="mt-3 text-sm md:text-base text-neutral-300 font-light max-w-2xl leading-relaxed">
+                Save up to 60% compared to buying tools separately. Choose GAP Pro or GAP Enterprise for fully integrated cross-channel automations.
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto relative z-10">
+              {/* GAP Pro */}
+              <div className="rounded-[24px] border border-white/10 bg-white/5 backdrop-blur-md p-7 flex flex-col justify-between hover:border-white/20 transition-all">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-widest text-[#ff4b2f]">All-in-One Essential</span>
+                    <span className="text-xs bg-white/10 px-3 py-1 rounded-full text-neutral-300 font-semibold">1, 3, 6 & 12 Mo</span>
+                  </div>
+                  <h3 className="text-2xl font-black mt-2">GAP Pro</h3>
+                  <p className="text-xs text-neutral-400 mt-1">Perfect for growing businesses needing all channels.</p>
+                  
+                  <div className="mt-5 flex items-baseline gap-1.5">
+                    <span className="text-4xl font-black text-white">₹4,999</span>
+                    <span className="text-xs text-neutral-400 font-medium">/ month</span>
+                  </div>
+
+                  <ul className="mt-6 space-y-3 border-t border-white/10 pt-6 text-xs text-neutral-200">
+                    <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-[#ff4b2f] shrink-0" /> <strong>100 AI Voice Minutes</strong> Included</li>
+                    <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-[#ff4b2f] shrink-0" /> WhatsApp Growth Plan Included</li>
+                    <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-[#ff4b2f] shrink-0" /> Telegram Lite Plan Included</li>
+                    <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-[#ff4b2f] shrink-0" /> Social Pilot Lite Plan Included</li>
+                    <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-[#ff4b2f] shrink-0" /> GAP CRM - 5 Users Included</li>
+                    <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-[#ff4b2f] shrink-0" /> Webhook & Zapier Integration</li>
+                  </ul>
+                </div>
+
+                <a
+                  href="https://getaipilot.in/pricing"
+                  className="mt-8 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-black font-bold text-xs uppercase tracking-wider hover:bg-neutral-200 transition-all"
+                >
+                  <span>Select GAP Pro</span>
+                  <ArrowRight className="h-4 w-4" />
+                </a>
+              </div>
+
+              {/* GAP Enterprise */}
+              <div className="rounded-[24px] border-2 border-[#ff4b2f] bg-gradient-to-b from-[#ff4b2f]/10 to-white/5 backdrop-blur-md p-7 flex flex-col justify-between relative shadow-xl hover:shadow-[#ff4b2f]/20 transition-all">
+                <div className="absolute -top-3.5 right-6 inline-flex items-center gap-1.5 rounded-full px-4 py-1 text-[11px] font-black uppercase tracking-widest text-white bg-[#ff4b2f] shadow-lg">
+                  <Sparkles className="h-3 w-3 fill-current" />
+                  <span>MOST POWERFUL</span>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-widest text-[#ff4b2f]">Full Power Automation</span>
+                    <span className="text-xs bg-[#ff4b2f]/20 text-[#ff4b2f] border border-[#ff4b2f]/30 px-3 py-1 rounded-full font-bold">1, 3, 6 & 12 Mo</span>
+                  </div>
+                  <h3 className="text-2xl font-black mt-2">GAP Enterprise</h3>
+                  <p className="text-xs text-neutral-300 mt-1">For scale-ups and high-volume multi-channel businesses.</p>
+                  
+                  <div className="mt-5 flex items-baseline gap-1.5">
+                    <span className="text-4xl font-black text-white">₹8,999</span>
+                    <span className="text-xs text-neutral-400 font-medium">/ month</span>
+                  </div>
+
+                  <ul className="mt-6 space-y-3 border-t border-white/10 pt-6 text-xs text-neutral-200">
+                    <li className="flex items-center gap-2.5 font-semibold text-white"><Check className="h-4 w-4 text-[#ff4b2f] shrink-0" /> <strong>250 AI Voice Minutes</strong> Included Monthly</li>
+                    <li className="flex items-center gap-2.5 font-semibold text-white"><Check className="h-4 w-4 text-[#ff4b2f] shrink-0" /> <strong>1 Dedicated Virtual Business Number</strong> Included</li>
+                    <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-[#ff4b2f] shrink-0" /> WhatsApp Pro Plan Included</li>
+                    <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-[#ff4b2f] shrink-0" /> Telegram Pro Plan Included</li>
+                    <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-[#ff4b2f] shrink-0" /> Social Pilot Pro Plan Included</li>
+                    <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-[#ff4b2f] shrink-0" /> GAP CRM - 15 Users Included</li>
+                    <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-[#ff4b2f] shrink-0" /> 24/7 Dedicated Account Manager & SLA</li>
+                  </ul>
+                </div>
+
+                <a
+                  href="https://getaipilot.in/pricing"
+                  className="mt-8 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#ff4b2f] text-white font-bold text-xs uppercase tracking-wider hover:bg-[#e63e24] shadow-lg hover:shadow-xl transition-all"
+                >
+                  <span>Select GAP Enterprise</span>
+                  <ArrowRight className="h-4 w-4" />
+                </a>
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* Included in Your Per-Minute Rate Section */}
