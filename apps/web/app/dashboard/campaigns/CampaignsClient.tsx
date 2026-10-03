@@ -397,9 +397,9 @@ function normalizeFollowUpDate(raw: any): string {
               <tr className="border-b border-hairline bg-surface-soft text-black/70">
                 <th className="py-3.5 px-6 eyebrow text-[11px]">JOB ID</th>
                 <th className="py-3.5 px-6 eyebrow text-[11px]">CAMPAIGN NAME</th>
-                <th className="py-3.5 px-6 eyebrow text-[11px]">CREATED AT</th>
+                <th className="py-3.5 px-6 eyebrow text-[11px] w-48 whitespace-nowrap">CREATED AT</th>
                 <th className="py-3.5 px-6 eyebrow text-[11px]">STATUS</th>
-                <th className="py-3.5 px-6 eyebrow text-[11px] text-right">ACTIONS</th>
+                <th className="py-3.5 px-6 eyebrow text-[11px] text-right w-32 whitespace-nowrap">ACTIONS</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-hairline text-xs">
@@ -411,7 +411,7 @@ function normalizeFollowUpDate(raw: any): string {
                   <td className="py-4 px-6 font-bold text-black">
                     {job.name}
                   </td>
-                  <td className="py-4 px-6 text-neutral-600 font-mono">
+                  <td className="py-4 px-6 text-neutral-600 font-mono whitespace-nowrap">
                     {job.created_at}
                   </td>
                   <td className="py-4 px-6">
@@ -427,13 +427,13 @@ function normalizeFollowUpDate(raw: any): string {
                       </span>
                     )}
                   </td>
-                  <td className="py-4 px-6 text-right">
+                  <td className="py-4 px-6 text-right whitespace-nowrap">
                     <button
                       onClick={() => {
                         setSelectedJobLogs(job);
                         setIsJobLogsModalOpen(true);
                       }}
-                      className="btn-pill-primary rounded-[8px] text-[11px] px-3.5 py-1.5 shadow-xs hover:scale-[1.02] transition-transform"
+                      className="btn-pill-primary rounded-[8px] text-[11px] px-3.5 py-1.5 shadow-xs hover:scale-[1.02] transition-transform whitespace-nowrap"
                     >
                       View Logs
                     </button>

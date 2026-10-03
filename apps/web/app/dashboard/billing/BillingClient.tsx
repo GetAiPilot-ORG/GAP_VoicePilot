@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { 
   createRazorpayOrderAction, 
@@ -675,10 +676,10 @@ export default function BillingClient({ initialData }: BillingClientProps) {
             <h3 className="font-bold text-base text-black">Billing &amp; Transaction History</h3>
           </div>
 
-          <div className="inline-flex p-1 bg-surface-soft border border-hairline rounded-xl gap-1">
+          <div className="inline-flex max-w-full overflow-x-auto no-scrollbar p-1 bg-surface-soft border border-hairline rounded-xl gap-1">
             <button
               onClick={() => setHistoryTab("payments")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center justify-center whitespace-nowrap gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 historyTab === "payments"
                   ? "bg-white text-black shadow-xs border border-black/5"
                   : "text-neutral-600 hover:text-black"
@@ -693,7 +694,7 @@ export default function BillingClient({ initialData }: BillingClientProps) {
 
             <button
               onClick={() => setHistoryTab("ledger")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center justify-center whitespace-nowrap gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 historyTab === "ledger"
                   ? "bg-white text-black shadow-xs border border-black/5"
                   : "text-neutral-600 hover:text-black"
@@ -742,7 +743,7 @@ export default function BillingClient({ initialData }: BillingClientProps) {
                             {new Date(item.paid_at || item.created_at).toLocaleString()}
                           </td>
                           <td className="p-3.5">
-                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase whitespace-nowrap ${
                               isNumber 
                                 ? "bg-purple-100 text-purple-800 border border-purple-200" 
                                 : isPlan 
@@ -843,8 +844,8 @@ export default function BillingClient({ initialData }: BillingClientProps) {
       </div>
 
       {/* Top Up Modal */}
-      {isTopUpOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      {isTopUpOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
           <div className="bg-white border border-hairline rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-6 text-black">
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-base flex items-center gap-2">
@@ -896,7 +897,7 @@ export default function BillingClient({ initialData }: BillingClientProps) {
               <button
                 type="button"
                 onClick={() => setIsTopUpOpen(false)}
-                className="flex-1 py-2.5 rounded-xl border border-hairline text-xs font-semibold hover:bg-surface-soft text-neutral-700"
+                className="flex-1 py-3.5 px-4 rounded-xl border border-hairline text-xs font-semibold hover:bg-surface-soft text-neutral-700 whitespace-nowrap"
               >
                 Cancel
               </button>
@@ -904,13 +905,14 @@ export default function BillingClient({ initialData }: BillingClientProps) {
                 type="button"
                 disabled={isPending}
                 onClick={handleRazorpayTopUp}
-                className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2"
+                className="flex-[2] py-3.5 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2 whitespace-nowrap"
               >
                 {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : `Pay ₹${topUpAmount} via Razorpay`}
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

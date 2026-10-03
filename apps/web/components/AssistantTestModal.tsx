@@ -433,17 +433,19 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
       <div className="bg-white border border-black/10 rounded-[18px] max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-black animate-scaleUp">
 
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-hairline flex items-center justify-between bg-surface-soft/60">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-[10px] bg-block-lime text-black flex items-center justify-center font-bold shadow-sm">
-              <PhoneCall className="w-5 h-5" />
+        <div className="px-6 py-4 border-b border-hairline flex items-start justify-between bg-surface-soft/60">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="flex flex-col items-center gap-1.5 shrink-0 mt-1 sm:mt-0">
+              <div className="w-10 h-10 rounded-[10px] bg-block-lime text-black flex items-center justify-center font-bold shadow-sm">
+                <PhoneCall className="w-5 h-5" />
+              </div>
+              <span className="bg-emerald-100 text-emerald-800 text-[8px] leading-none font-mono font-bold px-1.5 py-0.5 rounded-sm border border-emerald-300">
+                LIVE TESTER
+              </span>
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="font-bold text-lg text-black">{assistantName}</h2>
-                <span className="bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border border-emerald-300">
-                  LIVE TESTER
-                </span>
+              <div className="flex items-center flex-wrap gap-2 mb-1">
+                <h2 className="font-bold text-base sm:text-lg text-black leading-tight">{assistantName}</h2>
               </div>
               <p className="text-xs text-neutral-500">Test autonomous voice responses in-browser, via cellular phone, or WhatsApp.</p>
             </div>
@@ -454,14 +456,14 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
               handleEndWebCall();
               onClose();
             }}
-            className="p-1.5 rounded-full hover:bg-surface-soft text-neutral-400 hover:text-black transition-colors"
+            className="p-1.5 rounded-full hover:bg-surface-soft text-neutral-400 hover:text-black transition-colors -mt-2.5 -mr-2"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center border-b border-hairline px-6 bg-surface-soft/20 text-xs font-semibold overflow-x-auto">
+        <div className="flex items-center flex-wrap gap-2 sm:gap-4 border-b border-hairline px-4 sm:px-6 pt-2 pb-1 bg-surface-soft/20 text-xs font-semibold">
           <button
             onClick={() => setActiveTab("web")}
             className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap ${
@@ -744,8 +746,14 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
                   <input
                     type="tel"
                     value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder="98765 43210 (Mobile Number)"
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setPhoneNumber(val);
+                    }}
+                    maxLength={10}
+                    pattern="[0-9]{10}"
+                    title="Please enter exactly 10 digits"
+                    placeholder="1234567890"
                     className="flex-1 px-4 py-2.5 text-xs font-mono font-semibold bg-surface-soft border border-hairline rounded-[10px] focus:outline-none focus:ring-1 focus:ring-black"
                     required
                   />
