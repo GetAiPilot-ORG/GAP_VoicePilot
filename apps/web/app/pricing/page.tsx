@@ -206,10 +206,20 @@ export default function PricingPage() {
           .from("plans")
           .select("*")
           .eq("is_active", true)
+          .neq("id", "sidebar_permissions")
           .order("price_monthly", { ascending: true });
 
         if (dbPlans && dbPlans.length > 0) {
-          const mapped = dbPlans.map((p) => {
+          const uniquePlansMap = new Map();
+          dbPlans.forEach((p: any) => {
+            const key = (p.name || p.id).trim().toLowerCase();
+            if (!uniquePlansMap.has(key)) {
+              uniquePlansMap.set(key, p);
+            }
+          });
+          const uniquePlans = Array.from(uniquePlansMap.values());
+
+          const mapped = uniquePlans.map((p: any) => {
             const feats = p.features || {};
             const isEnt = p.id === "enterprise" || feats.is_enterprise;
             return {
@@ -492,11 +502,16 @@ export default function PricingPage() {
         </section>
 
         {/* Pricing Cards Grid */}
-        <section className="mx-auto max-w-[1340px] px-6 pb-24 lg:px-8">
-          <div className={`grid gap-6 items-stretch mx-auto ${
-            plansList.length === 3 ? "max-w-5xl lg:grid-cols-3" : "lg:grid-cols-4"
-          }`}>
-            {plansList.map((plan) => {
+        <section className="mx-auto max-w-[1340px] px-6 pb-24 lg:px-8 space-y-16">
+          {(() => {
+            const isGap = (plan: any) => {
+              const name = String(plan.name || "").toLowerCase();
+              return name.startsWith("gap") || name.includes("ecosystem");
+            };
+            const callPlans = plansList.filter(p => !isGap(p));
+            const gapPlans = plansList.filter(p => isGap(p));
+
+            const renderCard = (plan: any) => {
               const price = isAnnual ? plan.annualPrice : plan.monthlyPrice;
               return (
                 <article
@@ -543,7 +558,7 @@ export default function PricingPage() {
                   {/* Feature List */}
                   <div className="my-8 flex-1 border-t border-black/8 pt-6">
                     <ul className="space-y-3.5">
-                      {plan.features.map((feature) => (
+                      {plan.features.map((feature: string) => (
                         <li key={feature} className="flex items-start gap-3 text-xs sm:text-sm font-medium leading-normal text-black/85">
                           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-black/80" />
                           <span>{feature}</span>
@@ -566,8 +581,36 @@ export default function PricingPage() {
                   </Link>
                 </article>
               );
-            })}
-          </div>
+            };
+
+            return (
+              <>
+                {/* Voice Calling Plans Section */}
+                {callPlans.length > 0 && (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between border-b border-black/10 pb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-1.5 rounded-lg bg-black/5">
+                          <PhoneCall className="w-5 h-5 text-black" />
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-bold text-black tracking-tight">Voice Calling Plans</h3>
+                          <p className="text-xs text-black/60">Dedicated AI telecalling minutes, concurrency &amp; live call forwarding</p>
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-mono uppercase tracking-wider bg-black/5 text-black font-bold px-3 py-1 rounded-full border border-black/10">
+                        Standalone Voice
+                      </span>
+                    </div>
+
+                    <div className="grid gap-6 items-stretch mx-auto md:grid-cols-2 lg:grid-cols-3">
+                      {callPlans.map(renderCard)}
+                    </div>
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
           {/* Dedicated Telephony & Calling Channel Plan */}
           <div className="mt-10 rounded-[28px] border border-black/10 bg-white p-6 md:p-8 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 text-left">

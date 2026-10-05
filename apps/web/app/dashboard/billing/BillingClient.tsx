@@ -17,7 +17,8 @@ import {
   CreditCard,
   Check,
   ShieldAlert,
-  Loader2
+  Loader2,
+  Sparkles
 } from "lucide-react";
 
 interface BillingClientProps {
@@ -38,6 +39,7 @@ export default function BillingClient({ initialData }: BillingClientProps) {
   const [isPending, startTransition] = useTransition();
   const [loadingPlanId, setLoadingPlanId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [planCategory, setPlanCategory] = useState<'all' | 'call' | 'gap'>('all');
 
   const [userProfile, setUserProfile] = useState<{ email: string; name: string }>({
     email: "",
@@ -69,8 +71,18 @@ export default function BillingClient({ initialData }: BillingClientProps) {
   const hasActiveSub = data.subscription && data.subscription.status === 'active';
   const activePlanId = hasActiveSub ? (data.subscription?.plans?.id || data.subscription?.plan_id) : null;
 
-  const pricingTiers = (data.plans && data.plans.length > 0)
-    ? data.plans.map((dbPlan) => {
+  // Deduplicate plans to prevent showing multiple cards for same plan
+  const uniquePlansMap = new Map();
+  (data.plans || []).forEach((dbPlan: any) => {
+    const key = (dbPlan.name || dbPlan.id).trim().toLowerCase();
+    if (!uniquePlansMap.has(key)) {
+      uniquePlansMap.set(key, dbPlan);
+    }
+  });
+  const uniquePlans = Array.from(uniquePlansMap.values());
+
+  const pricingTiers = (uniquePlans && uniquePlans.length > 0)
+    ? uniquePlans.map((dbPlan: any) => {
         const feats = dbPlan.features || {};
         const isEnterprise = dbPlan.id === "enterprise" || feats.is_enterprise;
         return {
@@ -94,6 +106,128 @@ export default function BillingClient({ initialData }: BillingClientProps) {
         };
       })
     : [];
+  const isGapPlan = (plan: any) => {
+    const id = String(plan.id || "").toLowerCase();
+    const name = String(plan.name || "").toLowerCase();
+    return id.startsWith("gap_") || name.startsWith("gap") || id.includes("bundle");
+  };
+
+  const callPlans = pricingTiers.filter(p => !isGapPlan(p));
+  const gapPlans = pricingTiers.filter(p => isGapPlan(p));
+
+  const renderPlanCard = (plan: any, idx: number, list: any[]) => {
+    const isCurrent = activePlanId !== null && plan.id === activePlanId;
+    const isDark = plan.isPopular;
+    const isLoading = loadingPlanId === plan.id;
+    const currentPlanIndex = list.findIndex(p => p.id === activePlanId);
+    const isDowngrade = currentPlanIndex !== -1 && idx < currentPlanIndex;
+
+    return (
+      <div 
+        key={plan.id}
+        className={`rounded-2xl p-6 flex flex-col justify-between transition-all ${
+          isDark 
+            ? "bg-black text-white shadow-2xl ring-2 ring-black" 
+            : "bg-white text-black shadow-sm"
+        }`}
+      >
+        <div>
+          {/* Audience & Name */}
+          <div className="mb-4 text-left">
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <p className={`text-[10px] font-mono tracking-widest uppercase font-bold ${isDark ? "text-amber-400" : "text-black/50"}`}>
+                {plan.audience}
+              </p>
+              {isGapPlan(plan) && (
+                <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-purple-100 text-purple-900 border border-purple-200">
+                  Ecosystem
+                </span>
+              )}
+            </div>
+            <h3 className="text-xl font-extrabold tracking-tight">
+              {plan.name}
+            </h3>
+            {plan.description && (
+              <p className={`text-[11px] mt-1 font-normal ${isDark ? "text-neutral-300" : "text-black/60"}`}>
+                {plan.description}
+              </p>
+            )}
+          </div>
+
+          {/* Price */}
+          <div className="mb-3 text-left">
+            <div className="flex items-baseline gap-1">
+              <span className="text-3xl font-extrabold tracking-tight">
+                {plan.price}
+              </span>
+              {plan.period && (
+                <span className={`text-xs font-semibold ${isDark ? "text-neutral-400" : "text-black/60"}`}>
+                  {plan.period}
+                </span>
+              )}
+            </div>
+            {plan.feeNote && (
+              <p className={`text-[10px] font-medium mt-1 ${isDark ? "text-neutral-400" : "text-black/50"}`}>
+                {plan.feeNote}
+              </p>
+            )}
+          </div>
+
+          <hr className={`my-4 ${isDark ? "border-neutral-800" : "border-hairline"}`} />
+
+          {/* Feature Checklist */}
+          <div className="space-y-2.5 mb-6 text-left">
+            {plan.features.map((feat: string, fidx: number) => (
+              <div key={fidx} className="flex items-start gap-2 text-[11px] font-medium">
+                <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
+                  isDark ? "border-white/40 text-white" : "border-black/30 text-black"
+                }`}>
+                  <Check className="w-2.5 h-2.5 stroke-[3]" />
+                </div>
+                <span className={isDark ? "text-neutral-200" : "text-neutral-800"}>
+                  {feat}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* CTA Button with Razorpay Integration */}
+        <button
+          disabled={!plan.isEnterprise && (isCurrent || isDowngrade || (isPending && isLoading))}
+          onClick={() => {
+            if (plan.isEnterprise) {
+              window.location.href = "/demo";
+              return;
+            }
+            handleRazorpaySubscribe(plan.id, plan.priceNum, plan.name);
+          }}
+          className={`w-full py-2.5 px-4 rounded-full font-bold text-xs transition-all shadow-md flex items-center justify-center gap-2 ${
+            isCurrent
+              ? "bg-emerald-600 text-white cursor-default"
+              : isDowngrade
+              ? "bg-neutral-200 text-neutral-500 cursor-not-allowed shadow-none border border-neutral-300"
+              : isDark
+              ? "bg-white text-black hover:bg-neutral-100"
+              : "bg-[#1e1e2d] text-white hover:bg-black"
+          }`}
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Opening Razorpay...
+            </>
+          ) : isCurrent ? (
+            "Active Plan"
+          ) : isDowngrade ? (
+            "Included in Plan"
+          ) : (
+            plan.btnText
+          )}
+        </button>
+      </div>
+    );
+  };
 
   // Open Razorpay Modal for Wallet Recharge
   const handleRazorpayTopUp = () => {
@@ -289,7 +423,7 @@ export default function BillingClient({ initialData }: BillingClientProps) {
 
       {/* Purple Pricing Section */}
       <div className="bg-[#c2b6f4] rounded-3xl p-4 sm:p-8 md:p-12 text-black shadow-xl">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
           <div>
             <p className="text-[11px] font-mono uppercase tracking-widest text-purple-950 font-extrabold mb-3">
               PRICING
@@ -298,122 +432,96 @@ export default function BillingClient({ initialData }: BillingClientProps) {
               Simple pricing,<br />no surprises.
             </h2>
           </div>
-          <div className="max-w-md">
-            <p className="text-xs md:text-sm text-purple-950 font-medium leading-relaxed">
-              Start for free and scale as your volume grows. Every plan includes unlimited agents and full analytics.
+          <div className="flex flex-col items-start md:items-end gap-3">
+            <p className="text-xs md:text-sm text-purple-950 font-medium leading-relaxed max-w-md md:text-right">
+              Choose standalone Telecalling or GetAiPilot all-in-one ecosystem bundles.
             </p>
+            {/* Category Toggle Tabs */}
+            <div className="inline-flex p-1 rounded-xl bg-black/10 border border-black/10">
+              <button
+                type="button"
+                onClick={() => setPlanCategory('all')}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  planCategory === 'all'
+                    ? 'bg-black text-white shadow-sm'
+                    : 'text-purple-950 hover:text-black hover:bg-black/5'
+                }`}
+              >
+                All Plans
+              </button>
+              <button
+                type="button"
+                onClick={() => setPlanCategory('call')}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  planCategory === 'call'
+                    ? 'bg-black text-white shadow-sm'
+                    : 'text-purple-950 hover:text-black hover:bg-black/5'
+                }`}
+              >
+                Voice Calling Plans ({callPlans.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setPlanCategory('gap')}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  planCategory === 'gap'
+                    ? 'bg-black text-white shadow-sm'
+                    : 'text-purple-950 hover:text-black hover:bg-black/5'
+                }`}
+              >
+                GAP Ecosystem Bundles ({gapPlans.length})
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Pricing Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch">
-          {pricingTiers.map((plan, idx) => {
-            const isCurrent = activePlanId !== null && plan.id === activePlanId;
-            const isDark = plan.isPopular;
-            const isLoading = loadingPlanId === plan.id;
-            const currentPlanIndex = pricingTiers.findIndex(p => p.id === activePlanId);
-            const isDowngrade = currentPlanIndex !== -1 && idx < currentPlanIndex;
-
-            return (
-              <div 
-                key={plan.id}
-                className={`rounded-2xl p-6 flex flex-col justify-between transition-all ${
-                  isDark 
-                    ? "bg-black text-white shadow-2xl ring-2 ring-black" 
-                    : "bg-white text-black shadow-sm"
-                }`}
-              >
-                <div>
-                  {/* Audience & Name */}
-                  <div className="mb-4 text-left">
-                    <p className={`text-[10px] font-mono tracking-widest uppercase mb-1 font-bold ${isDark ? "text-amber-400" : "text-black/50"}`}>
-                      {plan.audience}
-                    </p>
-                    <h3 className="text-xl font-extrabold tracking-tight">
-                      {plan.name}
-                    </h3>
-                    {plan.description && (
-                      <p className={`text-[11px] mt-1 font-normal ${isDark ? "text-neutral-300" : "text-black/60"}`}>
-                        {plan.description}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Price */}
-                  <div className="mb-3 text-left">
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-extrabold tracking-tight">
-                        {plan.price}
-                      </span>
-                      {plan.period && (
-                        <span className={`text-xs font-semibold ${isDark ? "text-neutral-400" : "text-black/60"}`}>
-                          {plan.period}
-                        </span>
-                      )}
-                    </div>
-                    {plan.feeNote && (
-                      <p className={`text-[10px] font-medium mt-1 ${isDark ? "text-neutral-400" : "text-black/50"}`}>
-                        {plan.feeNote}
-                      </p>
-                    )}
-                  </div>
-
-                  <hr className={`my-4 ${isDark ? "border-neutral-800" : "border-hairline"}`} />
-
-                  {/* Feature Checklist */}
-                  <div className="space-y-2.5 mb-6 text-left">
-                    {plan.features.map((feat: string, fidx: number) => (
-                      <div key={fidx} className="flex items-start gap-2 text-[11px] font-medium">
-                        <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
-                          isDark ? "border-white/40 text-white" : "border-black/30 text-black"
-                        }`}>
-                          <Check className="w-2.5 h-2.5 stroke-[3]" />
-                        </div>
-                        <span className={isDark ? "text-neutral-200" : "text-neutral-800"}>
-                          {feat}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+        {/* 1. Voice Calling Plans Section */}
+        {(planCategory === 'all' || planCategory === 'call') && callPlans.length > 0 && (
+          <div className="space-y-4 mb-10">
+            <div className="flex items-center justify-between border-b border-black/15 pb-2.5">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-black/10">
+                  <PhoneCall className="w-4 h-4 text-purple-950" />
                 </div>
-
-                {/* CTA Button with Razorpay Integration */}
-                <button
-                  disabled={!plan.isEnterprise && (isCurrent || isDowngrade || (isPending && isLoading))}
-                  onClick={() => {
-                    if (plan.isEnterprise) {
-                      window.location.href = "/demo";
-                      return;
-                    }
-                    handleRazorpaySubscribe(plan.id, plan.priceNum, plan.name);
-                  }}
-                  className={`w-full py-2.5 px-4 rounded-full font-bold text-xs transition-all shadow-md flex items-center justify-center gap-2 ${
-                    isCurrent
-                      ? "bg-emerald-600 text-white cursor-default"
-                      : isDowngrade
-                      ? "bg-neutral-200 text-neutral-500 cursor-not-allowed shadow-none border border-neutral-300"
-                      : isDark
-                      ? "bg-white text-black hover:bg-neutral-100"
-                      : "bg-[#1e1e2d] text-white hover:bg-black"
-                  }`}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Opening Razorpay...
-                    </>
-                  ) : isCurrent ? (
-                    "Active Plan"
-                  ) : isDowngrade ? (
-                    "Included in Plan"
-                  ) : (
-                    plan.btnText
-                  )}
-                </button>
+                <div>
+                  <h3 className="text-base sm:text-lg font-black text-black tracking-tight">Voice Calling Plans</h3>
+                  <p className="text-[11px] text-purple-950/80 font-medium">Dedicated telecalling minutes, concurrency &amp; call forwarding</p>
+                </div>
               </div>
-            );
-          })}
-        </div>
+              <span className="text-[10px] font-mono uppercase tracking-wider bg-black/10 text-purple-950 font-bold px-2.5 py-0.5 rounded-full">
+                Standalone Voice
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 items-stretch">
+              {callPlans.map((plan, idx) => renderPlanCard(plan, idx, callPlans))}
+            </div>
+          </div>
+        )}
+
+        {/* 2. GAP Ecosystem Bundles Section */}
+        {(planCategory === 'all' || planCategory === 'gap') && gapPlans.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between border-b border-black/15 pb-2.5">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-black/10">
+                  <Sparkles className="w-4 h-4 text-purple-950" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-black text-black tracking-tight">GetAiPilot Ecosystem Bundles</h3>
+                  <p className="text-[11px] text-purple-950/80 font-medium">Includes official WhatsApp Cloud API, Telegram, Voice Pilot, Social &amp; CRM</p>
+                </div>
+              </div>
+              <span className="text-[10px] font-mono uppercase tracking-wider bg-purple-950 text-white font-bold px-2.5 py-0.5 rounded-full">
+                All 5 Tools Included
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-stretch max-w-4xl">
+              {gapPlans.map((plan, idx) => renderPlanCard(plan, idx, gapPlans))}
+            </div>
+          </div>
+        )}
 
         {/* Dedicated Phone Number & Calling Channel Card */}
         <div className="mt-8 rounded-2xl border border-black/15 bg-white p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-sm">

@@ -90,18 +90,191 @@ export async function getBillingDataAction() {
     p_workspace_id: workspaceId
   });
 
-  const balance = Number(balanceData || 0);
+  let balance = Number(balanceData || 0);
 
   // 2. Get Active Subscription & Plan
-  const { data: sub } = await adminClient
+  let { data: sub } = await adminClient
     .from('workspace_subscriptions')
     .select('*, plans(*)')
     .eq('workspace_id', workspaceId)
     .eq('status', 'active')
     .maybeSingle();
 
-  // 3. Get All Plans
-  const { data: allPlans } = await adminClient.from('plans').select('*').neq('id', 'sidebar_permissions').order('price_monthly', { ascending: true });
+  // 2.1 Auto-Reconciliation with Hub Database if no active plan or balance is 0
+  if (!sub || balance === 0) {
+    try {
+      const cookieStore = await cookies();
+      const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+        {
+          cookies: {
+            getAll: () => cookieStore.getAll(),
+            setAll: () => {},
+          },
+        }
+      );
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (user?.email) {
+        const hubUrl = process.env.HUB_SUPABASE_URL || "https://uklxlappjcuvdqjvecfh.supabase.co";
+        const hubKey = process.env.HUB_SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrbHhsYXBwamN1dmRxanZlY2ZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODE0NzA4MywiZXhwIjoyMDgzNzIzMDgzfQ.8raDYx4BqeVELD691E720qBORhWEI4L68c_ED2JIt5w";
+        const hubClient = createClient(hubUrl, hubKey);
+
+        const { data: hubProfile } = await hubClient
+          .from("profiles")
+          .select("id")
+          .ilike("email", user.email)
+          .maybeSingle();
+
+        if (hubProfile) {
+          const { data: hubSub } = await hubClient
+            .from("app_user_subscriptions")
+            .select("*")
+            .eq("user_id", hubProfile.id)
+            .maybeSingle();
+
+          if (hubSub && hubSub.status === "active") {
+            const planIdsStr = String(hubSub.plan_id || "").toLowerCase();
+            const planLabelsStr = String(hubSub.plan_label || "").toLowerCase();
+
+            const isEnterprise =
+              planIdsStr.includes("enterprise") ||
+              planIdsStr.includes("gap_scale") ||
+              planLabelsStr.includes("enterprise");
+
+            const isPro =
+              planIdsStr.includes("all_in_one") ||
+              planIdsStr.includes("gap_pro") ||
+              planLabelsStr.includes("gap pro") ||
+              planLabelsStr.includes("pro");
+
+            if (isEnterprise || isPro) {
+              const targetPlanId = isEnterprise ? "gap_enterprise" : "gap_pro";
+              const targetMins = isEnterprise ? 250 : 100;
+              const planLabel = isEnterprise ? "GAP Enterprise" : "GAP Pro";
+
+              // Ensure plan exists in Voice Pilot DB
+              const { data: planExists } = await adminClient
+                .from("plans")
+                .select("id")
+                .eq("id", targetPlanId)
+                .maybeSingle();
+
+              if (!planExists) {
+                await adminClient.from("plans").insert({
+                  id: targetPlanId,
+                  name: planLabel,
+                  price_monthly: isEnterprise ? 8999 : 4999,
+                  included_credits: targetMins,
+                  max_assistants: isEnterprise ? 20 : 5,
+                  max_concurrent_calls: isEnterprise ? 5 : 2,
+                  features: {
+                    badge: planLabel,
+                    description: `${targetMins} AI calling minutes included in ${planLabel}`,
+                    extra_min_rate: isEnterprise ? 4 : 5,
+                    campaigns: true,
+                    ecosystem: true,
+                  },
+                  is_active: true,
+                });
+              }
+
+              // Update/insert workspace subscription
+              if (!sub) {
+                await adminClient.from("workspace_subscriptions").upsert({
+                  workspace_id: workspaceId,
+                  plan_id: targetPlanId,
+                  status: "active",
+                  current_period_start: hubSub.started_at || new Date().toISOString(),
+                  current_period_end: hubSub.expires_at || new Date(Date.now() + 30 * 86400000).toISOString(),
+                  updated_at: new Date().toISOString(),
+                }, { onConflict: "workspace_id" });
+
+                await adminClient.from("profiles").update({
+                  current_plan: targetPlanId,
+                }).eq("id", user.id);
+              }
+
+              // Ensure credits are granted
+              if (balance === 0) {
+                const { data: existingLedger } = await adminClient
+                  .from("credit_ledger")
+                  .select("id")
+                  .eq("workspace_id", workspaceId)
+                  .limit(1);
+
+                if (!existingLedger || existingLedger.length === 0) {
+                  await adminClient.from("credit_ledger").insert({
+                    workspace_id: workspaceId,
+                    type: "grant",
+                    amount: targetMins,
+                    description: `${planLabel} Included Monthly Credits (${targetMins} AI Mins)`,
+                    reference_id: hubSub.last_payment_id || `hub_sync_${Date.now()}`,
+                    created_at: new Date().toISOString(),
+                  });
+                }
+              }
+
+              // Re-fetch sub and balance
+              const [reSub, reBal] = await Promise.all([
+                adminClient.from("workspace_subscriptions").select("*, plans(*)").eq("workspace_id", workspaceId).eq("status", "active").maybeSingle(),
+                adminClient.rpc("get_workspace_credit_balance", { p_workspace_id: workspaceId }),
+              ]);
+              if (reSub.data) sub = reSub.data;
+              balance = Number(reBal.data || targetMins);
+            }
+          } else {
+            // Hub has no active paid subscription for this user -> downgrade/cancel Voice Pilot sub
+            if (sub && (sub.plan_id === "gap_pro" || sub.plan_id === "gap_enterprise" || String(sub.plan_id).startsWith("gap_") || sub.status === "active")) {
+              await adminClient
+                .from("workspace_subscriptions")
+                .update({
+                  status: "canceled",
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("workspace_id", workspaceId);
+
+              await adminClient
+                .from("profiles")
+                .update({ current_plan: null })
+                .eq("id", user.id);
+
+              // Clear promotional grant ledger entries if present
+              await adminClient
+                .from("credit_ledger")
+                .delete()
+                .eq("workspace_id", workspaceId)
+                .ilike("description", "%Included Monthly Credits%");
+
+              const reBal = await adminClient.rpc("get_workspace_credit_balance", { p_workspace_id: workspaceId });
+              sub = null;
+              balance = Math.max(0, Number(reBal.data || 0));
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Auto-reconcile check notice:", e);
+    }
+  }
+
+  // 3. Get All Plans (active and unique)
+  const { data: allPlans } = await adminClient
+    .from('plans')
+    .select('*')
+    .neq('id', 'sidebar_permissions')
+    .eq('is_active', true)
+    .order('price_monthly', { ascending: true });
+
+  const uniquePlansMap = new Map();
+  (allPlans || []).forEach((p: any) => {
+    const key = (p.name || p.id).trim().toLowerCase();
+    if (!uniquePlansMap.has(key)) {
+      uniquePlansMap.set(key, p);
+    }
+  });
+  const sanitizedPlans = Array.from(uniquePlansMap.values());
 
   // 4. Get Ledger History
   const { data: ledger } = await adminClient
@@ -115,7 +288,7 @@ export async function getBillingDataAction() {
     workspaceId,
     balance,
     subscription: sub || null,
-    plans: allPlans || [],
+    plans: sanitizedPlans,
     ledger: ledger || [],
     razorpayKeyId: getRazorpayKeyId()
   };
@@ -218,6 +391,101 @@ export async function verifyRazorpayPaymentAction(params: {
       description: `Plan Subscription: ${targetPlan?.name || planId} (Razorpay ${razorpay_payment_id})`,
       reference_id: razorpay_payment_id
     });
+
+    // 4. Bidirectional Sync: Propagate newly purchased plan to GetAiPilot Main Hub DB
+    try {
+      let userEmail: string | undefined;
+      if (ws?.owner_id) {
+        const { data: ownerProf } = await adminClient
+          .from('profiles')
+          .select('email')
+          .eq('id', ws.owner_id)
+          .maybeSingle();
+        userEmail = ownerProf?.email;
+      }
+
+      if (!userEmail) {
+        const cookieStore = await cookies();
+        const supabase = createServerClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+          {
+            cookies: {
+              getAll: () => cookieStore.getAll(),
+              setAll: () => {},
+            },
+          }
+        );
+        const { data: { user } } = await supabase.auth.getUser();
+        userEmail = user?.email;
+      }
+
+      if (userEmail) {
+        const hubUrl = process.env.HUB_SUPABASE_URL || "https://uklxlappjcuvdqjvecfh.supabase.co";
+        const hubKey = process.env.HUB_SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrbHhsYXBwamN1dmRxanZlY2ZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODE0NzA4MywiZXhwIjoyMDgzNzIzMDgzfQ.8raDYx4BqeVELD691E720qBORhWEI4L68c_ED2JIt5w";
+        const hubClient = createClient(hubUrl, hubKey);
+
+        const { data: hubProfile } = await hubClient
+          .from("profiles")
+          .select("id")
+          .ilike("email", userEmail)
+          .maybeSingle();
+
+        if (hubProfile) {
+          const planLabel = targetPlan?.name || (planId === "gap_enterprise" ? "GAP Enterprise" : planId === "gap_pro" ? "GAP Pro" : planId);
+          const pricePaise = (targetPlan?.price_monthly || (planId === "gap_enterprise" ? 8999 : 4999)) * 100;
+          const nowIso = new Date().toISOString();
+          const expiresIso = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+          // Upsert into app_user_subscriptions on Hub
+          await hubClient.from("app_user_subscriptions").upsert({
+            user_id: hubProfile.id,
+            email: userEmail,
+            plan_id: planId,
+            plan_label: planLabel,
+            plan_price_paise: pricePaise,
+            plan_duration_days: 30,
+            started_at: nowIso,
+            expires_at: expiresIso,
+            status: "active",
+            subscription_status: "active",
+            last_payment_id: razorpay_payment_id,
+            last_payment_status: "paid",
+            last_payment_verified_at: nowIso,
+            updated_at: nowIso,
+          }, { onConflict: "user_id" });
+
+          // Update profiles on Hub
+          await hubClient.from("profiles").update({
+            subscription: planLabel,
+            updated_at: nowIso,
+          }).eq("id", hubProfile.id);
+
+          // If plan is a bundle / pro / enterprise plan, also activate WhatsApp organization on Hub
+          const lowerPlan = planId.toLowerCase();
+          if (lowerPlan.includes("pro") || lowerPlan.includes("enterprise") || lowerPlan.includes("all_in_one")) {
+            const { data: members } = await hubClient
+              .from("organization_members")
+              .select("organization_id")
+              .eq("user_id", hubProfile.id);
+            if (members && members.length > 0) {
+              const orgIds = members.map((m: any) => m.organization_id);
+              await hubClient
+                .from("organizations")
+                .update({
+                  plan_id: lowerPlan.includes("enterprise") ? "enterprise" : "pro",
+                  plan_status: "active",
+                  subscription_tier: lowerPlan.includes("enterprise") ? "enterprise" : "pro",
+                  updated_at: nowIso,
+                })
+                .in("id", orgIds);
+            }
+          }
+        }
+      }
+    } catch (hubSyncErr) {
+      console.warn("Notice: Hub sync during subscription purchase:", hubSyncErr);
+    }
 
     revalidatePath('/dashboard/billing');
     return {
