@@ -21,10 +21,20 @@ function formatAuthError(message: string): string {
   return message || "Authentication failed. Please check your credentials and try again.";
 }
 
+function getSafeRedirect(target?: string | null): string {
+  if (!target) return "/dashboard";
+  const trimmed = target.trim();
+  if (trimmed.startsWith("/") && !trimmed.startsWith("//") && !trimmed.includes("\\")) {
+    return trimmed;
+  }
+  return "/dashboard";
+}
+
 export async function login(formData: FormData) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
-  const redirectTo = (formData.get("redirectTo") as string) || (formData.get("returnTo") as string) || "/dashboard";
+  const rawRedirect = (formData.get("redirectTo") as string) || (formData.get("returnTo") as string);
+  const redirectTo = getSafeRedirect(rawRedirect);
 
   if (!email || !password) {
     return redirect(`/login?error=${encodeURIComponent("Please fill in both email and password fields.")}&redirectTo=${encodeURIComponent(redirectTo)}`);
@@ -70,7 +80,8 @@ export async function signup(formData: FormData) {
   const firstName = (formData.get("firstName") as string) || "";
   const lastName = (formData.get("lastName") as string) || "";
   const name = `${firstName} ${lastName}`.trim() || (formData.get("name") as string) || "";
-  const redirectTo = (formData.get("redirectTo") as string) || (formData.get("returnTo") as string) || "/dashboard";
+  const rawRedirect = (formData.get("redirectTo") as string) || (formData.get("returnTo") as string);
+  const redirectTo = getSafeRedirect(rawRedirect);
 
   if (!email || !password) {
     return redirect(`/signup?error=${encodeURIComponent("Please provide a valid email and password to register.")}&redirectTo=${encodeURIComponent(redirectTo)}`);

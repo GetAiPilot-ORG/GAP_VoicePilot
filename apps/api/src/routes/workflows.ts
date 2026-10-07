@@ -1,14 +1,15 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import { supabaseAdmin as supabase } from '../config/supabase';
+import { AuthenticatedUserRequest } from '../middleware/auth';
 
 export const workflowRouter = Router();
 
 // GET /api/v1/workflows - List Workflows for Workspace
-workflowRouter.get('/', async (req: Request, res: Response) => {
+workflowRouter.get('/', async (req: AuthenticatedUserRequest, res: Response) => {
   try {
-    const workspaceId = String(req.query.workspaceId || '');
+    const workspaceId = (req.query.workspaceId as string) || req.workspaceId;
     if (!workspaceId) {
-      return res.status(400).json({ success: false, error: 'workspaceId query parameter is required' });
+      return res.status(400).json({ success: false, error: 'workspaceId is required' });
     }
 
     const { data, error } = await supabase
@@ -26,9 +27,10 @@ workflowRouter.get('/', async (req: Request, res: Response) => {
 });
 
 // POST /api/v1/workflows - Create New Workflow
-workflowRouter.post('/', async (req: Request, res: Response) => {
+workflowRouter.post('/', async (req: AuthenticatedUserRequest, res: Response) => {
   try {
-    const { workspace_id, name, description, trigger_type, actions, conditions, enabled } = req.body;
+    const { name, description, trigger_type, actions, conditions, enabled } = req.body;
+    const workspace_id = req.body.workspace_id || req.workspaceId;
 
     if (!workspace_id || !name || !trigger_type || !actions || !Array.isArray(actions)) {
       return res.status(400).json({
@@ -62,10 +64,11 @@ workflowRouter.post('/', async (req: Request, res: Response) => {
 });
 
 // PUT /api/v1/workflows/:id - Update Workflow
-workflowRouter.put('/:id', async (req: Request, res: Response) => {
+workflowRouter.put('/:id', async (req: AuthenticatedUserRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { name, description, trigger_type, actions, conditions, enabled } = req.body;
+    const workspaceId = req.workspaceId;
 
     const updatePayload: Record<string, any> = {
       updated_at: new Date().toISOString(),
@@ -78,14 +81,21 @@ workflowRouter.put('/:id', async (req: Request, res: Response) => {
     if (conditions !== undefined) updatePayload.conditions = conditions;
     if (enabled !== undefined) updatePayload.enabled = enabled;
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('workflows')
       .update(updatePayload)
-      .eq('id', id)
-      .select()
-      .single();
+      .eq('id', id);
+
+    if (workspaceId && !req.isSuperAdmin) {
+      query = query.eq('workspace_id', workspaceId);
+    }
+
+    const { data, error } = await query.select().single();
 
     if (error) throw error;
+    if (!data) {
+      return res.status(404).json({ success: false, error: 'Workflow not found or access denied' });
+    }
 
     return res.json({ success: true, workflow: data });
   } catch (error: any) {
@@ -94,11 +104,17 @@ workflowRouter.put('/:id', async (req: Request, res: Response) => {
 });
 
 // DELETE /api/v1/workflows/:id - Delete Workflow
-workflowRouter.delete('/:id', async (req: Request, res: Response) => {
+workflowRouter.delete('/:id', async (req: AuthenticatedUserRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { error } = await supabase.from('workflows').delete().eq('id', id);
+    const workspaceId = req.workspaceId;
 
+    let query = supabase.from('workflows').delete().eq('id', id);
+    if (workspaceId && !req.isSuperAdmin) {
+      query = query.eq('workspace_id', workspaceId);
+    }
+
+    const { error } = await query;
     if (error) throw error;
 
     return res.json({ success: true, message: 'Workflow deleted successfully' });
@@ -108,9 +124,25 @@ workflowRouter.delete('/:id', async (req: Request, res: Response) => {
 });
 
 // GET /api/v1/workflows/:id/logs - Get Execution Logs for Workflow
-workflowRouter.get('/:id/logs', async (req: Request, res: Response) => {
+workflowRouter.get('/:id/logs', async (req: AuthenticatedUserRequest, res: Response) => {
   try {
     const { id } = req.params;
+    const workspaceId = req.workspaceId;
+
+    // Verify workflow belongs to workspace
+    if (workspaceId && !req.isSuperAdmin) {
+      const { data: wf } = await supabase
+        .from('workflows')
+        .select('id')
+        .eq('id', id)
+        .eq('workspace_id', workspaceId)
+        .maybeSingle();
+
+      if (!wf) {
+        return res.status(404).json({ success: false, error: 'Workflow not found or access denied' });
+      }
+    }
+
     const { data, error } = await supabase
       .from('workflow_execution_logs')
       .select('*')

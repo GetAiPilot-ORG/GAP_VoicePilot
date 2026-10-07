@@ -6,12 +6,15 @@ import path from 'path';
 dotenv.config({ path: path.resolve(__dirname, '../../../apps/api/.env') });
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://gkyilicraflkgcfgqypc.supabase.co';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 export async function seedZapierOAuthClient() {
   const clientId = 'vp_client_zapier_app245289_cli';
-  const rawClientSecret = process.env.ZAPIER_OAUTH_CLIENT_SECRET || 'vp_sec_zapier_prod_secret_2026_key';
+  const rawClientSecret = process.env.ZAPIER_OAUTH_CLIENT_SECRET;
+  if (!supabaseUrl || !serviceRoleKey || !rawClientSecret) {
+    throw new Error('NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and ZAPIER_OAUTH_CLIENT_SECRET are required');
+  }
   const clientSecretHash = crypto.createHash('sha256').update(rawClientSecret).digest('hex');
   const allowedRedirectUri = 'https://zapier.com/dashboard/auth/oauth/return/App245289CLIAPI/';
 

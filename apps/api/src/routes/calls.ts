@@ -49,16 +49,19 @@ callRouter.post('/', requireMinCredits(1.0), async (req, res) => {
       } catch (e) {}
     }
 
-    // Reserve credits upfront if workspaceId is present
+    const resolvedWorkspaceId = (req as any).workspaceId as string;
+    if (!resolvedWorkspaceId) {
+      return res.status(400).json({ success: false, error: 'workspaceId is required' });
+    }
+
+    // Reserve credits upfront
     const refKey = idempotencyKey || `call_${Date.now()}`;
-    if (workspaceId) {
-      const creditReservation = await reserveCredits(workspaceId, 1.0, refKey, 'Single call credit hold');
-      if (!creditReservation.success) {
-        return res.status(402).json({
-          success: false,
-          error: creditReservation.error || 'Insufficient credit balance'
-        });
-      }
+    const creditReservation = await reserveCredits(resolvedWorkspaceId, 1.0, refKey, 'Single call credit hold');
+    if (!creditReservation.success) {
+      return res.status(402).json({
+        success: false,
+        error: creditReservation.error || 'Insufficient credit balance'
+      });
     }
 
     // Prepare Vomyra payload: exactly ONE of assistant_id or assigned_number
@@ -84,9 +87,9 @@ callRouter.post('/', requireMinCredits(1.0), async (req, res) => {
     try {
       callResponse = await voiceProvider.initiateCall(callInput);
     } catch (providerErr: any) {
-      if (workspaceId) {
+      if (resolvedWorkspaceId) {
         await settleCallBilling({
-          workspaceId,
+          workspaceId: resolvedWorkspaceId,
           reservedAmount: 1.0,
           durationSeconds: 0,
           referenceId: refKey
@@ -128,6 +131,11 @@ callRouter.post('/whatsapp', requireMinCredits(1.0), async (req, res) => {
       workspaceId
     } = req.body;
 
+    const resolvedWorkspaceId = (req as any).workspaceId as string;
+    if (!resolvedWorkspaceId) {
+      return res.status(400).json({ success: false, error: 'workspaceId is required' });
+    }
+
     const targetCustomerNumber = (customer_number || '').toString().trim();
     const targetCustomerName = (customer_name || 'Customer').toString().trim();
     const targetCountryCode = customer_country_code || (targetCustomerNumber.startsWith('+91') ? '+91' : undefined);
@@ -142,14 +150,12 @@ callRouter.post('/whatsapp', requireMinCredits(1.0), async (req, res) => {
     }
 
     const refKey = idempotencyKey || `wa_call_${Date.now()}`;
-    if (workspaceId) {
-      const creditReservation = await reserveCredits(workspaceId, 1.0, refKey, 'WhatsApp voice call hold');
-      if (!creditReservation.success) {
-        return res.status(402).json({
-          success: false,
-          error: creditReservation.error || 'Insufficient credit balance'
-        });
-      }
+    const creditReservation = await reserveCredits(resolvedWorkspaceId, 1.0, refKey, 'WhatsApp voice call hold');
+    if (!creditReservation.success) {
+      return res.status(402).json({
+        success: false,
+        error: creditReservation.error || 'Insufficient credit balance'
+      });
     }
 
     let waCallResponse: any;
@@ -162,9 +168,9 @@ callRouter.post('/whatsapp', requireMinCredits(1.0), async (req, res) => {
         additional_data: additional_data || { source: 'VoicePilot_WhatsApp_Voice' }
       });
     } catch (providerErr: any) {
-      if (workspaceId) {
+      if (resolvedWorkspaceId) {
         await settleCallBilling({
-          workspaceId,
+          workspaceId: resolvedWorkspaceId,
           reservedAmount: 1.0,
           durationSeconds: 0,
           referenceId: refKey
@@ -206,4 +212,3 @@ callRouter.get('/:id/transcript', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-

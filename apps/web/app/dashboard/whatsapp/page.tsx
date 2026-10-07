@@ -55,7 +55,7 @@ export default async function WhatsAppPage() {
     }
 
     // 2. Fetch live WhatsApp Numbers from API
-    const vomyraApiKey = process.env.VOMYRA_API_KEY || "0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx";
+    const vomyraApiKey = process.env.VOMYRA_API_KEY || "";
     const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || "https://api.vomyra.com";
 
     const res = await fetch(`${vomyraBaseUrl}/v1/whatsapp/numbers`, {

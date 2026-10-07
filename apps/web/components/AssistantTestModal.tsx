@@ -1,25 +1,25 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { 
-  PhoneCall, 
-  Mic, 
-  MicOff, 
-  Volume2, 
-  VolumeX, 
-  Play, 
-  Square, 
-  X, 
-  Send, 
-  Sparkles, 
-  PhoneOutgoing, 
-  RefreshCw, 
-  Activity, 
-  Zap, 
-  CheckCircle2, 
-  AlertCircle, 
-  Bot, 
-  User, 
+import {
+  PhoneCall,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  Play,
+  Square,
+  X,
+  Send,
+  Sparkles,
+  PhoneOutgoing,
+  RefreshCw,
+  Activity,
+  Zap,
+  CheckCircle2,
+  AlertCircle,
+  Bot,
+  User,
   Clock,
   ShieldCheck,
   ChevronDown,
@@ -91,6 +91,7 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
   const [phoneNumber, setPhoneNumber] = useState("");
   const [callerNumbers, setCallerNumbers] = useState<Array<{ id: string; phone_number: string; isAssignedToThis: boolean }>>([]);
   const [selectedCallerNumber, setSelectedCallerNumber] = useState<string>("");
+  const [isLoadingCallerNumbers, setIsLoadingCallerNumbers] = useState(false);
   const [whatsAppNumbers, setWhatsAppNumbers] = useState<Array<any>>([]);
   const [selectedWhatsAppNumber, setSelectedWhatsAppNumber] = useState<string>("");
   const [isDialing, setIsDialing] = useState(false);
@@ -120,13 +121,16 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
   // Load caller numbers and WhatsApp numbers when modal opens
   useEffect(() => {
     if (isOpen) {
+      setIsLoadingCallerNumbers(true);
+      setCallerNumbers([]);
+      setSelectedCallerNumber("");
       fetchCallerNumbersAction(assistant.id).then((res) => {
         if (res.success && res.numbers.length > 0) {
           setCallerNumbers(res.numbers);
           const assigned = res.numbers.find(n => n.isAssignedToThis);
-          setSelectedCallerNumber(assigned?.phone_number || res.numbers[0]?.phone_number || "");
+          setSelectedCallerNumber(assigned?.phone_number || "");
         }
-      });
+      }).finally(() => setIsLoadingCallerNumbers(false));
 
       fetchWhatsAppNumbersAction().then((res) => {
         if (res.success && res.numbers && res.numbers.length > 0) {
@@ -213,7 +217,7 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
-      } catch {}
+      } catch { }
     }
     if (synthRef.current) {
       synthRef.current.cancel();
@@ -364,8 +368,16 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
       return;
     }
 
-    const fullRecipientNumber = cleanNumber.startsWith("+") 
-      ? cleanNumber 
+    if (!isWhatsApp && !selectedCallerNumber) {
+      setPhoneCallResult({
+        success: false,
+        message: "No phone number is assigned to this assistant. Assign a number on the Phone Numbers page first."
+      });
+      return;
+    }
+
+    const fullRecipientNumber = cleanNumber.startsWith("+")
+      ? cleanNumber
       : `${countryCode}${cleanNumber.replace(/^0+/, "")}`;
 
     setIsDialing(true);
@@ -419,19 +431,21 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 md:p-6 animate-fadeIn">
       <div className="bg-white border border-black/10 rounded-[18px] max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-black animate-scaleUp">
-        
+
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-hairline flex items-center justify-between bg-surface-soft/60">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-[10px] bg-block-lime text-black flex items-center justify-center font-bold shadow-sm">
-              <PhoneCall className="w-5 h-5" />
+        <div className="px-6 py-4 border-b border-hairline flex items-start justify-between bg-surface-soft/60">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="flex flex-col items-center gap-1.5 shrink-0 mt-1 sm:mt-0">
+              <div className="w-10 h-10 rounded-[10px] bg-block-lime text-black flex items-center justify-center font-bold shadow-sm">
+                <PhoneCall className="w-5 h-5" />
+              </div>
+              <span className="bg-emerald-100 text-emerald-800 text-[8px] leading-none font-mono font-bold px-1.5 py-0.5 rounded-sm border border-emerald-300">
+                LIVE TESTER
+              </span>
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="font-bold text-lg text-black">{assistantName}</h2>
-                <span className="bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border border-emerald-300">
-                  LIVE TESTER
-                </span>
+              <div className="flex items-center flex-wrap gap-2 mb-1">
+                <h2 className="font-bold text-base sm:text-lg text-black leading-tight">{assistantName}</h2>
               </div>
               <p className="text-xs text-neutral-500">Test autonomous voice responses in-browser, via cellular phone, or WhatsApp.</p>
             </div>
@@ -442,21 +456,21 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
               handleEndWebCall();
               onClose();
             }}
-            className="p-1.5 rounded-full hover:bg-surface-soft text-neutral-400 hover:text-black transition-colors"
+            className="p-1.5 rounded-full hover:bg-surface-soft text-neutral-400 hover:text-black transition-colors -mt-2.5 -mr-2"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center border-b border-hairline px-6 bg-surface-soft/20 text-xs font-semibold overflow-x-auto">
+        <div className="flex items-center flex-wrap gap-2 sm:gap-4 border-b border-hairline px-4 sm:px-6 pt-2 pb-1 bg-surface-soft/20 text-xs font-semibold">
           <button
             onClick={() => setActiveTab("web")}
             className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap ${
               activeTab === "web"
                 ? "border-black text-black font-bold"
                 : "border-transparent text-neutral-500 hover:text-black"
-            }`}
+              }`}
           >
             <Mic className="w-4 h-4 text-emerald-600" />
             Web Call (Mic)
@@ -471,7 +485,7 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
               activeTab === "phone"
                 ? "border-black text-black font-bold"
                 : "border-transparent text-neutral-500 hover:text-black"
-            }`}
+              }`}
           >
             <PhoneOutgoing className="w-4 h-4 text-block-lilac-text" />
             Regular Phone (PSTN)
@@ -541,13 +555,12 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
                       {[40, 75, 30, 90, 60, 80, 45, 100, 50, 70, 30, 85].map((h, i) => (
                         <div
                           key={i}
-                          className={`w-1 rounded-full transition-all duration-150 ${
-                            isSpeaking
+                          className={`w-1 rounded-full transition-all duration-150 ${isSpeaking
                               ? "bg-block-lime animate-pulse"
                               : isListening
                                 ? "bg-purple-400 animate-bounce"
                                 : "bg-neutral-600"
-                          }`}
+                            }`}
                           style={{
                             height: isSpeaking || isListening ? `${(h * 0.24)}px` : "4px",
                             animationDelay: `${i * 70}ms`
@@ -616,10 +629,10 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
                         </div>
 
                         <div
-                          className={`p-3 rounded-[12px] text-xs max-w-[85%] leading-relaxed ${
+                          className={`p-3 rounded-[12px] max-w-[80%] text-xs leading-relaxed ${
                             msg.role === "user"
-                              ? "bg-black text-white rounded-br-2xs"
-                              : "bg-white border border-hairline text-black shadow-2xs rounded-bl-2xs"
+                              ? "bg-black text-white rounded-tr-none shadow-xs"
+                              : "bg-white border border-hairline text-neutral-900 rounded-tl-none shadow-xs"
                           }`}
                         >
                           {msg.text}
@@ -733,8 +746,14 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
                   <input
                     type="tel"
                     value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder="98765 43210 (Mobile Number)"
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setPhoneNumber(val);
+                    }}
+                    maxLength={10}
+                    pattern="[0-9]{10}"
+                    title="Please enter exactly 10 digits"
+                    placeholder="1234567890"
                     className="flex-1 px-4 py-2.5 text-xs font-mono font-semibold bg-surface-soft border border-hairline rounded-[10px] focus:outline-none focus:ring-1 focus:ring-black"
                     required
                   />
@@ -753,6 +772,7 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
                   <select
                     value={selectedCallerNumber}
                     onChange={(e) => setSelectedCallerNumber(e.target.value)}
+                    disabled={isLoadingCallerNumbers || callerNumbers.length === 0}
                     className="w-full px-4 py-2.5 text-xs font-mono font-semibold bg-surface-soft border border-hairline rounded-[10px] appearance-none focus:outline-none focus:ring-1 focus:ring-black"
                   >
                     {callerNumbers.length > 0 ? (
@@ -762,24 +782,27 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
                         </option>
                       ))
                     ) : (
-                      <option value="+18005550199">+1 (800) 555-0199 (Default Test Gateway)</option>
+                      <option value="">
+                        {isLoadingCallerNumbers ? "Loading assigned number..." : "No number assigned to this assistant"}
+                      </option>
                     )}
                   </select>
                   <ChevronDown className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
                 </div>
                 <p className="text-[11px] text-neutral-500">
-                  Select which phone number should appear on the recipient's caller ID display.
+                  {callerNumbers.length > 0
+                    ? "This assigned number will be used to route the call and request the outbound caller ID."
+                    : "Assign a provisioned number to this assistant before placing a PSTN test call."}
                 </p>
               </div>
 
               {/* Status or Result Banner */}
               {phoneCallResult && (
                 <div
-                  className={`p-4 rounded-[12px] border text-xs flex items-start gap-3 animate-fadeIn ${
-                    phoneCallResult.success
+                  className={`p-4 rounded-[12px] border text-xs flex items-start gap-3 animate-fadeIn ${phoneCallResult.success
                       ? "bg-emerald-50 border-emerald-200 text-emerald-900"
                       : "bg-rose-50 border-rose-200 text-rose-900"
-                  }`}
+                    }`}
                 >
                   {phoneCallResult.success ? (
                     <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
@@ -801,7 +824,7 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={isDialing}
+                  disabled={isDialing || isLoadingCallerNumbers || !selectedCallerNumber}
                   className="btn-pill-primary w-full py-3 text-xs justify-center gap-2 shadow-md hover:scale-[1.01] transition-transform disabled:opacity-50"
                 >
                   <PhoneCall className={`w-4 h-4 ${isDialing ? "animate-spin" : ""}`} />

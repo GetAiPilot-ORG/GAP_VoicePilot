@@ -1,4 +1,5 @@
-const vomyraApiKey = "0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx";
+const vomyraApiKey = process.env.VOMYRA_API_KEY;
+if (!vomyraApiKey) throw new Error("VOMYRA_API_KEY is required");
 const vomyraBaseUrl = "https://api.vomyra.com";
 
 async function diagnose() {

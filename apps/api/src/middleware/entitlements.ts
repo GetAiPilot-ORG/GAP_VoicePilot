@@ -12,11 +12,13 @@ export interface AuthenticatedRequest extends Request {
 export function requireFeature(featureKey: string) {
   return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const workspaceId = (req.body?.workspaceId || req.headers['x-workspace-id'] || req.query?.workspaceId) as string;
+      const workspaceId = (req.body?.workspaceId || req.headers['x-workspace-id'] || req.query?.workspaceId || req.workspaceId) as string;
 
       if (!workspaceId) {
-        // If workspace ID isn't passed in header or body, proceed for now or return 400
-        return next();
+        return res.status(400).json({
+          error: 'Missing Workspace',
+          message: 'workspaceId is required in headers (x-workspace-id) or body'
+        });
       }
 
       const hasAccess = await checkFeaturePermission(workspaceId, featureKey);
@@ -32,7 +34,10 @@ export function requireFeature(featureKey: string) {
       next();
     } catch (err: any) {
       console.error(`Entitlement check error for ${featureKey}:`, err);
-      next(); // Fail open or closed depending on preference; failing open with log for dev stability
+      return res.status(500).json({
+        error: 'Entitlement Check Failed',
+        message: 'Could not verify workspace feature entitlements'
+      });
     }
   };
 }
@@ -43,10 +48,13 @@ export function requireFeature(featureKey: string) {
 export function requireMinCredits(minCredits: number = 1.0) {
   return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const workspaceId = (req.body?.workspaceId || req.headers['x-workspace-id'] || req.query?.workspaceId) as string;
+      const workspaceId = (req.body?.workspaceId || req.headers['x-workspace-id'] || req.query?.workspaceId || req.workspaceId) as string;
 
       if (!workspaceId) {
-        return next();
+        return res.status(400).json({
+          error: 'Missing Workspace',
+          message: 'workspaceId is required in headers (x-workspace-id) or body to verify credit balance'
+        });
       }
 
       const balance = await getWorkspaceBalance(workspaceId);
@@ -62,7 +70,10 @@ export function requireMinCredits(minCredits: number = 1.0) {
       next();
     } catch (err: any) {
       console.error('Credit balance check error:', err);
-      next();
+      return res.status(500).json({
+        error: 'Balance Check Failed',
+        message: 'Could not verify wallet balance'
+      });
     }
   };
 }

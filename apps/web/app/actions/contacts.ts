@@ -39,75 +39,6 @@ export interface SyncLogItem {
   message: string;
 }
 
-// Default seed contacts for demonstration / initial load
-const INITIAL_SEED_CONTACTS: ContactRecord[] = [
-  {
-    id: "cnt_101",
-    name: "Rajesh Kumar",
-    phone: "+919876543210",
-    email: "rajesh.k@innovateindia.in",
-    company: "Innovate Tech",
-    tags: ["Hot Lead", "Product Demo"],
-    status: "active",
-    source: "HubSpot CRM",
-    lastCallStatus: "Interested (Call Completed)",
-    lastSyncedAt: new Date(Date.now() - 3600000).toISOString(),
-    notes: "Requested pricing breakdown for VoicePilot Enterprise."
-  },
-  {
-    id: "cnt_102",
-    name: "Ananya Sharma",
-    phone: "+919812345678",
-    email: "ananya@sharmagroup.com",
-    company: "Sharma Global",
-    tags: ["Follow-up", "VIP"],
-    status: "lead",
-    source: "Google Contacts",
-    lastCallStatus: "Scheduled Callback",
-    lastSyncedAt: new Date(Date.now() - 7200000).toISOString(),
-    notes: "Preferred call time: Weekdays 3:00 PM."
-  },
-  {
-    id: "cnt_103",
-    name: "Vikram Malhotra",
-    phone: "+919988776655",
-    email: "v.malhotra@apexretail.in",
-    company: "Apex Retailers",
-    tags: ["Inbound Lead", "Web Ingest"],
-    status: "synced",
-    source: "Webhook",
-    lastCallStatus: "No Answer",
-    lastSyncedAt: new Date(Date.now() - 14400000).toISOString(),
-    notes: "Form submission via Webhook endpoint."
-  },
-  {
-    id: "cnt_104",
-    name: "Priya Patel",
-    phone: "+919711223344",
-    email: "priya@designdistrict.co",
-    company: "Design District",
-    tags: ["Cold Outreach"],
-    status: "active",
-    source: "CSV Import",
-    lastCallStatus: "Not Called Yet",
-    lastSyncedAt: new Date(Date.now() - 86400000).toISOString(),
-    notes: "Imported via July Marketing Campaign list."
-  },
-  {
-    id: "cnt_105",
-    name: "Siddharth Verma",
-    phone: "+919833445566",
-    email: "siddharth@fintechhub.org",
-    company: "FinTech Hub",
-    tags: ["Do Not Call"],
-    status: "do_not_call",
-    source: "Salesforce",
-    lastCallStatus: "Unsubscribed",
-    lastSyncedAt: new Date(Date.now() - 172800000).toISOString(),
-    notes: "Customer opted out during initial survey."
-  }
-];
-
 export async function getContactsAction(): Promise<{
   success: boolean;
   contacts: ContactRecord[];
@@ -120,33 +51,38 @@ export async function getContactsAction(): Promise<{
     const workspaceId = workspace?.workspaceId || "default";
     const adminClient = await getAdminClient();
 
-    let contacts: ContactRecord[] = INITIAL_SEED_CONTACTS;
+    let contacts: ContactRecord[] = [];
 
-    if (adminClient) {
+    if (adminClient && workspaceId !== "default") {
       try {
-        const { data } = await adminClient
+        const { data, error } = await adminClient
           .from("contacts")
           .select("*")
           .eq("workspace_id", workspaceId)
           .order("created_at", { ascending: false });
 
-        if (data && data.length > 0) {
-          contacts = data.map((item: any) => ({
-            id: item.id,
-            name: item.name || "Unnamed Contact",
-            phone: item.phone,
-            email: item.email || "",
-            company: item.company || "",
-            tags: Array.isArray(item.tags) ? item.tags : item.tags ? [item.tags] : [],
-            status: item.status || "active",
-            source: item.source || "Manual",
-            lastCallStatus: item.last_call_status || "Not Called Yet",
-            lastSyncedAt: item.last_synced_at || item.created_at || new Date().toISOString(),
-            notes: item.notes || ""
-          }));
+        if (error) {
+          console.error("Failed to query contacts table:", error);
+        } else if (data) {
+          contacts = data.map((item: any) => {
+            const meta = item.metadata || {};
+            return {
+              id: item.id,
+              name: item.name || "Unnamed Contact",
+              phone: item.phone,
+              email: meta.email || meta.ecosystem_email || item.email || "",
+              company: meta.company || meta.ecosystem_company || item.company || "",
+              tags: Array.isArray(meta.tags) ? meta.tags : (Array.isArray(item.tags) ? item.tags : []),
+              status: (item.ecosystem_sync_status === "synced" ? "synced" : (meta.status || item.status || "active")),
+              source: (item.ecosystem_sync_source === "crm" ? "HubSpot CRM" : (item.ecosystem_sync_source === "csv" ? "CSV Import" : (meta.source || item.source || (item.canonical_contact_id ? "CRM Sync" : "Manual")))),
+              lastCallStatus: meta.last_call_status || item.last_call_status || "Not Called Yet",
+              lastSyncedAt: item.ecosystem_synced_at || item.last_synced_at || item.created_at || new Date().toISOString(),
+              notes: meta.notes || item.notes || ""
+            };
+          });
         }
       } catch (e) {
-        // Fallback to seed contacts
+        console.error("Error loading contacts from Supabase:", e);
       }
     }
 
@@ -155,10 +91,10 @@ export async function getContactsAction(): Promise<{
         id: "int_google",
         name: "Google Contacts",
         provider: "google_contacts",
-        status: "connected",
-        lastSyncAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-        syncedContactsCount: 142,
-        autoSyncEnabled: true,
+        status: "disconnected",
+        lastSyncAt: "Never",
+        syncedContactsCount: 0,
+        autoSyncEnabled: false,
         frequency: "15m",
         icon: "Google"
       },
@@ -166,10 +102,10 @@ export async function getContactsAction(): Promise<{
         id: "int_hubspot",
         name: "HubSpot CRM",
         provider: "hubspot",
-        status: "connected",
-        lastSyncAt: new Date(Date.now() - 3600000 * 5).toISOString(),
-        syncedContactsCount: 389,
-        autoSyncEnabled: true,
+        status: contacts.some(c => c.source === "HubSpot CRM") ? "connected" : "disconnected",
+        lastSyncAt: contacts.find(c => c.source === "HubSpot CRM")?.lastSyncedAt || "Never",
+        syncedContactsCount: contacts.filter(c => c.source === "HubSpot CRM").length,
+        autoSyncEnabled: contacts.some(c => c.source === "HubSpot CRM"),
         frequency: "realtime",
         icon: "HubSpot"
       },
@@ -188,10 +124,10 @@ export async function getContactsAction(): Promise<{
         id: "int_zoho",
         name: "Zoho CRM",
         provider: "zoho",
-        status: "connected",
-        lastSyncAt: new Date(Date.now() - 3600000 * 12).toISOString(),
-        syncedContactsCount: 94,
-        autoSyncEnabled: true,
+        status: "disconnected",
+        lastSyncAt: "Never",
+        syncedContactsCount: 0,
+        autoSyncEnabled: false,
         frequency: "1h",
         icon: "Zoho"
       },
@@ -211,52 +147,15 @@ export async function getContactsAction(): Promise<{
         name: "Inbound Webhook API",
         provider: "webhook",
         status: "connected",
-        lastSyncAt: new Date(Date.now() - 1800000).toISOString(),
-        syncedContactsCount: 512,
+        lastSyncAt: new Date().toISOString(),
+        syncedContactsCount: contacts.filter(c => c.source === "Webhook").length,
         autoSyncEnabled: true,
         frequency: "realtime",
         icon: "Webhook"
       }
     ];
 
-    const logs: SyncLogItem[] = [
-      {
-        id: "log_1",
-        timestamp: new Date(Date.now() - 1800000).toISOString(),
-        source: "Inbound Webhook API",
-        action: "Ingested 3 new leads from website contact form",
-        contactsProcessed: 3,
-        status: "success",
-        message: "Successfully added Vikram Malhotra, Ritu Jain, and Dev Sharma to Workspace."
-      },
-      {
-        id: "log_2",
-        timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
-        source: "Google Contacts",
-        action: "Bi-directional Auto Sync",
-        contactsProcessed: 142,
-        status: "success",
-        message: "Synced 142 phone contacts. Updated 4 existing emails."
-      },
-      {
-        id: "log_3",
-        timestamp: new Date(Date.now() - 3600000 * 5).toISOString(),
-        source: "HubSpot CRM",
-        action: "Call Outcome Sync Back",
-        contactsProcessed: 18,
-        status: "success",
-        message: "Pushed 18 call summaries & recording URLs into HubSpot Lead timelines."
-      },
-      {
-        id: "log_4",
-        timestamp: new Date(Date.now() - 86400000).toISOString(),
-        source: "CSV Batch Import",
-        action: "Uploaded Q3_Outreach_Leads.csv",
-        contactsProcessed: 120,
-        status: "success",
-        message: "Imported 120 contacts. 2 duplicates skipped."
-      }
-    ];
+    const logs: SyncLogItem[] = [];
 
     return {
       success: true,
@@ -267,7 +166,7 @@ export async function getContactsAction(): Promise<{
   } catch (err: any) {
     return {
       success: false,
-      contacts: INITIAL_SEED_CONTACTS,
+      contacts: [],
       integrations: [],
       logs: [],
       error: err.message || "Failed to fetch contacts"
@@ -307,23 +206,31 @@ export async function createContactAction(data: {
       notes: data.notes?.trim() || ""
     };
 
-    if (adminClient) {
+    if (adminClient && workspaceId !== "default") {
       try {
-        await adminClient.from("contacts").insert({
-          id: newContact.id,
+        const { data: inserted, error: insertErr } = await adminClient.from("contacts").insert({
           workspace_id: workspaceId,
           name: newContact.name,
           phone: newContact.phone,
-          email: newContact.email,
-          company: newContact.company,
-          tags: newContact.tags,
-          status: newContact.status,
-          source: newContact.source,
-          last_call_status: newContact.lastCallStatus,
-          last_synced_at: newContact.lastSyncedAt,
-          notes: newContact.notes
-        });
-      } catch (e) {}
+          metadata: {
+            email: newContact.email,
+            company: newContact.company,
+            tags: newContact.tags,
+            status: newContact.status,
+            source: newContact.source,
+            last_call_status: newContact.lastCallStatus,
+            notes: newContact.notes
+          },
+          ecosystem_sync_source: "manual",
+          ecosystem_sync_status: "local"
+        }).select().single();
+
+        if (!insertErr && inserted) {
+          newContact.id = inserted.id;
+        }
+      } catch (e) {
+        console.warn("Could not insert contact directly to DB:", e);
+      }
     }
 
     revalidatePath("/dashboard/contacts");
@@ -363,25 +270,29 @@ export async function batchImportContactsAction(contactsList: Array<{
         if (!clean || clean.length < 7) return null;
         addedCount++;
         return {
-          id: `cnt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
           workspace_id: workspaceId,
           name: String(row.name || "Customer").trim(),
           phone: clean.startsWith("+") ? clean : `+91${clean.replace(/^0+/, "")}`,
-          email: String(row.email || "").trim(),
-          company: String(row.company || "").trim(),
-          tags: row.tags ? [row.tags] : ["CSV Batch"],
-          status: "active",
-          source: "CSV Import",
-          last_call_status: "Not Called Yet",
-          last_synced_at: new Date().toISOString()
+          metadata: {
+            email: String(row.email || "").trim(),
+            company: String(row.company || "").trim(),
+            tags: row.tags ? [row.tags] : ["CSV Batch"],
+            status: "active",
+            source: "CSV Import",
+            last_call_status: "Not Called Yet"
+          },
+          ecosystem_sync_source: "csv",
+          ecosystem_sync_status: "local"
         };
       })
       .filter((r): r is NonNullable<typeof r> => r !== null);
 
-    if (adminClient && formattedRows.length > 0) {
+    if (adminClient && formattedRows.length > 0 && workspaceId !== "default") {
       try {
         await adminClient.from("contacts").insert(formattedRows as any);
-      } catch (e) {}
+      } catch (e) {
+        console.warn("Could not batch insert contacts:", e);
+      }
     }
 
     revalidatePath("/dashboard/contacts");
@@ -405,14 +316,16 @@ export async function deleteContactAction(contactId: string): Promise<{ success:
     const workspaceId = workspace?.workspaceId || "default";
     const adminClient = await getAdminClient();
 
-    if (adminClient) {
+    if (adminClient && workspaceId !== "default") {
       try {
         await adminClient
           .from("contacts")
           .delete()
           .eq("id", contactId)
           .eq("workspace_id", workspaceId);
-      } catch (e) {}
+      } catch (e) {
+        console.warn("Could not delete contact from DB:", e);
+      }
     }
 
     revalidatePath("/dashboard/contacts");

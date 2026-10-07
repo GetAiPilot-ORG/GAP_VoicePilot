@@ -107,6 +107,33 @@ Accurately capture and document all critical details for seamless follow-up.
 Escalate to the appropriate department when necessary, and clearly inform the caller about any next steps.`;
 }
 
+// GET /api/v1/assistants - List Assistants for Workspace
+assistantRouter.get('/', async (req, res) => {
+  try {
+    const workspaceId = (req.query.workspaceId || (req as any).workspaceId) as string;
+
+    if (!workspaceId) {
+      return res.status(400).json({ success: false, error: 'workspaceId query parameter is required' });
+    }
+
+    const { data: assistants, error } = await supabase
+      .from('assistants')
+      .select('*, phone_numbers(id, phone_number, status)')
+      .eq('workspace_id', workspaceId)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+
+    return res.status(200).json({ success: true, assistants: assistants || [] });
+  } catch (error: any) {
+    console.error('Error listing assistants:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // POST /api/v1/assistants/generate-prompt - Vomyra Native Voice Engine Prompt Generator
 assistantRouter.post('/generate-prompt', async (req, res) => {
   try {
@@ -124,33 +151,20 @@ assistantRouter.post('/', async (req, res) => {
   try {
     const { workspaceId, createdBy, ...assistantPayload } = req.body;
 
-    let targetWorkspaceId = workspaceId;
-    let targetCreatedBy = createdBy;
-
-    // Validate if the workspace exists in the database
-    if (targetWorkspaceId) {
-      const { data: wsExists } = await supabase.from('workspaces').select('id').eq('id', targetWorkspaceId).maybeSingle();
-      if (!wsExists) {
-        targetWorkspaceId = null;
-      }
-    }
-
-    // Validate if the user profile exists in the database
-    if (targetCreatedBy) {
-      const { data: profileExists } = await supabase.from('profiles').select('id').eq('id', targetCreatedBy).maybeSingle();
-      if (!profileExists) {
-        targetCreatedBy = null;
-      }
-    }
+    const targetWorkspaceId = (req as any).workspaceId;
+    const targetCreatedBy = (req as any).user?.id;
 
     if (!targetWorkspaceId || !targetCreatedBy) {
-      const { data: anyWs } = await supabase.from('workspaces').select('id, owner_id').limit(1).maybeSingle();
-      if (anyWs) {
-        targetWorkspaceId = targetWorkspaceId || anyWs.id;
-        targetCreatedBy = targetCreatedBy || anyWs.owner_id;
-      } else {
-        return res.status(400).json({ error: 'workspaceId and createdBy are required, and no active workspace exists in the database.' });
-      }
+      return res.status(400).json({
+        success: false,
+        error: 'workspaceId and createdBy are strictly required to create an assistant.'
+      });
+    }
+
+    // Validate if the workspace exists
+    const { data: wsExists } = await supabase.from('workspaces').select('id').eq('id', targetWorkspaceId).maybeSingle();
+    if (!wsExists) {
+      return res.status(404).json({ success: false, error: 'Target workspace does not exist.' });
     }
 
     const vomyraAssistant = await voiceProvider.createAssistant(assistantPayload);

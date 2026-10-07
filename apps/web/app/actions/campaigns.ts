@@ -1,7 +1,6 @@
 "use server";
 
 import { getCurrentWorkspace, getAdminClient } from "@/lib/workspace";
-import { upsertVoiceContactForEcosystem } from "@/lib/ecosystem-contact-sync";
 import { revalidatePath } from "next/cache";
 
 export interface LaunchBatchCampaignParams {
@@ -9,6 +8,7 @@ export interface LaunchBatchCampaignParams {
   assistantId: string;
   phoneNumberId?: string;
   assignedNumber?: string;
+  idempotencyKey?: string;
   contacts: Array<{
     name: string;
     phone: string;
@@ -17,12 +17,20 @@ export interface LaunchBatchCampaignParams {
   }>;
 }
 
-export async function launchBatchCampaignAction({ name, assistantId, phoneNumberId, assignedNumber, contacts }: LaunchBatchCampaignParams) {
+export async function launchBatchCampaignAction({ name, assistantId, phoneNumberId, idempotencyKey, contacts }: LaunchBatchCampaignParams) {
   try {
     const workspace = await getCurrentWorkspace();
-    const workspaceId = workspace?.workspaceId || "00000000-0000-0000-0000-000000000000";
-    const userId = workspace?.userId || workspaceId;
+    if (!workspace) {
+      return { success: false, error: "You must be signed in to launch a campaign." };
+    }
+
+    const workspaceId = workspace.workspaceId;
+    const userId = workspace.userId;
     const adminClient = await getAdminClient();
+
+    if (!adminClient) {
+      return { success: false, error: "Campaign service is not configured." };
+    }
 
     if (!contacts || contacts.length === 0) {
       return { success: false, error: "No contacts provided for the campaign." };
@@ -41,154 +49,150 @@ export async function launchBatchCampaignAction({ name, assistantId, phoneNumber
       return { success: false, error: "Please provide valid phone numbers." };
     }
 
-    // Resolve real Vomyra Assistant ID and phone_number_id
-    let realVomyraAssistantId: string = assistantId;
-    let actualPhoneNumberId: string | null = phoneNumberId || null;
+    // 1. Idempotency Check: Prevent duplicate campaign creation on double-click
+    const effectiveIdempotencyKey = idempotencyKey || `camp_${workspaceId}_${assistantId}_${cleanContacts.map(c => c.phone).sort().join('_').slice(0, 40)}_${Math.floor(Date.now() / 30000)}`;
+    
+    const { data: existingCampaign } = await adminClient
+      .from("campaigns")
+      .select("id, name, total_contacts, status")
+      .eq("workspace_id", workspaceId)
+      .eq("idempotency_key", effectiveIdempotencyKey)
+      .maybeSingle();
 
-    if (adminClient) {
-      try {
-        const { data: ast } = await adminClient
-          .from("assistants")
-          .select(`
-            provider_resource_id,
-            phone_numbers ( id, phone_number )
-          `)
-          .eq("id", assistantId)
-          .maybeSingle();
-
-        if (ast?.provider_resource_id && /^[0-9a-fA-F]{24}$/.test(ast.provider_resource_id)) {
-          realVomyraAssistantId = ast.provider_resource_id;
-        }
-        
-        if (!actualPhoneNumberId && ast?.phone_numbers && ast.phone_numbers.length > 0) {
-          actualPhoneNumberId = ast.phone_numbers[0].id;
-          if (!assignedNumber) {
-            assignedNumber = ast.phone_numbers[0].phone_number;
-          }
-        }
-      } catch (e) {}
+    if (existingCampaign) {
+      console.log(`[CampaignAction] Duplicate campaign submission detected for key ${effectiveIdempotencyKey}. Returning existing campaign.`);
+      return {
+        success: true,
+        campaign: existingCampaign,
+        message: "Campaign already created and processing."
+      };
     }
 
-    if (!actualPhoneNumberId) {
+    const { data: assistant } = await adminClient
+      .from("assistants")
+      .select("id")
+      .eq("id", assistantId)
+      .eq("workspace_id", workspaceId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (!assistant) {
+      return { success: false, error: "The selected assistant was not found in this workspace." };
+    }
+
+    let numberQuery = adminClient
+      .from("phone_numbers")
+      .select("id, phone_number")
+      .eq("workspace_id", workspaceId)
+      .eq("assigned_assistant_id", assistantId)
+      .is("deleted_at", null);
+
+    if (phoneNumberId) {
+      numberQuery = numberQuery.eq("id", phoneNumberId);
+    }
+
+    const { data: campaignNumber, error: campaignNumberError } = await numberQuery
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (campaignNumberError || !campaignNumber?.phone_number) {
       return { success: false, error: "The selected assistant must have a phone number assigned before launching a campaign." };
+    }
+
+    const actualPhoneNumberId = campaignNumber.id;
+    const assignedNumber = campaignNumber.phone_number.trim();
+
+    // 2. Active Recipient Concurrency Guard: Check for in-flight pending/processing calls to same numbers
+    const formattedNumbers = cleanContacts.map(c => c.phone.startsWith("+") ? c.phone : `+91${c.phone.replace(/^0+/, "")}`);
+    const { data: inFlightJobs } = await adminClient
+      .from("campaign_dispatch_jobs")
+      .select("call_payload")
+      .eq("workspace_id", workspaceId)
+      .in("status", ["pending", "processing"]);
+
+    const inFlightNumbers = new Set(
+      (inFlightJobs || []).map(j => (j.call_payload as any)?.customer_number).filter(Boolean)
+    );
+
+    const eligibleContacts = cleanContacts.filter(c => {
+      const num = c.phone.startsWith("+") ? c.phone : `+91${c.phone.replace(/^0+/, "")}`;
+      return !inFlightNumbers.has(num);
+    });
+
+    if (eligibleContacts.length === 0) {
+      return {
+        success: false,
+        error: "All selected recipients already have an active call in progress or pending dispatch."
+      };
+    }
+
+    // Reserve credits atomically using database RPC
+    const requiredCredits = eligibleContacts.length * 1.0;
+    const refKey = `camp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    
+    const { data: resData, error: resErr } = await adminClient.rpc("reserve_workspace_credits", {
+      p_workspace_id: workspaceId,
+      p_amount: requiredCredits,
+      p_reference_id: refKey,
+      p_description: `Campaign "${name}" hold for ${eligibleContacts.length} calls`
+    });
+
+    if (resErr || (resData && (resData as any).success === false)) {
+      const errMsg = (resData as any)?.error || resErr?.message || "Insufficient credit balance to launch campaign.";
+      return { success: false, error: errMsg };
     }
 
     let campaignId = `camp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
-    // 1. Insert campaign into Supabase
-    if (adminClient) {
-      try {
-        const { data: dbCampaign } = await adminClient
-          .from("campaigns")
-          .insert({
-            workspace_id: workspaceId,
-            created_by: userId,
-            assistant_id: assistantId,
-            phone_number_id: actualPhoneNumberId,
-            name,
-            total_contacts: cleanContacts.length,
-            status: "running"
-          })
-          .select()
-          .single();
+    // Insert campaign into Supabase with idempotency key
+    const { data: dbCampaign, error: campaignError } = await adminClient
+      .from("campaigns")
+      .insert({
+        workspace_id: workspaceId,
+        created_by: userId,
+        assistant_id: assistantId,
+        phone_number_id: actualPhoneNumberId,
+        name,
+        total_contacts: eligibleContacts.length,
+        status: "running",
+        idempotency_key: effectiveIdempotencyKey
+      })
+      .select()
+      .single();
 
-        if (dbCampaign?.id) campaignId = dbCampaign.id;
-      } catch (e) {
-        console.warn("Could not insert campaign row in DB:", e);
-      }
+    if (campaignError || !dbCampaign) {
+      return { success: false, error: campaignError?.message || "Could not create the campaign." };
     }
 
-    const localContacts = new Map<string, string>();
-    if (adminClient) {
-      await Promise.allSettled(
-        cleanContacts.map(async (contact) => {
-          const cleanNumber = contact.phone.startsWith("+")
-            ? contact.phone
-            : `+91${contact.phone.replace(/^0+/, "")}`;
-          const row = await upsertVoiceContactForEcosystem(adminClient, {
-            workspaceId,
-            userId,
-            name: contact.name || "Customer",
-            phone: cleanNumber,
-            metadata: {
-              followUpDate: contact.followUpDate,
-              details: contact.details,
-              source: "campaign_launch",
-            },
-          });
-          if (row?.id) localContacts.set(cleanNumber, row.id);
-        }),
-      );
-    }
+    campaignId = dbCampaign.id;
 
-    // 2. Dispatch calls directly to Vomyra Voice API
-    const vomyraApiKey = process.env.VOMYRA_API_KEY || "0KBY8fRk1ptydIq20Q8tkoBRGXn2KYhx";
-    const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || "https://api.vomyra.com";
-
-    const dispatchPromises = cleanContacts.map(async (contact, index) => {
-      // Stagger calls by 800ms
-      await new Promise((resolve) => setTimeout(resolve, index * 800));
-
+    // Queue durable jobs
+    const dispatchJobs = eligibleContacts.map((contact) => {
       const cleanNumber = contact.phone.startsWith("+")
         ? contact.phone
         : `+91${contact.phone.replace(/^0+/, "")}`;
-
-      const payload: any = {
-        customer_number: cleanNumber,
-        customer_name: contact.name || "Customer",
-        customer_country_code: cleanNumber.startsWith("+91") ? "+91" : "+1",
-          additional_data: {
-            campaign_id: campaignId,
-            campaign_name: name,
-            contact_id: localContacts.get(cleanNumber),
-            workspaceId,
-            followUpDate: contact.followUpDate,
+      return {
+        campaign_id: campaignId,
+        workspace_id: workspaceId,
+        call_payload: {
+          customer_number: cleanNumber,
+          customer_name: contact.name || "Customer",
+          customer_country_code: cleanNumber.startsWith("+91") ? "+91" : "+1",
+          assigned_number: assignedNumber,
+          additional_data: { 
+            campaign_id: campaignId, 
+            campaign_name: name, 
+            workspaceId, 
+            followUpDate: contact.followUpDate, 
             details: contact.details,
-          dispatched_at: new Date().toISOString()
+            idempotency_key: `contact_${campaignId}_${cleanNumber}`
+          }
         }
       };
-
-      if (realVomyraAssistantId) {
-        payload.assistant_id = realVomyraAssistantId;
-      }
-
-      try {
-        const res = await fetch(`${vomyraBaseUrl}/v1/calls`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": vomyraApiKey
-          },
-          body: JSON.stringify(payload)
-        });
-
-        if (res.ok) {
-          const callData = await res.json();
-          return { success: true, callId: callData?.data?.id || callData?.id, contact };
-        } else {
-          const errText = await res.text();
-          console.warn(`[Campaign] Call failed for ${cleanNumber}:`, errText);
-          return { success: false, error: errText, contact };
-        }
-      } catch (err: any) {
-        console.warn(`[Campaign] Call network error for ${cleanNumber}:`, err.message);
-        return { success: false, error: err.message, contact };
-      }
     });
-
-    // Run dispatches in background
-    Promise.allSettled(dispatchPromises).then(async (results) => {
-      if (adminClient) {
-        try {
-          await adminClient
-            .from("campaigns")
-            .update({
-              status: "completed"
-            })
-            .eq("id", campaignId);
-        } catch (e) {}
-      }
-    });
+    const { error: queueError } = await adminClient.from("campaign_dispatch_jobs").insert(dispatchJobs);
+    if (queueError) return { success: false, error: `Could not queue campaign calls: ${queueError.message}` };
 
     revalidatePath("/dashboard/campaigns");
 
@@ -197,10 +201,10 @@ export async function launchBatchCampaignAction({ name, assistantId, phoneNumber
       campaign: {
         id: campaignId,
         name,
-        total_contacts: cleanContacts.length,
+        total_contacts: eligibleContacts.length,
         status: "running"
       },
-      message: `Campaign initiated! Dispatching ${cleanContacts.length} automated calls in real-time.`
+      message: `Campaign initiated! Dispatching ${eligibleContacts.length} automated calls in real-time.`
     };
   } catch (err: any) {
     console.error("Failed to launch batch campaign action:", err);

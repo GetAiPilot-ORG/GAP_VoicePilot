@@ -1,9 +1,10 @@
 "use server";
 
 import { createServerClient } from "@supabase/ssr";
-import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { getAdminClient, requireCurrentWorkspace } from "@/lib/workspace";
+import { fetchVomyraNumbers } from "@/lib/vomyra";
 
 async function verifyAdmin() {
   const cookieStore = await cookies();
@@ -55,69 +56,9 @@ export async function checkIsAdminAction() {
   }
 }
 
-async function getAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-  );
-}
-
-async function getWorkspaceId(): Promise<string> {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: (cookiesToSet) => {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {}
-        },
-      },
-    }
-  );
-
-  const adminClient = await getAdminClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (user) {
-    const { data: member } = await adminClient
-      .from('workspace_members')
-      .select('workspace_id')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
-    if (member?.workspace_id) return member.workspace_id;
-  }
-
-  const { data: newWs } = await adminClient.from('workspaces').insert({ 
-    name: `${user?.email?.split('@')[0] || 'Default'}'s Workspace`, 
-    owner_id: user?.id || '00000000-0000-0000-0000-000000000000',
-    status: 'active'
-  }).select('id').single();
-
-  if (newWs?.id && user?.id) {
-    try {
-      await adminClient.from('workspace_members').insert({
-        workspace_id: newWs.id,
-        user_id: user.id,
-        role: 'owner'
-      });
-    } catch (e) {}
-    return newWs.id;
-  }
-  return newWs?.id || '';
-}
-
 export async function getWorkspaceKycStatus() {
   const adminClient = await getAdminClient();
-  const workspaceId = await getWorkspaceId();
+  const { workspaceId } = await requireCurrentWorkspace();
 
   const { data, error } = await adminClient
     .from("kyc_requests")
@@ -134,74 +75,38 @@ export async function getWorkspaceKycStatus() {
   return { success: true, kyc: data };
 }
 
-export async function submitKycRequest(formData: FormData) {
-  const adminClient = await getAdminClient();
-  const workspaceId = await getWorkspaceId();
-
-  const businessName = formData.get("businessName") as string;
-  const useCase = formData.get("useCase") as string;
-  const documentFile = formData.get("document") as File;
-
-  if (!businessName || !useCase || !documentFile) {
-    return { success: false, error: "Missing required fields." };
-  }
-
-  try {
-    // 1. Upload Document to Supabase Storage
-    const fileExt = documentFile.name.split('.').pop();
-    const fileName = `${workspaceId}-${Date.now()}.${fileExt}`;
-    
-    const { data: uploadData, error: uploadError } = await adminClient.storage
-      .from("kyc_documents")
-      .upload(fileName, documentFile);
-
-    if (uploadError) {
-      return { success: false, error: "Failed to upload document: " + uploadError.message };
-    }
-
-    const { data: publicUrlData } = adminClient.storage
-      .from("kyc_documents")
-      .getPublicUrl(fileName);
-
-    const documentUrl = publicUrlData.publicUrl;
-
-    // 2. Insert KYC record
-    const { error: insertError } = await adminClient
-      .from("kyc_requests")
-      .insert({
-        workspace_id: workspaceId,
-        business_name: businessName,
-        use_case: useCase,
-        document_url: documentUrl,
-        status: "pending"
-      });
-
-    if (insertError) {
-      return { success: false, error: insertError.message };
-    }
-
-    revalidatePath("/dashboard/phone-numbers");
-    return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err.message || "An unexpected error occurred." };
-  }
-}
-
 export async function getAdminKycRequests() {
   await verifyAdmin();
   const adminClient = await getAdminClient();
   
-  // We'll fetch all requests with workspace info
-  const { data, error } = await adminClient
+  // Fetch all requests with workspace info
+  const { data: requests, error } = await adminClient
     .from("kyc_requests")
-    .select("*, workspaces(name)")
+    .select("*, workspaces(id, name, owner_id)")
     .order("created_at", { ascending: false });
 
-  if (error) {
-    return { success: false, error: error.message };
+  // Fetch workspace owner user accounts from auth admin
+  let userMap: Record<string, { email?: string; full_name?: string }> = {};
+  try {
+    const { data: { users } } = await adminClient.auth.admin.listUsers();
+    if (users) {
+      users.forEach(u => {
+        userMap[u.id] = {
+          email: u.email,
+          full_name: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split('@')[0]
+        };
+      });
+    }
+  } catch (authErr) {
+    console.warn("Failed to list auth users for KYC admin:", authErr);
   }
 
-  return { success: true, requests: data };
+  const enriched = (requests || []).map((r: any) => ({
+    ...r,
+    owner: r.workspaces?.owner_id ? userMap[r.workspaces.owner_id] : null
+  }));
+
+  return { success: true, requests: enriched };
 }
 
 export async function approveKycAndAssignNumber(kycId: string, workspaceId: string, phoneNumber: string) {
@@ -211,29 +116,94 @@ export async function approveKycAndAssignNumber(kycId: string, workspaceId: stri
   if (!phoneNumber) return { success: false, error: "Phone number is required." };
 
   try {
-    // 1. Mark KYC as approved
-    const { error: kycError } = await adminClient
-      .from("kyc_requests")
-      .update({ status: "approved", assigned_number: phoneNumber })
-      .eq("id", kycId);
+    const { error } = await adminClient.rpc("approve_kyc_and_assign_number", {
+      p_kyc_id: kycId,
+      p_workspace_id: workspaceId,
+      p_phone_number: phoneNumber,
+      p_provider: "vomyra",
+      p_provider_resource_id: `manual_${phoneNumber.replace(/[^\d+]/g, "")}`,
+    });
 
-    if (kycError) {
-      return { success: false, error: kycError.message };
+    if (error) {
+      return { success: false, error: error.message };
     }
 
-    // 2. Insert into phone_numbers for that workspace
-    const { error: phoneError } = await adminClient
-      .from("phone_numbers")
-      .insert({
-        workspace_id: workspaceId,
-        phone_number: phoneNumber,
-        provider: "vomyra", // or manual
-        provider_resource_id: `manual_${Date.now()}`,
-        status: "unassigned" // ready to be assigned to an assistant
-      });
+    revalidatePath("/dashboard/admin/kyc");
+    revalidatePath("/dashboard/phone-numbers");
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
 
-    if (phoneError) {
-      return { success: false, error: phoneError.message };
+export async function approveKyc(kycId: string) {
+  await verifyAdmin();
+  const adminClient = await getAdminClient();
+
+  try {
+    const { error } = await adminClient
+      .from("kyc_requests")
+      .update({ 
+        status: "approved",
+        reviewed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", kycId);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/dashboard/admin/kyc");
+    revalidatePath("/dashboard/phone-numbers");
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function rejectKyc(kycId: string, rejectionReason?: string) {
+  await verifyAdmin();
+  const adminClient = await getAdminClient();
+
+  try {
+    const { error } = await adminClient
+      .from("kyc_requests")
+      .update({ 
+        status: "rejected",
+        reviewed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", kycId);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/dashboard/admin/kyc");
+    revalidatePath("/dashboard/phone-numbers");
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function resetKycStatus(kycId: string) {
+  await verifyAdmin();
+  const adminClient = await getAdminClient();
+
+  try {
+    const { error } = await adminClient
+      .from("kyc_requests")
+      .update({ 
+        status: "pending",
+        reviewed_at: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", kycId);
+
+    if (error) {
+      return { success: false, error: error.message };
     }
 
     revalidatePath("/dashboard/admin/kyc");
@@ -247,26 +217,9 @@ export async function approveKycAndAssignNumber(kycId: string, workspaceId: stri
 export async function getAvailableVomyraNumbers() {
   await verifyAdmin();
   const adminClient = await getAdminClient();
-  const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || "https://api.vomyra.com";
-  const vomyraApiKey = process.env.VOMYRA_API_KEY || "";
-
-  if (!vomyraApiKey) {
-    return { success: false, error: "Vomyra API Key is not configured." };
-  }
-
   try {
     // 1. Fetch from Vomyra API
-    const vRes = await fetch(`${vomyraBaseUrl}/v1/numbers`, {
-      headers: { "x-api-key": vomyraApiKey },
-      cache: "no-store"
-    });
-
-    if (!vRes.ok) {
-      return { success: false, error: "Failed to fetch from Vomyra API" };
-    }
-
-    const vData = await vRes.json();
-    const vomyraNumbers = Array.isArray(vData) ? vData : (vData.phone_numbers || vData.data || []);
+    const vomyraNumbers = await fetchVomyraNumbers();
     
     // Extract phone numbers as array of strings
     const allVomyraNumbers = vomyraNumbers.map((n: any) => typeof n === 'string' ? n : n.phone_number || n.number);

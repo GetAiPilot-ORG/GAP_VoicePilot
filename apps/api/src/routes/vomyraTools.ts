@@ -11,16 +11,23 @@ vomyraToolsRouter.post('/execute/:tool_name', async (req: Request, res: Response
   const startTime = Date.now();
   const requestedTool = req.params.tool_name;
 
-  // 1. Extract Bearer Bridge Token
+  // 1. Extract and validate Bearer Bridge Token
   const authHeader = req.headers.authorization || '';
   const bridgeToken = authHeader.startsWith('Bearer ')
     ? authHeader.substring(7).trim()
     : String(req.query.token || '').trim();
 
-  if (!bridgeToken) {
+  const validSecret = process.env.VOMYRA_BRIDGE_SECRET || process.env.VOMYRA_WEBHOOK_SECRET || process.env.VOMYRA_API_KEY;
+
+  if (!validSecret) {
+    console.error('[VomyraToolBridge] No bridge authentication secret is configured');
+    return res.status(503).json({ success: false, result: { status: 'unavailable', message: 'Live bridge authentication is not configured' } });
+  }
+
+  if (!bridgeToken || bridgeToken !== validSecret) {
     return res.status(401).json({
       success: false,
-      result: { status: 'unauthorized', message: 'Missing live bridge authentication token' },
+      result: { status: 'unauthorized', message: 'Invalid or missing live bridge authentication token' },
     });
   }
 
@@ -45,18 +52,25 @@ vomyraToolsRouter.post('/execute/:tool_name', async (req: Request, res: Response
       });
     }
 
-    // 3. Prepare execution payload with mock fallback for tests
+    // 3. Prepare execution payload
     const argumentsPayload = req.body.arguments || req.body.parameters || req.body || {};
-    const workspaceId = (req.body.workspace_id || req.headers['x-workspace-id'] || 'ws_vomyra_live_01') as string;
-    const assistantId = (req.body.assistant_id || 'ast_vomyra_live_01') as string;
+    const workspaceId = (req.body.workspace_id || req.headers['x-workspace-id']) as string;
+    const assistantId = (req.body.assistant_id) as string;
+
+    if (!workspaceId) {
+      return res.status(400).json({
+        success: false,
+        result: { status: 'bad_request', message: 'workspace_id is required' },
+      });
+    }
 
     // 4. Enforce strict 3,000ms latency timeout for live voice conversations
     const executionPromise = executor.execute({
       workspace_id: workspaceId,
-      agent_id: assistantId,
+      agent_id: assistantId || 'live_call_agent',
       tool: targetToolName,
       arguments: argumentsPayload,
-    }, { bypassDbChecks: true }); // Bridge pre-verifies bridge_token
+    });
 
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('Live call tool execution timed out (3000ms cap exceeded)')), LIVE_TOOL_TIMEOUT_MS)

@@ -69,6 +69,9 @@ const availabilityManager = IntegrationAvailabilityManager.getInstance();
 // GET /api/v1/connectors/admin/availability - Admin List Integration Availability
 connectorRouter.get('/admin/availability', async (req: Request, res: Response) => {
   try {
+    if (!(req as any).isSuperAdmin) {
+      return res.status(403).json({ success: false, error: 'Forbidden: Super admin privileges required' });
+    }
     await availabilityManager.syncFromDatabase();
     const availabilities = availabilityManager.getAllAvailabilities();
     return res.json({ success: true, availabilities });
@@ -80,6 +83,9 @@ connectorRouter.get('/admin/availability', async (req: Request, res: Response) =
 // POST /api/v1/connectors/admin/availability - Admin Update Integration Availability
 connectorRouter.post('/admin/availability', async (req: Request, res: Response) => {
   try {
+    if (!(req as any).isSuperAdmin) {
+      return res.status(403).json({ success: false, error: 'Forbidden: Super admin privileges required' });
+    }
     const { slug, availability_status, is_visible, internal_note } = req.body;
     if (!slug) {
       return res.status(400).json({ success: false, error: 'slug is required' });

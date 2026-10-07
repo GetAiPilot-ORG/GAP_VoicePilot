@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import * as XLSX from "xlsx";
+import readXlsxFile from "read-excel-file";
 import { Button } from "@/components/ui/button";
 import {
   Upload,
@@ -112,21 +112,16 @@ export function CampaignsClient({ initialCampaigns, assistants }: CampaignsClien
     if (!selectedFile) return;
 
     try {
-      const data = await selectedFile.arrayBuffer();
-      const workbook = XLSX.read(data, { type: "array" });
-      const firstSheetName = workbook.SheetNames[0];
-      if (!firstSheetName) {
+      const spreadsheetRows = await readXlsxFile(selectedFile);
+      if (spreadsheetRows.length < 2) {
         alert("The uploaded spreadsheet is empty.");
         return;
       }
 
-      const worksheet = workbook.Sheets[firstSheetName];
-      if (!worksheet) {
-        alert("The worksheet could not be read.");
-        return;
-      }
-
-      const rawRows = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet, { defval: "" });
+      const headers = spreadsheetRows[0].map((value) => String(value ?? "").trim());
+      const rawRows = spreadsheetRows.slice(1).map((values) =>
+        Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ""]))
+      );
 
       if (rawRows.length === 0) {
         alert("No valid rows found in the uploaded file.");
@@ -402,9 +397,9 @@ function normalizeFollowUpDate(raw: any): string {
               <tr className="border-b border-hairline bg-surface-soft text-black/70">
                 <th className="py-3.5 px-6 eyebrow text-[11px]">JOB ID</th>
                 <th className="py-3.5 px-6 eyebrow text-[11px]">CAMPAIGN NAME</th>
-                <th className="py-3.5 px-6 eyebrow text-[11px]">CREATED AT</th>
+                <th className="py-3.5 px-6 eyebrow text-[11px] w-48 whitespace-nowrap">CREATED AT</th>
                 <th className="py-3.5 px-6 eyebrow text-[11px]">STATUS</th>
-                <th className="py-3.5 px-6 eyebrow text-[11px] text-right">ACTIONS</th>
+                <th className="py-3.5 px-6 eyebrow text-[11px] text-right w-32 whitespace-nowrap">ACTIONS</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-hairline text-xs">
@@ -416,7 +411,7 @@ function normalizeFollowUpDate(raw: any): string {
                   <td className="py-4 px-6 font-bold text-black">
                     {job.name}
                   </td>
-                  <td className="py-4 px-6 text-neutral-600 font-mono">
+                  <td className="py-4 px-6 text-neutral-600 font-mono whitespace-nowrap">
                     {job.created_at}
                   </td>
                   <td className="py-4 px-6">
@@ -432,13 +427,13 @@ function normalizeFollowUpDate(raw: any): string {
                       </span>
                     )}
                   </td>
-                  <td className="py-4 px-6 text-right">
+                  <td className="py-4 px-6 text-right whitespace-nowrap">
                     <button
                       onClick={() => {
                         setSelectedJobLogs(job);
                         setIsJobLogsModalOpen(true);
                       }}
-                      className="btn-pill-primary rounded-[8px] text-[11px] px-3.5 py-1.5 shadow-xs hover:scale-[1.02] transition-transform"
+                      className="btn-pill-primary rounded-[8px] text-[11px] px-3.5 py-1.5 shadow-xs hover:scale-[1.02] transition-transform whitespace-nowrap"
                     >
                       View Logs
                     </button>
