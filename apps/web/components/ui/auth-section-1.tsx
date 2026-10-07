@@ -21,6 +21,27 @@ import {
 import { PrimaryButton } from "@/components/ui/primary-button";
 import { login, signup, requestPasswordReset, updatePassword } from "@/app/actions/auth";
 
+class ShaderErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(err: any) {
+    console.warn("Shader canvas initialization fallback:", err);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="absolute inset-0 bg-gradient-to-br from-[#ff4b2f] via-[#111111] to-black" />
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // Safe dynamic wrapper for GrainGradient shader
 function ShaderBackground() {
   const [mounted, setMounted] = useState(false);
@@ -46,21 +67,23 @@ function ShaderBackground() {
   }
 
   return (
-    <ShaderComp
-      speed={1.2}
-      scale={1.1}
-      rotation={45}
-      offsetX={0}
-      offsetY={0}
-      softness={0.4}
-      intensity={0.7}
-      noise={0.3}
-      shape="corners"
-      frame={2854.5}
-      colors={["#ff4b2f", "#ff3b1e", "#0a0a0a", "#000000"]}
-      colorBack="#000000"
-      className="absolute inset-0 bg-black"
-    />
+    <ShaderErrorBoundary>
+      <ShaderComp
+        speed={1.2}
+        scale={1.1}
+        rotation={45}
+        offsetX={0}
+        offsetY={0}
+        softness={0.4}
+        intensity={0.7}
+        noise={0.3}
+        shape="corners"
+        frame={2854.5}
+        colors={["#ff4b2f", "#ff3b1e", "#0a0a0a", "#000000"]}
+        colorBack="#000000"
+        className="absolute inset-0 bg-black"
+      />
+    </ShaderErrorBoundary>
   );
 }
 
