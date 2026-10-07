@@ -189,7 +189,7 @@ paymentRouter.post("/verify-payment", authenticateUser, async (req, res) => {
     // The stored intent, not the browser callback, is authoritative.
     const { data: intent, error: intentError } = await supabase
       .from("payment_intents")
-      .select("workspace_id, amount_paise, status")
+      .select("workspace_id, amount_paise, status, plan_id")
       .eq("razorpay_order_id", razorpay_order_id)
       .single();
 
@@ -242,6 +242,118 @@ paymentRouter.post("/verify-payment", authenticateUser, async (req, res) => {
 
     // Profile synchronization is performed inside process_payment_intent.
     if (rpcResult.type === "plan_purchase") {
+      // Sync to Main GetAiPilot Hub DB
+      try {
+        let userEmail: string | undefined = user.email;
+        if (!userEmail) {
+          const { data: ownerProf } = await supabase
+            .from("profiles")
+            .select("email")
+            .eq("id", user.id)
+            .maybeSingle();
+          userEmail = ownerProf?.email;
+        }
+
+        const planId = intent.plan_id;
+        if (userEmail && planId) {
+          const { data: targetPlan } = await supabase
+            .from("plans")
+            .select("*")
+            .eq("id", planId)
+            .maybeSingle();
+
+          const hubUrl =
+            process.env.HUB_SUPABASE_URL ||
+            "https://uklxlappjcuvdqjvecfh.supabase.co";
+          const hubKey =
+            process.env.HUB_SUPABASE_SERVICE_ROLE_KEY ||
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrbHhsYXBwamN1dmRxanZlY2ZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODE0NzA4MywiZXhwIjoyMDgzNzIzMDgzfQ.8raDYx4BqeVELD691E720qBORhWEI4L68c_ED2JIt5w";
+          const { createClient } = await import("@supabase/supabase-js");
+          const hubClient = createClient(hubUrl, hubKey);
+
+          const { data: hubProfile } = await hubClient
+            .from("profiles")
+            .select("id")
+            .ilike("email", userEmail)
+            .maybeSingle();
+
+          if (hubProfile) {
+            const planLabel =
+              targetPlan?.name ||
+              (planId === "gap_enterprise"
+                ? "GAP Enterprise"
+                : planId === "gap_pro"
+                ? "GAP Pro"
+                : planId);
+            const pricePaise =
+              (targetPlan?.price_monthly ||
+                (planId === "gap_enterprise" ? 8999 : 4999)) * 100;
+            const nowIso = new Date().toISOString();
+            const expiresIso = new Date(
+              Date.now() + 30 * 24 * 60 * 60 * 1000,
+            ).toISOString();
+
+            await hubClient.from("app_user_subscriptions").upsert(
+              {
+                user_id: hubProfile.id,
+                email: userEmail,
+                plan_id: planId,
+                plan_label: planLabel,
+                plan_price_paise: pricePaise,
+                plan_duration_days: 30,
+                started_at: nowIso,
+                expires_at: expiresIso,
+                status: "active",
+                subscription_status: "active",
+                last_payment_id: razorpay_payment_id,
+                last_payment_status: "paid",
+                last_payment_verified_at: nowIso,
+                updated_at: nowIso,
+              },
+              { onConflict: "user_id" },
+            );
+
+            await hubClient
+              .from("profiles")
+              .update({
+                subscription: planLabel,
+                updated_at: nowIso,
+              })
+              .eq("id", hubProfile.id);
+
+            const lowerPlan = planId.toLowerCase();
+            if (
+              lowerPlan.includes("pro") ||
+              lowerPlan.includes("enterprise") ||
+              lowerPlan.includes("all_in_one")
+            ) {
+              const { data: members } = await hubClient
+                .from("organization_members")
+                .select("organization_id")
+                .eq("user_id", hubProfile.id);
+              if (members && members.length > 0) {
+                const orgIds = members.map((m: any) => m.organization_id);
+                await hubClient
+                  .from("organizations")
+                  .update({
+                    plan_id: lowerPlan.includes("enterprise")
+                      ? "enterprise"
+                      : "pro",
+                    plan_status: "active",
+                    subscription_tier: lowerPlan.includes("enterprise")
+                      ? "enterprise"
+                      : "pro",
+                    updated_at: nowIso,
+                  })
+                  .in("id", orgIds);
+              }
+            }
+          }
+        }
+      } catch (hErr) {
+        console.warn("Hub sync warning in API route:", hErr);
+      }
+
       return res.json({
         success: true,
         type: "plan_purchase",
@@ -305,63 +417,6 @@ paymentRouter.post("/verify-payment", authenticateUser, async (req, res) => {
           message: "Dedicated number renewed successfully!",
           phoneId: targetExpired.id
         });
-      }
-
-      // Sync to Main GetAiPilot Hub DB
-      try {
-        let userEmail: string | undefined;
-        if (ws?.owner_id) {
-          const { data: ownerProf } = await supabaseAdmin
-            .from('profiles')
-            .select('email')
-            .eq('id', ws.owner_id)
-            .maybeSingle();
-          userEmail = ownerProf?.email;
-        }
-
-        if (userEmail) {
-          const hubUrl = process.env.HUB_SUPABASE_URL || "https://uklxlappjcuvdqjvecfh.supabase.co";
-          const hubKey = process.env.HUB_SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrbHhsYXBwamN1dmRxanZlY2ZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODE0NzA4MywiZXhwIjoyMDgzNzIzMDgzfQ.8raDYx4BqeVELD691E720qBORhWEI4L68c_ED2JIt5w";
-          const { createClient } = await import('@supabase/supabase-js');
-          const hubClient = createClient(hubUrl, hubKey);
-
-          const { data: hubProfile } = await hubClient
-            .from("profiles")
-            .select("id")
-            .ilike("email", userEmail)
-            .maybeSingle();
-
-          if (hubProfile) {
-            const planLabel = targetPlan?.name || (planId === "gap_enterprise" ? "GAP Enterprise" : planId === "gap_pro" ? "GAP Pro" : planId);
-            const pricePaise = (targetPlan?.price_monthly || 4999) * 100;
-            const nowIso = new Date().toISOString();
-            const expiresIso = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-
-            await hubClient.from("app_user_subscriptions").upsert({
-              user_id: hubProfile.id,
-              email: userEmail,
-              plan_id: planId,
-              plan_label: planLabel,
-              plan_price_paise: pricePaise,
-              plan_duration_days: 30,
-              started_at: nowIso,
-              expires_at: expiresIso,
-              status: "active",
-              subscription_status: "active",
-              last_payment_id: razorpay_payment_id,
-              last_payment_status: "paid",
-              last_payment_verified_at: nowIso,
-              updated_at: nowIso,
-            }, { onConflict: "user_id" });
-
-            await hubClient.from("profiles").update({
-              subscription: planLabel,
-              updated_at: nowIso,
-            }).eq("id", hubProfile.id);
-          }
-        }
-      } catch (hErr) {
-        console.warn("Hub sync warning in API route:", hErr);
       }
 
       return res.json({
