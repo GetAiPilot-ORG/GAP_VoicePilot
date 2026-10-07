@@ -206,10 +206,20 @@ export default function PricingPage() {
           .from("plans")
           .select("*")
           .eq("is_active", true)
+          .neq("id", "sidebar_permissions")
           .order("price_monthly", { ascending: true });
 
         if (dbPlans && dbPlans.length > 0) {
-          const mapped = dbPlans.map((p) => {
+          const uniquePlansMap = new Map();
+          dbPlans.forEach((p: any) => {
+            const key = (p.name || p.id).trim().toLowerCase();
+            if (!uniquePlansMap.has(key)) {
+              uniquePlansMap.set(key, p);
+            }
+          });
+          const uniquePlans = Array.from(uniquePlansMap.values());
+
+          const mapped = uniquePlans.map((p: any) => {
             const feats = p.features || {};
             const isEnt = p.id === "enterprise" || feats.is_enterprise;
             return {
@@ -492,11 +502,16 @@ export default function PricingPage() {
         </section>
 
         {/* Pricing Cards Grid */}
-        <section className="mx-auto max-w-[1340px] px-6 pb-24 lg:px-8">
-          <div className={`grid gap-6 items-stretch mx-auto ${
-            plansList.length === 3 ? "max-w-5xl lg:grid-cols-3" : "lg:grid-cols-4"
-          }`}>
-            {plansList.map((plan) => {
+        <section className="mx-auto max-w-[1340px] px-6 pb-24 lg:px-8 space-y-16">
+          {(() => {
+            const isGap = (plan: any) => {
+              const name = String(plan.name || "").toLowerCase();
+              return name.startsWith("gap") || name.includes("ecosystem");
+            };
+            const callPlans = plansList.filter(p => !isGap(p));
+            const gapPlans = plansList.filter(p => isGap(p));
+
+            const renderCard = (plan: any) => {
               const price = isAnnual ? plan.annualPrice : plan.monthlyPrice;
               return (
                 <article
@@ -543,7 +558,7 @@ export default function PricingPage() {
                   {/* Feature List */}
                   <div className="my-8 flex-1 border-t border-black/8 pt-6">
                     <ul className="space-y-3.5">
-                      {plan.features.map((feature) => (
+                      {plan.features.map((feature: string) => (
                         <li key={feature} className="flex items-start gap-3 text-xs sm:text-sm font-medium leading-normal text-black/85">
                           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-black/80" />
                           <span>{feature}</span>
@@ -566,8 +581,36 @@ export default function PricingPage() {
                   </Link>
                 </article>
               );
-            })}
-          </div>
+            };
+
+            return (
+              <>
+                {/* Voice Calling Plans Section */}
+                {callPlans.length > 0 && (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between border-b border-black/10 pb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-1.5 rounded-lg bg-black/5">
+                          <PhoneCall className="w-5 h-5 text-black" />
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-bold text-black tracking-tight">Voice Calling Plans</h3>
+                          <p className="text-xs text-black/60">Dedicated AI telecalling minutes, concurrency &amp; live call forwarding</p>
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-mono uppercase tracking-wider bg-black/5 text-black font-bold px-3 py-1 rounded-full border border-black/10">
+                        Standalone Voice
+                      </span>
+                    </div>
+
+                    <div className="grid gap-6 items-stretch mx-auto md:grid-cols-2 lg:grid-cols-3">
+                      {callPlans.map(renderCard)}
+                    </div>
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
           {/* Dedicated Telephony & Calling Channel Plan */}
           <div className="mt-10 rounded-[28px] border border-black/10 bg-white p-6 md:p-8 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 text-left">
@@ -598,6 +641,98 @@ export default function PricingPage() {
               >
                 Get Dedicated Number
               </Link>
+            </div>
+          </div>
+
+          {/* GAP Pro & Enterprise All-in-One Bundles */}
+          <div className="mt-12 rounded-[32px] border-2 border-[#ff4b2f]/30 bg-gradient-to-br from-neutral-900 via-neutral-950 to-black p-8 md:p-12 text-white shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 -mr-16 -mt-16 w-80 h-80 bg-[#ff4b2f]/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="relative z-10 flex flex-col items-center text-center max-w-3xl mx-auto mb-10">
+              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#ff4b2f]/20 text-[#ff4b2f] text-xs font-bold tracking-widest uppercase border border-[#ff4b2f]/30">
+                <Sparkles className="w-3.5 h-3.5" /> Full Growth Ecosystem
+              </span>
+              <h2 className="mt-4 text-3xl md:text-4xl font-extrabold tracking-tight">
+                Want AI Calling + WhatsApp + Telegram + Social + CRM in One Plan?
+              </h2>
+              <p className="mt-3 text-sm md:text-base text-neutral-300 font-light max-w-2xl leading-relaxed">
+                Save up to 60% compared to buying tools separately. Choose GAP Pro or GAP Enterprise for fully integrated cross-channel automations.
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto relative z-10">
+              {/* GAP Pro */}
+              <div className="rounded-[24px] border border-white/10 bg-white/5 backdrop-blur-md p-7 flex flex-col justify-between hover:border-white/20 transition-all">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-widest text-[#ff4b2f]">All-in-One Essential</span>
+                    <span className="text-xs bg-white/10 px-3 py-1 rounded-full text-neutral-300 font-semibold">1, 3, 6 & 12 Mo</span>
+                  </div>
+                  <h3 className="text-2xl font-black mt-2">GAP Pro</h3>
+                  <p className="text-xs text-neutral-400 mt-1">Perfect for growing businesses needing all channels.</p>
+                  
+                  <div className="mt-5 flex items-baseline gap-1.5">
+                    <span className="text-4xl font-black text-white">₹4,999</span>
+                    <span className="text-xs text-neutral-400 font-medium">/ month</span>
+                  </div>
+
+                  <ul className="mt-6 space-y-3 border-t border-white/10 pt-6 text-xs text-neutral-200">
+                    <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-[#ff4b2f] shrink-0" /> <strong>100 AI Voice Minutes</strong> Included</li>
+                    <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-[#ff4b2f] shrink-0" /> WhatsApp Growth Plan Included</li>
+                    <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-[#ff4b2f] shrink-0" /> Telegram Lite Plan Included</li>
+                    <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-[#ff4b2f] shrink-0" /> Social Pilot Lite Plan Included</li>
+                    <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-[#ff4b2f] shrink-0" /> GAP CRM - 5 Users Included</li>
+                    <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-[#ff4b2f] shrink-0" /> Webhook & Zapier Integration</li>
+                  </ul>
+                </div>
+
+                <a
+                  href="https://getaipilot.in/pricing"
+                  className="mt-8 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-black font-bold text-xs uppercase tracking-wider hover:bg-neutral-200 transition-all"
+                >
+                  <span>Select GAP Pro</span>
+                  <ArrowRight className="h-4 w-4" />
+                </a>
+              </div>
+
+              {/* GAP Enterprise */}
+              <div className="rounded-[24px] border-2 border-[#ff4b2f] bg-gradient-to-b from-[#ff4b2f]/10 to-white/5 backdrop-blur-md p-7 flex flex-col justify-between relative shadow-xl hover:shadow-[#ff4b2f]/20 transition-all">
+                <div className="absolute -top-3.5 right-6 inline-flex items-center gap-1.5 rounded-full px-4 py-1 text-[11px] font-black uppercase tracking-widest text-white bg-[#ff4b2f] shadow-lg">
+                  <Sparkles className="h-3 w-3 fill-current" />
+                  <span>MOST POWERFUL</span>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-widest text-[#ff4b2f]">Full Power Automation</span>
+                    <span className="text-xs bg-[#ff4b2f]/20 text-[#ff4b2f] border border-[#ff4b2f]/30 px-3 py-1 rounded-full font-bold">1, 3, 6 & 12 Mo</span>
+                  </div>
+                  <h3 className="text-2xl font-black mt-2">GAP Enterprise</h3>
+                  <p className="text-xs text-neutral-300 mt-1">For scale-ups and high-volume multi-channel businesses.</p>
+                  
+                  <div className="mt-5 flex items-baseline gap-1.5">
+                    <span className="text-4xl font-black text-white">₹8,999</span>
+                    <span className="text-xs text-neutral-400 font-medium">/ month</span>
+                  </div>
+
+                  <ul className="mt-6 space-y-3 border-t border-white/10 pt-6 text-xs text-neutral-200">
+                    <li className="flex items-center gap-2.5 font-semibold text-white"><Check className="h-4 w-4 text-[#ff4b2f] shrink-0" /> <strong>250 AI Voice Minutes</strong> Included Monthly</li>
+                    <li className="flex items-center gap-2.5 font-semibold text-white"><Check className="h-4 w-4 text-[#ff4b2f] shrink-0" /> <strong>1 Dedicated Virtual Business Number</strong> Included</li>
+                    <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-[#ff4b2f] shrink-0" /> WhatsApp Pro Plan Included</li>
+                    <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-[#ff4b2f] shrink-0" /> Telegram Pro Plan Included</li>
+                    <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-[#ff4b2f] shrink-0" /> Social Pilot Pro Plan Included</li>
+                    <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-[#ff4b2f] shrink-0" /> GAP CRM - 15 Users Included</li>
+                    <li className="flex items-center gap-2.5"><Check className="h-4 w-4 text-[#ff4b2f] shrink-0" /> 24/7 Dedicated Account Manager & SLA</li>
+                  </ul>
+                </div>
+
+                <a
+                  href="https://getaipilot.in/pricing"
+                  className="mt-8 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#ff4b2f] text-white font-bold text-xs uppercase tracking-wider hover:bg-[#e63e24] shadow-lg hover:shadow-xl transition-all"
+                >
+                  <span>Select GAP Enterprise</span>
+                  <ArrowRight className="h-4 w-4" />
+                </a>
+              </div>
             </div>
           </div>
         </section>
