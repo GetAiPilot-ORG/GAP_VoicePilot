@@ -17,6 +17,7 @@ export interface UserProfileData {
   email: string;
   initials: string;
   isAdmin?: boolean;
+  planName?: string;
 }
 
 export interface SidebarUserProfileTileProps {
@@ -36,10 +37,10 @@ export function SidebarUserProfileTile({
         <DropdownMenuTrigger asChild className="w-full">
           <button
             type="button"
-            className="flex h-11 w-full items-center rounded-xl p-1.5 transition-colors hover:bg-neutral-100"
+            className="flex h-auto min-h-[3.5rem] py-2 w-full items-center rounded-xl px-2 transition-colors hover:bg-neutral-100"
           >
             <div className="relative shrink-0">
-              <Avatar className="h-8 w-8 border border-neutral-200 bg-neutral-100">
+              <Avatar className="h-9 w-9 border border-neutral-200 bg-neutral-100">
                 <AvatarFallback className="bg-neutral-900 text-white font-bold text-xs">
                   {userProfile.initials || "GV"}
                 </AvatarFallback>
@@ -49,10 +50,17 @@ export function SidebarUserProfileTile({
 
             {!isCollapsed && (
               <div className="ml-2.5 flex flex-1 items-center justify-between overflow-hidden text-left leading-tight">
-                <div className="flex flex-col truncate pr-1">
-                  <span className="font-semibold text-xs text-neutral-900 truncate">
-                    {userProfile.name}
-                  </span>
+                <div className="flex flex-col truncate pr-1 gap-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-xs text-neutral-900 truncate">
+                      {userProfile.name}
+                    </span>
+                    {userProfile.planName && (
+                      <span className="shrink-0 px-1.5 py-[1px] rounded-[4px] text-[8px] font-extrabold uppercase tracking-wider bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-600 border border-indigo-100 shadow-sm">
+                        {userProfile.planName}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-[11px] text-neutral-500 truncate">
                     {userProfile.email}
                   </span>
@@ -69,10 +77,17 @@ export function SidebarUserProfileTile({
                 {userProfile.initials || "GV"}
               </AvatarFallback>
             </Avatar>
-            <div className="flex flex-col text-left truncate">
-              <span className="text-xs font-semibold text-neutral-900 truncate">
-                {userProfile.name}
-              </span>
+            <div className="flex flex-col text-left truncate gap-0.5">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-neutral-900 truncate">
+                  {userProfile.name}
+                </span>
+                {userProfile.planName && (
+                  <span className="shrink-0 px-1.5 py-[1px] rounded-[4px] text-[8px] font-extrabold uppercase tracking-wider bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-600 border border-indigo-100 shadow-sm">
+                    {userProfile.planName}
+                  </span>
+                )}
+              </div>
               <span className="text-[11px] text-neutral-500 truncate">
                 {userProfile.email}
               </span>

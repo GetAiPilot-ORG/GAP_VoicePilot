@@ -30,6 +30,7 @@ export function SidebarNavItem({
     <Link
       href={href}
       onClick={onClick}
+      prefetch={true}
       title={isCollapsed ? name : undefined}
       className={cn(
         "group relative flex h-10 w-full items-center rounded-xl transition-all duration-150",
@@ -39,7 +40,7 @@ export function SidebarNavItem({
           : "text-neutral-600 hover:bg-neutral-100/60 hover:text-neutral-900 active:scale-[0.99]"
       )}
     >
-      <div className="flex h-7 w-7 items-center justify-center shrink-0">
+      <div className={cn("flex h-7 w-7 items-center justify-center shrink-0 transition-transform duration-200", !isCollapsed && "group-hover:translate-x-1")}>
         <Icon
           className={cn(
             "h-4.5 w-4.5 transition-transform duration-150 group-hover:scale-105",
@@ -49,7 +50,7 @@ export function SidebarNavItem({
       </div>
 
       {!isCollapsed && (
-        <div className="flex flex-1 items-center justify-between overflow-hidden">
+        <div className="flex flex-1 items-center justify-between overflow-hidden transition-transform duration-200 group-hover:translate-x-1">
           <span className="text-[13px] tracking-tight truncate">{name}</span>
           {badge && (
             <span

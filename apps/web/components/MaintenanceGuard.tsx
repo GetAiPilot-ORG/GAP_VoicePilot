@@ -90,7 +90,7 @@ export default function MaintenanceGuard({ children, productKey }: MaintenanceGu
     const checkStatus = async () => {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
 
         const headers = {
           "apikey": SUPABASE_ANON_KEY,
@@ -159,7 +159,7 @@ export default function MaintenanceGuard({ children, productKey }: MaintenanceGu
           });
         }
       } catch (error) {
-        console.error("Maintenance check failed:", error);
+        if (error.name !== "AbortError") console.error("Maintenance check failed:", error); else console.warn("Maintenance check timeout");
         if (mounted) setStatus({ maintenance: false });
       } finally {
         if (mounted) {

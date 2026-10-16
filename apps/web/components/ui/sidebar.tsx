@@ -124,7 +124,15 @@ export function SessionNavBar({
           const { checkIsAdminAction } = await import("@/app/actions/kyc");
           const isAdmin = await checkIsAdminAction();
 
-          setUserProfile({ email, name, initials, isAdmin });
+          let planName = "Free Plan";
+          try {
+             const { getCurrentPlanNameAction } = await import("@/app/actions/billing");
+             planName = await getCurrentPlanNameAction();
+          } catch(e) {
+             console.warn("Could not fetch plan name");
+          }
+
+          setUserProfile({ email, name, initials, isAdmin, planName });
         }
 
         const { getSidebarPermissionsAction } = await import("@/app/actions/adminSidebarPermissions");
