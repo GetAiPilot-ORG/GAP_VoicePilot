@@ -17,6 +17,9 @@ export interface UserProfileData {
   email: string;
   initials: string;
   isAdmin?: boolean;
+  planName?: string;
+  planBadge?: string;
+  balanceMinutes?: number;
 }
 
 export interface SidebarUserProfileTileProps {
@@ -36,7 +39,7 @@ export function SidebarUserProfileTile({
         <DropdownMenuTrigger asChild className="w-full">
           <button
             type="button"
-            className="flex h-11 w-full items-center rounded-xl p-1.5 transition-colors hover:bg-neutral-100"
+            className="flex min-h-[46px] w-full items-center rounded-xl p-1.5 transition-colors hover:bg-neutral-100"
           >
             <div className="relative shrink-0">
               <Avatar className="h-8 w-8 border border-neutral-200 bg-neutral-100">
@@ -70,9 +73,16 @@ export function SidebarUserProfileTile({
               </AvatarFallback>
             </Avatar>
             <div className="flex flex-col text-left truncate">
-              <span className="text-xs font-semibold text-neutral-900 truncate">
-                {userProfile.name}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-neutral-900 truncate">
+                  {userProfile.name}
+                </span>
+                {userProfile.planName && (
+                  <span className="px-1.5 py-0.2 rounded text-[9px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300/80">
+                    {userProfile.planName}
+                  </span>
+                )}
+              </div>
               <span className="text-[11px] text-neutral-500 truncate">
                 {userProfile.email}
               </span>

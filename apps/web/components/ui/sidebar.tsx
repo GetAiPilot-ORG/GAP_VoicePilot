@@ -124,7 +124,48 @@ export function SessionNavBar({
           const { checkIsAdminAction } = await import("@/app/actions/kyc");
           const isAdmin = await checkIsAdminAction();
 
-          setUserProfile({ email, name, initials, isAdmin });
+          // Fetch billing subscription & balance info
+          let planName: string | undefined;
+          let balanceMinutes = 0;
+          try {
+            // 1. Direct fast lookup from profiles table
+            const { data: prof } = await supabase
+              .from("profiles")
+              .select("current_plan")
+              .eq("id", user.id)
+              .maybeSingle();
+
+            if (prof?.current_plan) {
+              const cp = String(prof.current_plan).toLowerCase();
+              if (cp.includes("pro")) planName = "GAP Pro";
+              else if (cp.includes("enterprise") || cp.includes("scale")) planName = "GAP Enterprise";
+              else if (cp.includes("elite")) planName = "Call Elite";
+              else if (cp.includes("lite")) planName = "Call Lite";
+              else planName = prof.current_plan.replace(/_/g, " ").toUpperCase();
+            }
+
+            // 2. Fetch full billing data and active plan
+            const { getBillingDataAction } = await import("@/app/actions/billing");
+            const billingData = await getBillingDataAction();
+            if (billingData?.subscription?.status === "active") {
+              if (billingData.subscription.plans?.name) {
+                planName = billingData.subscription.plans.name;
+              } else if (billingData.subscription.plan_id) {
+                const pid = String(billingData.subscription.plan_id).toLowerCase();
+                if (pid.includes("pro")) planName = "GAP Pro";
+                else if (pid.includes("enterprise") || pid.includes("scale")) planName = "GAP Enterprise";
+                else planName = String(billingData.subscription.plan_id).toUpperCase();
+              }
+            } else {
+              // No active paid subscription
+              planName = undefined;
+            }
+            balanceMinutes = Math.floor(billingData?.balance || 0);
+          } catch (bErr) {
+            console.warn("Could not load billing in sidebar:", bErr);
+          }
+
+          setUserProfile({ email, name, initials, isAdmin, planName, balanceMinutes });
         }
 
         const { getSidebarPermissionsAction } = await import("@/app/actions/adminSidebarPermissions");
@@ -287,7 +328,11 @@ export function SessionNavBar({
 
             {/* Bottom Anchored Card + User Profile Tile */}
             <div className="mt-auto flex flex-col w-full">
-              <SidebarEngineCard isCollapsed={false} />
+              <SidebarEngineCard
+                isCollapsed={false}
+                planName={userProfile.planName}
+                balanceMinutes={userProfile.balanceMinutes}
+              />
               <SidebarUserProfileTile userProfile={userProfile} onMobileClose={() => setMobileOpen?.(false)} />
             </div>
           </div>
@@ -369,7 +414,11 @@ export function SessionNavBar({
 
           {/* Bottom Anchored Engine Card + User Profile Tile */}
           <div className="mt-auto flex flex-col w-full shrink-0">
-            <SidebarEngineCard isCollapsed={isCollapsed} />
+            <SidebarEngineCard
+              isCollapsed={isCollapsed}
+              planName={userProfile.planName}
+              balanceMinutes={userProfile.balanceMinutes}
+            />
             <SidebarUserProfileTile userProfile={userProfile} isCollapsed={isCollapsed} />
           </div>
         </div>
