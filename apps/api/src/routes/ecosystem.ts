@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { planCheckMiddleware } from '../middleware/planCheck';
 import { VomyraClient } from '../services/voice/providers/vomyra/client';
 import { supabaseAdmin as supabase } from '../config/supabase';
+import { evaluateCallLeadOutcome } from '../services/leadQualification';
 
 export const ecosystemRouter = Router();
 const voiceProvider = new VomyraClient();
@@ -165,8 +166,12 @@ ecosystemRouter.post('/trigger-call', planCheckMiddleware, async (req: Request, 
                                 try { require('fs').appendFileSync(require('path').join(__dirname, 'debug.log'), new Date().toISOString() + ': ' + msg + '\n'); } catch (e) {}
                             };
                             debugLog(`Call ${callId} completed. Vomyra payload: ${JSON.stringify(callStatus)}`);
-                            console.log(`[ECOSYSTEM] Call ${callId} completed and processed. Updating CRM...`);
+                            console.log(`[ECOSYSTEM] Call ${callId} completed and processed. Evaluating lead outcome...`);
                             
+                            // Intelligently evaluate whether the call was qualified, dropped, silent, or cut
+                            const evaluation = evaluateCallLeadOutcome(callStatus);
+                            console.log(`[ECOSYSTEM] Call ${callId} Evaluation -> Status: ${evaluation.status}, Category: ${evaluation.category}, Headline: ${evaluation.outcomeHeadline}`);
+
                             // Load CRM credentials
                             const path = require('path');
                             const dotenv = require('dotenv');
@@ -177,58 +182,16 @@ ecosystemRouter.post('/trigger-call', planCheckMiddleware, async (req: Request, 
                             if (crmEnv && crmEnv.VITE_SUPABASE_URL) {
                                 const crmSupabase = createClient(crmEnv.VITE_SUPABASE_URL, crmEnv.VITE_SUPABASE_ANON_KEY);
                                 
-                                let extractedNotes = 'Call Completed via VoicePilot\n';
-                                
-                                // Extract structured data if Vomyra provided it
-                                if (callStatus.variables && Object.keys(callStatus.variables).length > 0) {
-                                    extractedNotes += '\n--- Extracted Details ---\n';
-                                    for (const [key, val] of Object.entries(callStatus.variables)) {
-                                        extractedNotes += `${key}: ${val}\n`;
-                                    }
-                                } else if (callStatus.extracted_data && Object.keys(callStatus.extracted_data).length > 0) {
-                                    extractedNotes += '\n--- Extracted Details ---\n';
-                                    for (const [key, val] of Object.entries(callStatus.extracted_data)) {
-                                        extractedNotes += `${key}: ${val}\n`;
-                                    }
-                                }
-
-                                if (callStatus.notes) {
-                                    extractedNotes += `\n--- AI Summary ---\n${callStatus.notes}\n`;
-                                }
-                                if (callStatus.whatsapp_summary) {
-                                    extractedNotes += `\n--- Actionable Summary ---\n${callStatus.whatsapp_summary}\n`;
-                                    
-                                    // Smart Extraction for CRM
-                                    const s = callStatus.whatsapp_summary.toLowerCase();
-                                    let service = "General Inquiry";
-                                    if (s.includes('website')) service = "Website Development";
-                                    if (s.includes('marketing')) service = "Digital Marketing";
-                                    if (s.includes('dentist') || s.includes('dental')) service += " (Dental)";
-                                    if (s.includes('real estate')) service += " (Real Estate)";
-                                    
-                                    let budget = "To be discussed";
-                                    let budgetMatch = callStatus.whatsapp_summary.match(/((?:rs\.?|inr|₹|\$)\s*\d+(?:,\d+)*(?:\.\d+)?(?:k|m|lakh|thousand)?)/i);
-                                    if (!budgetMatch) budgetMatch = callStatus.whatsapp_summary.match(/(\d+(?:,\d+)*(?:\.\d+)?(?:k|m|lakh|thousand)?)\s*(?:budget|cost|price|rupees|rs)/i);
-                                    if (!budgetMatch) budgetMatch = callStatus.whatsapp_summary.match(/(?:budget|price|cost).*?(\d+(?:,\d+)*(?:\.\d+)?(?:k|m|lakh|thousand)?)/i);
-                                    if (budgetMatch) budget = budgetMatch[1];
-                                    if (budget && !budget.match(/rs|inr|₹|\$/i) && budget !== 'To be discussed') budget = '₹' + budget;
-                                    
-                                    let timeline = "Not specified";
-                                    if (s.includes('urgent') || s.includes('asap') || s.includes('immediate')) timeline = "Immediate";
-                                    else if (s.includes('next week') || s.includes('1 week') || s.includes('a week')) timeline = "Next Week";
-                                    else if (s.includes('week')) timeline = "Within a week";
-                                    else if (s.includes('month')) timeline = "Within a month";
-                                    
-                                    extractedNotes += `\n--- Extracted Insights ---\nService: ${service}\nBudget: ${budget}\nTimeline: ${timeline}\n`;
-                                }
-
-                                // Update CRM
+                                // Update CRM with evaluated status and descriptive notes
                                 await crmSupabase
                                   .from('crm_contacts')
-                                  .update({ status: 'customer', notes: extractedNotes })
+                                  .update({ 
+                                    status: evaluation.status, 
+                                    notes: evaluation.notes 
+                                  })
                                   .eq('id', lead_id);
                                   
-                                console.log(`[ECOSYSTEM] Successfully synced call ${callId} to CRM lead ${lead_id}.`);
+                                console.log(`[ECOSYSTEM] Successfully synced call ${callId} to CRM lead ${lead_id} with status '${evaluation.status}'.`);
                             }
                             break; // exit polling loop
                     } catch (pollErr) {
