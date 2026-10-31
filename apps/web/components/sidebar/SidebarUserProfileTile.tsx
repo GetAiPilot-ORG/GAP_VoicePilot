@@ -18,6 +18,8 @@ export interface UserProfileData {
   initials: string;
   isAdmin?: boolean;
   planName?: string;
+  planBadge?: string;
+  balanceMinutes?: number;
 }
 
 export interface SidebarUserProfileTileProps {
@@ -37,7 +39,7 @@ export function SidebarUserProfileTile({
         <DropdownMenuTrigger asChild className="w-full">
           <button
             type="button"
-            className="flex h-auto min-h-[3.5rem] py-2 w-full items-center rounded-xl px-2 transition-colors hover:bg-neutral-100"
+            className="flex min-h-[46px] w-full items-center rounded-xl p-1.5 transition-colors hover:bg-neutral-100"
           >
             <div className="relative shrink-0">
               <Avatar className="h-9 w-9 border border-neutral-200 bg-neutral-100">
@@ -77,13 +79,13 @@ export function SidebarUserProfileTile({
                 {userProfile.initials || "GV"}
               </AvatarFallback>
             </Avatar>
-            <div className="flex flex-col text-left truncate gap-0.5">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col text-left truncate">
+              <div className="flex items-center gap-1.5">
                 <span className="text-xs font-semibold text-neutral-900 truncate">
                   {userProfile.name}
                 </span>
                 {userProfile.planName && (
-                  <span className="shrink-0 px-1.5 py-[1px] rounded-[4px] text-[8px] font-extrabold uppercase tracking-wider bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-600 border border-indigo-100 shadow-sm">
+                  <span className="px-1.5 py-0.2 rounded text-[9px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300/80">
                     {userProfile.planName}
                   </span>
                 )}

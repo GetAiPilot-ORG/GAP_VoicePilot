@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import AuthSectionOne from "@/components/ui/auth-section-1";
 
 export const metadata = {
@@ -11,5 +12,9 @@ export default async function ResetPasswordPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const resolvedParams = await searchParams;
-  return <AuthSectionOne mode="reset-password" error={resolvedParams?.error} />;
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-black" />}>
+      <AuthSectionOne mode="reset-password" error={resolvedParams?.error} />
+    </Suspense>
+  );
 }

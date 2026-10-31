@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import AuthSectionOne from "@/components/ui/auth-section-1";
 
 export default async function LoginPage({
@@ -6,5 +7,9 @@ export default async function LoginPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const resolvedParams = await searchParams;
-  return <AuthSectionOne mode="login" error={resolvedParams?.error} />;
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-black" />}>
+      <AuthSectionOne mode="login" error={resolvedParams?.error} />
+    </Suspense>
+  );
 }
