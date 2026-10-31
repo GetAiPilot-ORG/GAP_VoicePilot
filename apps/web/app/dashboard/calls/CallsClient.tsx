@@ -384,7 +384,6 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-hairline bg-surface-soft text-black/70">
-                <th className="py-3 px-4 eyebrow text-[11px]">CALL ID</th>
                 <th className="py-3 px-4 eyebrow text-[11px] w-36 whitespace-nowrap">CALL TIME</th>
                 <th className="py-3 px-4 eyebrow text-[11px] w-36 whitespace-nowrap">CUSTOMER NUMBER</th>
                 <th className="py-3 px-4 eyebrow text-[11px]">ASSIGNED NUMBER</th>
@@ -401,7 +400,6 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
                   onClick={() => handleOpenCallDetail(c)}
                   className="hover:bg-surface-soft/60 transition-colors cursor-pointer"
                 >
-                  <td className="py-3.5 px-4 font-mono text-neutral-600 font-semibold">{c.id.slice(0, 10)}...</td>
                   <td className="py-3.5 px-4 text-neutral-700 w-36 whitespace-nowrap">{c.time}</td>
                   <td className="py-3.5 px-4 font-mono font-bold text-black w-36 whitespace-nowrap">{c.customerNumber}</td>
                   <td className="py-3.5 px-4 font-mono text-neutral-500">{c.assignedNumber}</td>
@@ -537,7 +535,7 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
                           </span>
                           {msg.timestamp && <span>{msg.timestamp}</span>}
                         </div>
-                        <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                        <p className="leading-relaxed whitespace-pre-wrap break-all">{msg.content}</p>
                       </div>
 
                       {msg.role !== "assistant" && (

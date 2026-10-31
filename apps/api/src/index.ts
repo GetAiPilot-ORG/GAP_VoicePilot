@@ -55,7 +55,10 @@ app.use('/api/v1/payments', authenticateToken, paymentRouter);
 app.use('/api/v1/connectors', authenticateToken, connectorRouter);
 app.use('/api/v1/workflows', authenticateToken, workflowRouter);
 
+import { ecosystemRouter } from './routes/ecosystem';
 import { ZapierSubscriptionManager } from './services/zapier/ZapierSubscriptionManager';
+
+app.use('/api/v1/ecosystem', ecosystemRouter);
 
 // Initialize WorkflowEngine and Zapier event bus listeners
 WorkflowEngine.getInstance();

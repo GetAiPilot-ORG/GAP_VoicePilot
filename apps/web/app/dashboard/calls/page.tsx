@@ -59,16 +59,8 @@ export default async function CallLogsPage() {
     {
       const rawCalls = data.data || data.calls || (Array.isArray(data) ? data : []);
 
-      // Filter to only show calls from this user's assistants
-      const userAssistantIds = new Set(assistants.map(a => a.id));
-      const userProviderIds = new Set(assistants.map((a: any) => a.provider_resource_id).filter(Boolean));
-      const userAssistantNames = new Set(assistants.map(a => a.name.trim()));
-      
-      const filteredCalls = rawCalls.filter((c: any) => {
-        const astId = c.assistant?.id || "";
-        const astName = c.assistant?.name?.trim() || (c.additional_data?.campaign_name?.trim() || "");
-        return userAssistantIds.has(astId) || userProviderIds.has(astId) || userAssistantNames.has(astName);
-      });
+      // Remove strict filtering so all calls on the Vomyra account (including ecosystem/CRM triggers) are visible
+      const filteredCalls = rawCalls;
 
       callsList = filteredCalls.map((c: any) => {
         let durationStr = "0s";
