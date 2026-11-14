@@ -93,7 +93,7 @@ const pricingPlans = [
     minutes: "2,000 AI Minutes",
     features: [
       "2,000 AI Calling Minutes",
-      "₹5.00 / min per-minute rate",
+      "₹4.00 / min per-minute rate",
       "Unlimited Multi-Agent Workflows",
       "Priority SIP Latency Routing",
       "Dedicated Account Manager",
@@ -240,7 +240,7 @@ export default function PricingPage() {
           });
           setPlansList(mapped);
         }
-      } catch (e) {}
+      } catch (e) { }
     };
     fetchDbPlans();
   }, []);
@@ -338,11 +338,10 @@ export default function PricingPage() {
     <div ref={containerRef} className="min-h-screen bg-[#f7f6f0] text-black antialiased font-sans">
       {/* Sticky Header Navigation */}
       <header
-        className={`sticky top-2 z-50 mx-auto w-full md:w-[82%] lg:w-[76%] max-w-[1080px] px-3 sm:px-4 transition-all duration-300 ${
-          isFooterVisible
+        className={`sticky top-2 z-50 mx-auto w-full md:w-[82%] lg:w-[76%] max-w-[1080px] px-3 sm:px-4 transition-all duration-300 ${isFooterVisible
             ? "opacity-0 -translate-y-8 pointer-events-none"
             : "opacity-100 translate-y-0 pointer-events-auto"
-        }`}
+          }`}
       >
         <div className="flex h-16 items-center justify-between rounded-full border border-white/70 bg-white/80 p-2 pl-4 pr-2 shadow-[0_10px_35px_rgba(0,0,0,0.06),0_1px_0_rgba(255,255,255,0.9)_inset] backdrop-blur-2xl ring-1 ring-black/5 transition-all duration-300">
           <Link href="/" className="flex items-center gap-2 shrink-0" title="GAP VoicePilot Home">
@@ -358,11 +357,10 @@ export default function PricingPage() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
-                  item.href === "/pricing"
+                className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${item.href === "/pricing"
                     ? "bg-black text-white shadow-xs"
                     : "text-black/70 hover:bg-black/5 hover:text-black"
-                }`}
+                  }`}
               >
                 {item.label}
               </Link>
@@ -480,18 +478,16 @@ export default function PricingPage() {
             <button
               type="button"
               onClick={() => setIsAnnual(false)}
-              className={`rounded-full px-5 py-2.5 text-xs font-semibold transition-all ${
-                !isAnnual ? "bg-black text-white shadow-xs font-bold" : "text-black/60 hover:text-black"
-              }`}
+              className={`rounded-full px-5 py-2.5 text-xs font-semibold transition-all ${!isAnnual ? "bg-black text-white shadow-xs font-bold" : "text-black/60 hover:text-black"
+                }`}
             >
               Monthly Billing
             </button>
             <button
               type="button"
               onClick={() => setIsAnnual(true)}
-              className={`flex items-center gap-1.5 rounded-full px-5 py-2.5 text-xs font-semibold transition-all ${
-                isAnnual ? "bg-black text-white shadow-xs font-bold" : "text-black/60 hover:text-black"
-              }`}
+              className={`flex items-center gap-1.5 rounded-full px-5 py-2.5 text-xs font-semibold transition-all ${isAnnual ? "bg-black text-white shadow-xs font-bold" : "text-black/60 hover:text-black"
+                }`}
             >
               Annual Billing
               <span className="rounded-full bg-emerald-500/15 text-emerald-700 px-2 py-0.5 text-xs font-bold uppercase tracking-wider">
@@ -516,16 +512,14 @@ export default function PricingPage() {
               return (
                 <article
                   key={plan.name}
-                  className={`section-reveal relative flex h-full flex-col justify-between rounded-[16px] p-8 sm:p-9 transition-all duration-300 ${
-                    plan.featured
+                  className={`section-reveal relative flex h-full flex-col justify-between rounded-[16px] p-8 sm:p-9 transition-all duration-300 ${plan.featured
                       ? "border-2 border-black/15 bg-white text-black shadow-xl scale-[1.02]"
                       : "border border-black/10 bg-white text-black shadow-xs hover:shadow-xl hover:-translate-y-1"
-                  }`}
+                    }`}
                 >
                   {plan.badge && (
-                    <div className={`absolute -top-3.5 right-8 inline-flex items-center gap-1.5 rounded-full px-4 py-1 text-xs font-extrabold uppercase tracking-widest text-white shadow-md ${
-                      plan.featured ? "bg-[#ff4b2f]" : "bg-neutral-900"
-                    }`}>
+                    <div className={`absolute -top-3.5 right-8 inline-flex items-center gap-1.5 rounded-full px-4 py-1 text-xs font-extrabold uppercase tracking-widest text-white shadow-md ${plan.featured ? "bg-[#ff4b2f]" : "bg-neutral-900"
+                      }`}>
                       {plan.featured && <Sparkles className="h-3 w-3 fill-current" />}
                       <span>{plan.badge}</span>
                     </div>
@@ -570,11 +564,10 @@ export default function PricingPage() {
                   {/* Balanced Button Components */}
                   <Link
                     href="/dashboard"
-                    className={`group flex h-12 w-full items-center justify-center gap-2 rounded-full font-bold text-sm shadow-sm transition-all duration-200 active:scale-[0.98] ${
-                      plan.featured
+                    className={`group flex h-12 w-full items-center justify-center gap-2 rounded-full font-bold text-sm shadow-sm transition-all duration-200 active:scale-[0.98] ${plan.featured
                         ? "bg-[#ff4b2f] text-white hover:bg-[#e03a1e] shadow-md hover:shadow-lg"
                         : "bg-black text-white hover:bg-neutral-800 hover:shadow-md"
-                    }`}
+                      }`}
                   >
                     <span>{plan.action}</span>
                     <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
@@ -669,7 +662,7 @@ export default function PricingPage() {
                   </div>
                   <h3 className="text-2xl font-black mt-2">GAP Pro</h3>
                   <p className="text-xs text-neutral-400 mt-1">Perfect for growing businesses needing all channels.</p>
-                  
+
                   <div className="mt-5 flex items-baseline gap-1.5">
                     <span className="text-4xl font-black text-white">₹4,999</span>
                     <span className="text-xs text-neutral-400 font-medium">/ month</span>
@@ -708,7 +701,7 @@ export default function PricingPage() {
                   </div>
                   <h3 className="text-2xl font-black mt-2">GAP Enterprise</h3>
                   <p className="text-xs text-neutral-300 mt-1">For scale-ups and high-volume multi-channel businesses.</p>
-                  
+
                   <div className="mt-5 flex items-baseline gap-1.5">
                     <span className="text-4xl font-black text-white">₹8,999</span>
                     <span className="text-xs text-neutral-400 font-medium">/ month</span>
@@ -863,9 +856,8 @@ export default function PricingPage() {
                       >
                         <span>{faq.question}</span>
                         <ChevronDown
-                          className={`ml-4 h-5 w-5 shrink-0 transition-transform duration-200 ${
-                            isOpen ? "rotate-180 text-[#ff4b2f]" : "text-black/40"
-                          }`}
+                          className={`ml-4 h-5 w-5 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180 text-[#ff4b2f]" : "text-black/40"
+                            }`}
                         />
                       </button>
                       {isOpen && (
