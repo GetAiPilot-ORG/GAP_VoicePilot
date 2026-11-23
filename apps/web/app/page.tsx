@@ -149,7 +149,7 @@ const pricingPlans = [
     audience: "FOR HIGH VOLUME",
     name: "Scale",
     description: "Lowest per-minute rates for high-volume dialers.",
-    price: "₹9,999",
+    price: "₹7,999",
     unit: "/mo",
     feeNote: "Effective rate: ₹5.00 / min • Includes 2,000 mins.",
     action: "Start building",
@@ -157,7 +157,7 @@ const pricingPlans = [
     buttonVariant: "dark",
     features: [
       "2,000 AI Calling Minutes",
-      "₹5.00 / min per-minute rate",
+      "₹4.00 / min per-minute rate",
       "Unlimited Multi-Agent Workflows",
       "Priority SIP Latency Routing",
       "Dedicated Account Manager",
@@ -253,7 +253,7 @@ export default function HomePage() {
           });
           setPlansList(mapped);
         }
-      } catch (e) {}
+      } catch (e) { }
     };
     fetchDbPlans();
   }, []);
@@ -431,11 +431,10 @@ export default function HomePage() {
       */}
 
       <header
-        className={`sticky top-2 z-50 mx-auto w-full md:w-[82%] lg:w-[76%] max-w-[1080px] px-3 sm:px-4 transition-all duration-300 ${
-          isFooterVisible
+        className={`sticky top-2 z-50 mx-auto w-full md:w-[82%] lg:w-[76%] max-w-[1080px] px-3 sm:px-4 transition-all duration-300 ${isFooterVisible
             ? "opacity-0 -translate-y-8 pointer-events-none"
             : "opacity-100 translate-y-0 pointer-events-auto"
-        }`}
+          }`}
       >
         <div className="flex h-16 items-center justify-between rounded-full border border-white/70 bg-white/75 p-2 pl-4 pr-2 shadow-[0_10px_35px_rgba(0,0,0,0.06),0_1px_0_rgba(255,255,255,0.9)_inset] backdrop-blur-2xl ring-1 ring-black/5 transition-all duration-300">
           <Link
@@ -1047,9 +1046,8 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className={`grid gap-5 items-stretch mx-auto ${
-            plansList.length === 3 ? "max-w-6xl sm:grid-cols-3" : "sm:grid-cols-2 lg:grid-cols-4"
-          }`}>
+          <div className={`grid gap-5 items-stretch mx-auto ${plansList.length === 3 ? "max-w-6xl sm:grid-cols-3" : "sm:grid-cols-2 lg:grid-cols-4"
+            }`}>
             {plansList.map((plan) => (
               <article
                 key={plan.name}
@@ -1183,11 +1181,10 @@ export default function HomePage() {
                           {faq.question}
                         </h3>
                         <span
-                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-transform duration-300 ${
-                            isOpen
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-transform duration-300 ${isOpen
                               ? "rotate-180 bg-black text-white"
                               : "bg-surface-soft text-black/60"
-                          }`}
+                            }`}
                         >
                           <ChevronDown className="h-4 w-4" />
                         </span>
@@ -1367,11 +1364,10 @@ export default function HomePage() {
         onClick={scrollToTop}
         aria-label="Scroll to top of page"
         title="Scroll to top"
-        className={`group fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-black/10 bg-white/90 text-black shadow-[0_12px_32px_rgba(0,0,0,0.14)] backdrop-blur-xl transition-all duration-300 hover:scale-110 hover:bg-black hover:text-white active:scale-95 sm:bottom-8 sm:right-8 ${
-          showScrollTop
+        className={`group fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-black/10 bg-white/90 text-black shadow-[0_12px_32px_rgba(0,0,0,0.14)] backdrop-blur-xl transition-all duration-300 hover:scale-110 hover:bg-black hover:text-white active:scale-95 sm:bottom-8 sm:right-8 ${showScrollTop
             ? "translate-y-0 opacity-100 pointer-events-auto"
             : "translate-y-6 opacity-0 pointer-events-none"
-        }`}
+          }`}
       >
         <ArrowUp className="h-5 w-5 transition-transform duration-300 group-hover:-translate-y-0.5" />
       </button>
