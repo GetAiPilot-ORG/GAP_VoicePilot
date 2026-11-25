@@ -490,7 +490,7 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
         stability: Number(voiceStability),
         similarity_boost: Number(voiceSimilarityBoost),
         language: voiceLanguage,
-        tts_model: ttsModel || null,
+        tts_model: ttsModel || (GAP_CATALOG.voice.tts_models[voiceProvider as keyof typeof GAP_CATALOG.voice.tts_models]?.[0]?.id) || null,
         instructions: voiceInstructions
       },
       transcription: {
@@ -964,7 +964,20 @@ Escalate to the appropriate department when necessary, and clearly inform the ca
                   <Label className="text-sm font-bold text-black">Voice Provider</Label>
                   <select
                     value={voiceProvider}
-                    onChange={(e) => setVoiceProvider(e.target.value)}
+                    onChange={(e) => {
+                      const newP = e.target.value;
+                      setVoiceProvider(newP);
+                      const options = GAP_CATALOG.voice.voices[newP as keyof typeof GAP_CATALOG.voice.voices] || [];
+                      if (options.length > 0) {
+                        setVoiceName(options[0].name);
+                      }
+                      const tts = GAP_CATALOG.voice.tts_models[newP as keyof typeof GAP_CATALOG.voice.tts_models] || [];
+                      if (tts.length > 0) {
+                        setTtsModel(tts[0].id);
+                      } else {
+                        setTtsModel("");
+                      }
+                    }}
                     className="w-full bg-surface-soft border border-hairline rounded-[8px] px-4 py-3 text-sm font-semibold text-black appearance-none"
                   >
                     {voiceProviderOptions.map((p) => (

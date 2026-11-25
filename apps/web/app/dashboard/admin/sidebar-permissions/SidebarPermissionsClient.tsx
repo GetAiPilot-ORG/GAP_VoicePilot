@@ -180,17 +180,92 @@ export default function SidebarPermissionsClient() {
           </CardContent>
         </Card>
       ) : (
-        <Card className="border border-neutral-200 shadow-xs bg-white">
-          <CardHeader className="border-b border-neutral-100 pb-4">
-            <CardTitle className="text-sm font-bold text-black uppercase tracking-wider flex items-center gap-2">
-              <Shield className="w-5 h-5 text-neutral-800" />
-              <span>Sidebar Access Matrix ({ALL_SIDEBAR_MODULES.length} Features)</span>
-            </CardTitle>
-            <CardDescription className="text-xs">
-              All sidebar features automatically sync here. Locked modules are restricted to Administrator accounts.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-0 divide-y divide-neutral-100">
+        <div className="space-y-6">
+          {/* WhatsApp Voice Calling Channel Feature Control */}
+          <Card className="border border-emerald-200/80 bg-gradient-to-br from-emerald-50/40 via-white to-white shadow-xs">
+            <CardHeader className="border-b border-emerald-100/60 pb-3.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                    <MessageSquare className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-sm font-bold text-black tracking-tight">
+                        WhatsApp Voice Call Engine
+                      </CardTitle>
+                      {config.whatsapp_voice_status === "active" ? (
+                        <Badge className="bg-emerald-600 text-white font-mono text-[9px] font-bold px-2 py-0.5 rounded-full">
+                          ACTIVE / LIVE
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-amber-500 text-white font-mono text-[9px] font-bold px-2 py-0.5 rounded-full">
+                          COMING SOON
+                        </Badge>
+                      )}
+                    </div>
+                    <CardDescription className="text-xs text-neutral-500 mt-0.5">
+                      Controls whether the WhatsApp Voice Call tab in the Assistant Test modal & calling engine is Live or marked as Coming Soon.
+                    </CardDescription>
+                  </div>
+                </div>
+
+                {/* Status Switch */}
+                <div className="flex items-center gap-1.5 self-start sm:self-center bg-surface-soft p-1 rounded-xl border border-hairline">
+                  <button
+                    type="button"
+                    onClick={() => setConfig(prev => ({ ...prev, whatsapp_voice_status: "active" }))}
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-[8px] text-xs font-bold transition-all ${
+                      config.whatsapp_voice_status === "active"
+                        ? "bg-emerald-600 text-white shadow-xs"
+                        : "text-neutral-500 hover:text-black"
+                    }`}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Active</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setConfig(prev => ({ ...prev, whatsapp_voice_status: "coming_soon" }))}
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-[8px] text-xs font-bold transition-all ${
+                      config.whatsapp_voice_status !== "active"
+                        ? "bg-amber-500 text-white shadow-xs"
+                        : "text-neutral-500 hover:text-black"
+                    }`}
+                  >
+                    <HelpCircle className="w-3.5 h-3.5" />
+                    <span>Coming Soon</span>
+                  </button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 text-xs text-neutral-600 flex items-center justify-between">
+              <p className="leading-relaxed">
+                {config.whatsapp_voice_status === "active" ? (
+                  <span className="text-emerald-900 font-medium">
+                    🟢 <strong>Live Mode:</strong> Users can select WhatsApp Voice in the Assistant Test modal and dispatch direct outbound WhatsApp voice calls.
+                  </span>
+                ) : (
+                  <span className="text-amber-900 font-medium">
+                    🟡 <strong>Coming Soon Mode:</strong> The WhatsApp Voice tab in the test modal displays a &ldquo;Coming Soon&rdquo; badge and call dispatch is temporarily gated.
+                  </span>
+                )}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border border-neutral-200 shadow-xs bg-white">
+            <CardHeader className="border-b border-neutral-100 pb-4">
+              <CardTitle className="text-sm font-bold text-black uppercase tracking-wider flex items-center gap-2">
+                <Shield className="w-5 h-5 text-neutral-800" />
+                <span>Sidebar Access Matrix ({ALL_SIDEBAR_MODULES.length} Features)</span>
+              </CardTitle>
+              <CardDescription className="text-xs">
+                All sidebar features automatically sync here. Locked modules are restricted to Administrator accounts.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0 divide-y divide-neutral-100">
             {ALL_SIDEBAR_MODULES.map((item: SidebarModuleDefinition) => {
               const isAdminOnly = config[item.href] === "admin";
               const ItemIcon = ICON_MAP[item.iconName] || HelpCircle;
@@ -266,7 +341,8 @@ export default function SidebarPermissionsClient() {
             })}
           </CardContent>
         </Card>
-      )}
-    </div>
-  );
+      </div>
+    )}
+  </div>
+);
 }
