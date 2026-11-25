@@ -27,6 +27,7 @@ import {
   MessageSquare
 } from "lucide-react";
 import { triggerTestCallAction, fetchCallerNumbersAction, fetchWhatsAppNumbersAction, simulateWebAgentResponseAction } from "@/app/actions/calls";
+import { getWhatsAppVoiceStatusAction } from "@/app/actions/adminSidebarPermissions";
 
 interface AssistantTestModalProps {
   isOpen: boolean;
@@ -94,6 +95,7 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
   const [isLoadingCallerNumbers, setIsLoadingCallerNumbers] = useState(false);
   const [whatsAppNumbers, setWhatsAppNumbers] = useState<Array<any>>([]);
   const [selectedWhatsAppNumber, setSelectedWhatsAppNumber] = useState<string>("");
+  const [whatsappVoiceStatus, setWhatsappVoiceStatus] = useState<"active" | "coming_soon">("coming_soon");
   const [isDialing, setIsDialing] = useState(false);
   const [phoneCallResult, setPhoneCallResult] = useState<{
     success: boolean;
@@ -124,6 +126,13 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
       setIsLoadingCallerNumbers(true);
       setCallerNumbers([]);
       setSelectedCallerNumber("");
+
+      getWhatsAppVoiceStatusAction().then((status: any) => {
+        setWhatsappVoiceStatus(status);
+        if (status === "coming_soon" && activeTab === "whatsapp") {
+          setActiveTab("web");
+        }
+      });
       fetchCallerNumbersAction(assistant.id).then((res) => {
         if (res.success && res.numbers.length > 0) {
           setCallerNumbers(res.numbers);
@@ -492,15 +501,28 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
           </button>
 
           <button
-            onClick={() => setActiveTab("whatsapp")}
-            className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap ${
-              activeTab === "whatsapp"
+            disabled={whatsappVoiceStatus === "coming_soon"}
+            onClick={() => {
+              if (whatsappVoiceStatus !== "coming_soon") {
+                setActiveTab("whatsapp");
+              }
+            }}
+            title={whatsappVoiceStatus === "coming_soon" ? "WhatsApp Voice Calling is currently coming soon" : undefined}
+            className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${
+              whatsappVoiceStatus === "coming_soon"
+                ? "border-transparent text-neutral-400 opacity-60 cursor-not-allowed select-none hover:text-neutral-400"
+                : activeTab === "whatsapp"
                 ? "border-emerald-600 text-emerald-700 font-bold"
                 : "border-transparent text-neutral-500 hover:text-black"
             }`}
           >
-            <MessageSquare className="w-4 h-4 text-emerald-600" />
-            WhatsApp Voice
+            <MessageSquare className={`w-4 h-4 ${whatsappVoiceStatus === "coming_soon" ? "text-neutral-400" : "text-emerald-600"}`} />
+            <span>WhatsApp Voice</span>
+            {whatsappVoiceStatus === "coming_soon" && (
+              <span className="bg-amber-100 text-amber-800 text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-amber-300">
+                COMING SOON
+              </span>
+            )}
           </button>
         </div>
 
@@ -837,15 +859,32 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
           {/* TAB 3: WHATSAPP VOICE CALL */}
           {activeTab === "whatsapp" && (
             <form onSubmit={handleDispatchPhoneCall} className="space-y-5">
-              <div className="bg-emerald-50 border border-emerald-200 rounded-[14px] p-4 text-emerald-950 flex items-start gap-3">
-                <MessageSquare className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-                <div className="text-xs space-y-1">
-                  <p className="font-bold text-emerald-900">Direct Outbound WhatsApp Voice Call</p>
-                  <p className="text-emerald-800/80 leading-relaxed">
-                    Dials the recipient's WhatsApp account directly from your verified WhatsApp Business number.
-                  </p>
+              {whatsappVoiceStatus === "coming_soon" ? (
+                <div className="bg-amber-50 border border-amber-200 rounded-[14px] p-4 text-amber-950 flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="text-xs space-y-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-amber-900">WhatsApp Voice Calling (Feature Preview)</p>
+                      <span className="bg-amber-200 text-amber-900 font-mono text-[9px] font-bold px-1.5 py-0.5 rounded">
+                        COMING SOON
+                      </span>
+                    </div>
+                    <p className="text-amber-800 leading-relaxed">
+                      WhatsApp Voice Calling is currently in preview mode. Administrators can toggle this feature between <strong>Active</strong> and <strong>Coming Soon</strong> in the Sidebar Permissions settings.
+                    </p>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-[14px] p-4 text-emerald-950 flex items-start gap-3">
+                  <MessageSquare className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                  <div className="text-xs space-y-1">
+                    <p className="font-bold text-emerald-900">Direct Outbound WhatsApp Voice Call</p>
+                    <p className="text-emerald-800/80 leading-relaxed">
+                      Dials the recipient&apos;s WhatsApp account directly from your verified WhatsApp Business number.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Customer / Recipient Name Input */}
               <div className="space-y-1.5">
@@ -909,11 +948,15 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
                       onChange={(e) => setSelectedWhatsAppNumber(e.target.value)}
                       className="w-full px-4 py-2.5 text-xs font-mono font-semibold bg-surface-soft border border-hairline rounded-[10px] appearance-none focus:outline-none focus:ring-1 focus:ring-black"
                     >
-                      {whatsAppNumbers.map((num: any, idx: number) => (
-                        <option key={num.id || idx} value={num.phone_number}>
-                          {num.phone_number} {num.display_name ? `(${num.display_name})` : ""}
-                        </option>
-                      ))}
+                      {whatsAppNumbers.map((num: any, idx: number) => {
+                        const val = num.whatsapp_number || num.phone_number || "";
+                        const label = num.verified_name || num.display_name || "";
+                        return (
+                          <option key={num.id || idx} value={val}>
+                            {val} {label ? `(${label})` : ""}
+                          </option>
+                        );
+                      })}
                     </select>
                     <ChevronDown className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
                   </div>
@@ -957,14 +1000,25 @@ export default function AssistantTestModal({ isOpen, onClose, assistant }: Assis
 
               {/* Dispatch Action Button */}
               <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={isDialing}
-                  className="w-full py-3 text-xs justify-center gap-2 rounded-full font-bold shadow-md hover:scale-[1.01] transition-transform disabled:opacity-50 flex items-center bg-emerald-600 hover:bg-emerald-700 text-white"
-                >
-                  <MessageSquare className={`w-4 h-4 ${isDialing ? "animate-spin" : ""}`} />
-                  {isDialing ? "Initiating WhatsApp Call..." : "Dispatch Outbound WhatsApp Call"}
-                </button>
+                {whatsappVoiceStatus === "coming_soon" ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="w-full py-3 text-xs justify-center gap-2 rounded-full font-bold shadow-xs transition-transform opacity-70 cursor-not-allowed flex items-center bg-neutral-200 text-neutral-600 border border-neutral-300"
+                  >
+                    <MessageSquare className="w-4 h-4 text-neutral-500" />
+                    WhatsApp Voice Calling &bull; Coming Soon
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={isDialing}
+                    className="w-full py-3 text-xs justify-center gap-2 rounded-full font-bold shadow-md hover:scale-[1.01] transition-transform disabled:opacity-50 flex items-center bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    <MessageSquare className={`w-4 h-4 ${isDialing ? "animate-spin" : ""}`} />
+                    {isDialing ? "Initiating WhatsApp Call..." : "Dispatch Outbound WhatsApp Call"}
+                  </button>
+                )}
               </div>
             </form>
           )}

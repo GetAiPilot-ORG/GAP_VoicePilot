@@ -138,8 +138,12 @@ async function processBatch() {
   }
 }
 
-async function run() {
-  console.log(`[CampaignWorker] Campaign worker started. Polling every ${pollMs}ms...`);
+let isRunning = false;
+
+export async function startCampaignWorker() {
+  if (isRunning) return;
+  isRunning = true;
+  console.log(`[CampaignWorker] Campaign worker background loop started. Polling every ${pollMs}ms...`);
   while (!stopping) {
     try { 
       await processBatch(); 
@@ -153,5 +157,9 @@ async function run() {
 
 process.on('SIGTERM', () => { stopping = true; });
 process.on('SIGINT', () => { stopping = true; });
-void run();
+
+// If executed directly (standalone node process)
+if (require.main === module) {
+  void startCampaignWorker();
+}
 

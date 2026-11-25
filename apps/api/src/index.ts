@@ -56,10 +56,14 @@ app.use('/api/v1/connectors', authenticateToken, connectorRouter);
 app.use('/api/v1/workflows', authenticateToken, workflowRouter);
 
 import { ZapierSubscriptionManager } from './services/zapier/ZapierSubscriptionManager';
+import { startCampaignWorker } from './workers/campaignWorker';
 
 // Initialize WorkflowEngine and Zapier event bus listeners
 WorkflowEngine.getInstance();
 ZapierSubscriptionManager.getInstance();
+
+// Automatically start Campaign Worker in background
+startCampaignWorker();
 
 
 

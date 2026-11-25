@@ -586,7 +586,7 @@ function EditAssistantFormInner({ assistant, workspaceTools = [] }: EditAssistan
         speed: Number(voiceSpeed),
         stability: Number(voiceStability),
         similarity_boost: Number(voiceSimilarityBoost),
-        tts_model: ttsModel,
+        tts_model: ttsModel || (VOMYRA_CATALOG.voice.tts_models[voiceProvider as keyof typeof VOMYRA_CATALOG.voice.tts_models]?.[0]?.id) || null,
         instructions: voiceInstructions
       },
       transcription: {
@@ -1429,7 +1429,20 @@ function EditAssistantFormInner({ assistant, workspaceTools = [] }: EditAssistan
               </Label>
               <select
                 value={voiceProvider}
-                onChange={(e) => setVoiceProvider(e.target.value)}
+                onChange={(e) => {
+                  const newP = e.target.value;
+                  setVoiceProvider(newP);
+                  const voicesForP = VOMYRA_CATALOG.voice.featured_voices.filter(v => v.provider === newP);
+                  if (voicesForP.length > 0) {
+                    setVoiceName(voicesForP[0].name);
+                  }
+                  const tts = VOMYRA_CATALOG.voice.tts_models[newP as keyof typeof VOMYRA_CATALOG.voice.tts_models] || [];
+                  if (tts.length > 0) {
+                    setTtsModel(tts[0].id);
+                  } else {
+                    setTtsModel("");
+                  }
+                }}
                 className="w-full bg-white border border-hairline rounded-lg px-3.5 py-2.5 text-xs font-bold text-black focus:outline-none focus:border-black shadow-2xs"
               >
                 {voiceProviderOptions.map((p) => (
