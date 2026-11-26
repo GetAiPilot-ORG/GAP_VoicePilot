@@ -278,16 +278,22 @@ paymentRouter.post("/verify-payment", authenticateUser, async (req, res) => {
             .maybeSingle();
 
           if (hubProfile) {
+            const lowerPlan = planId.toLowerCase();
+            const isEntPlan =
+              lowerPlan.includes("enterprise") || lowerPlan.includes("enterprice") || lowerPlan.includes("scale");
+            const isCorePlan = lowerPlan === "gap_core" || lowerPlan.includes("core") || lowerPlan.includes("all_in_one");
             const planLabel =
               targetPlan?.name ||
-              (planId === "gap_enterprise"
+              (isEntPlan
                 ? "GAP Enterprise"
+                : isCorePlan
+                ? "GAP Core"
                 : planId === "gap_pro"
                 ? "GAP Pro"
                 : planId);
             const pricePaise =
               (targetPlan?.price_monthly ||
-                (planId === "gap_enterprise" ? 8999 : 4999)) * 100;
+                (isEntPlan ? 8999 : 4999)) * 100;
             const nowIso = new Date().toISOString();
             const expiresIso = new Date(
               Date.now() + 30 * 24 * 60 * 60 * 1000,
@@ -321,11 +327,10 @@ paymentRouter.post("/verify-payment", authenticateUser, async (req, res) => {
               })
               .eq("id", hubProfile.id);
 
-            const lowerPlan = planId.toLowerCase();
             if (
-              lowerPlan.includes("pro") ||
-              lowerPlan.includes("enterprise") ||
-              lowerPlan.includes("all_in_one")
+              isEntPlan ||
+              isCorePlan ||
+              lowerPlan.includes("pro")
             ) {
               const { data: members } = await hubClient
                 .from("organization_members")
@@ -336,13 +341,16 @@ paymentRouter.post("/verify-payment", authenticateUser, async (req, res) => {
                 await hubClient
                   .from("organizations")
                   .update({
-                    plan_id: lowerPlan.includes("enterprise")
+                    plan_id: isEntPlan
                       ? "enterprise"
+                      : isCorePlan
+                      ? "growth"
                       : "pro",
                     plan_status: "active",
-                    subscription_tier: lowerPlan.includes("enterprise")
-                      ? "enterprise"
-                      : "pro",
+                    subscription_tier: isEntPlan ? "enterprise" : "pro",
+                    plan_start_date: nowIso,
+                    plan_end_date: expiresIso,
+                    max_users: isEntPlan ? -1 : isCorePlan ? 15 : 25,
                     updated_at: nowIso,
                   })
                   .in("id", orgIds);
