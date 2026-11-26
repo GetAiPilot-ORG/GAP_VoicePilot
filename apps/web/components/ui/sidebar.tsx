@@ -137,8 +137,9 @@ export function SessionNavBar({
 
             if (prof?.current_plan) {
               const cp = String(prof.current_plan).toLowerCase();
-              if (cp.includes("pro")) planName = "GAP Pro";
-              else if (cp.includes("enterprise") || cp.includes("scale")) planName = "GAP Enterprise";
+              if (cp.includes("enterprise") || cp.includes("enterprice") || cp.includes("scale")) planName = "GAP Enterprise";
+              else if (cp.includes("gap_core") || cp === "core" || cp.includes("all_in_one")) planName = "GAP Core";
+              else if (cp.includes("pro")) planName = "GAP Pro";
               else if (cp.includes("elite")) planName = "Call Elite";
               else if (cp.includes("lite")) planName = "Call Lite";
               else planName = prof.current_plan.replace(/_/g, " ").toUpperCase();
@@ -152,8 +153,9 @@ export function SessionNavBar({
                 planName = billingData.subscription.plans.name;
               } else if (billingData.subscription.plan_id) {
                 const pid = String(billingData.subscription.plan_id).toLowerCase();
-                if (pid.includes("pro")) planName = "GAP Pro";
-                else if (pid.includes("enterprise") || pid.includes("scale")) planName = "GAP Enterprise";
+                if (pid.includes("enterprise") || pid.includes("enterprice") || pid.includes("scale")) planName = "GAP Enterprise";
+                else if (pid.includes("gap_core") || pid === "core" || pid.includes("all_in_one")) planName = "GAP Core";
+                else if (pid.includes("pro")) planName = "GAP Pro";
                 else planName = String(billingData.subscription.plan_id).toUpperCase();
               }
             } else {
