@@ -12,7 +12,10 @@
    * **Anthropic**
 
 2. **Voice Providers (TTS) Available in API:**  
+   * **Sarvam AI** (Native Indian voices: *Shreya*, *Shubh*, *Arvind*, etc. via `bulbul:v3`)
+   * **Gnani.ai** (Indian regional voices: *Bhavna*, *Ambuja*, *Raghav* via `timbre-v2.5`)
    * **Azure Neural** (Hindi & English voices: *Aarti*, *Arjun*, *Neerja*, *Jenny*, etc.)
+   * **ElevenLabs** (Multilingual & expressive neural voices)
    * **Cartesia** (Ultra-low latency voices)
    * **OpenAI Voice**
    * **xAI Voice**
@@ -40,9 +43,7 @@
 ## 🔴 2. What We Are NOT Getting from API (Missing / Platform Only)
 
 1. **Specific Voice & Telephony Providers NOT in API:**  
-   * ❌ **Sarvam AI** (Not available via API)
    * ❌ **Murf AI** (Not available via API)
-   * ❌ **Ganani** (Not available via API)
    * ❌ **Agora** (Not available via API)
    * ❌ **Artesia** (Not available via API)
 
@@ -61,7 +62,7 @@
 
 | Category | Available via API ✅ | NOT Available via API ❌ |
 | :--- | :--- | :--- |
-| **Voice Providers (TTS)** | Azure Neural, Cartesia, OpenAI, xAI, Mistral | **Sarvam, Murf, Ganani, Agora, Artesia** |
+| **Voice Providers (TTS)** | Azure Neural, Sarvam AI, Gnani.ai, ElevenLabs, Cartesia, OpenAI, xAI, Mistral | **Murf, Agora, Artesia** |
 | **Speech Transcribers (STT)** | Deepgram Nova-2, Gladia, Smallest AI | — |
 | **AI LLM Brains** | OpenAI, Groq, xAI, Mistral, Anthropic | — |
 | **Prompts & Dynamic Name** | System prompt, greetings, `{{name}}` tag | — |

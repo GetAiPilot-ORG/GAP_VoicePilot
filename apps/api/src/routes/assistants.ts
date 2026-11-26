@@ -225,8 +225,8 @@ assistantRouter.get('/:id', async (req, res) => {
         const vomyraRes = await voiceProvider.getAssistant(dbAssistant.provider_resource_id);
         const vomyraData = vomyraRes?.data || vomyraRes || {};
         liveConfig = {
-          ...vomyraData,
-          ...(dbAssistant.config_snapshot || {})
+          ...(dbAssistant.config_snapshot || {}),
+          ...vomyraData
         };
       } catch (err: any) {
         console.warn(`Could not fetch live Vomyra assistant ${dbAssistant.provider_resource_id}, using snapshot:`, err.message);
@@ -301,6 +301,7 @@ assistantRouter.put('/:id', async (req, res) => {
     let updatedConfig = { ...(dbAssistant.config_snapshot || {}), ...updatePayload };
 
     const providerResId = dbAssistant.provider_resource_id || id;
+    let realVomyraId = providerResId;
     let providerSyncStatus: 'synced' | 'failed' = 'synced';
     let providerSyncError: string | null = null;
 
@@ -318,12 +319,36 @@ assistantRouter.put('/:id', async (req, res) => {
         providerSyncStatus = 'failed';
         providerSyncError = err.message || 'Vomyra API sync failed';
       }
+    } else {
+      // Auto-provision on Vomyra if it had a mock/ast_ ID
+      try {
+        const vomyraAssistant = await voiceProvider.createAssistant({
+          ...updatedConfig,
+          name: updatePayload.name || dbAssistant.name
+        });
+        const createdId = vomyraAssistant.data?.id || vomyraAssistant.id || vomyraAssistant._id;
+        if (createdId) {
+          realVomyraId = createdId;
+          const vomyraData = vomyraAssistant.data || vomyraAssistant || {};
+          updatedConfig = {
+            ...(dbAssistant.config_snapshot || {}),
+            ...vomyraData,
+            ...updatePayload
+          };
+          console.log(`[Express API] Auto-provisioned mock assistant on Vomyra: ${realVomyraId}`);
+        }
+      } catch (err: any) {
+        console.warn(`[Express API] Auto-provision on Vomyra failed:`, err.message);
+        providerSyncStatus = 'failed';
+        providerSyncError = err.message || 'Vomyra auto-provision failed';
+      }
     }
 
     const { data: updatedRecord, error: updateErr } = await supabase
       .from('assistants')
       .update({
         name: updatePayload.name || dbAssistant.name,
+        provider_resource_id: realVomyraId,
         config_snapshot: updatedConfig,
         updated_at: new Date().toISOString()
       })
