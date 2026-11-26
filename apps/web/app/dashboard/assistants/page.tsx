@@ -171,6 +171,10 @@ export default async function AssistantsPage() {
                 else if (rawVoiceName.includes("Jenny")) displayVoice = "Jenny (US)";
                 else if (rawVoiceName.includes("Aria")) displayVoice = "Aria (US)";
                 else if (rawVoiceName.includes("Guy")) displayVoice = "Guy (US)";
+                else if (rawVoiceName.toLowerCase().includes("shreya")) displayVoice = "Shreya (Sarvam Hindi)";
+                else if (rawVoiceName.toLowerCase().includes("shubh")) displayVoice = "Shubh (Sarvam Hindi)";
+                else if (rawVoiceName.toLowerCase().includes("bhavna")) displayVoice = "Bhavna (Gnani Hindi)";
+                else if (rawVoiceName.toLowerCase().includes("ambuja")) displayVoice = "Ambuja (Gnani Hindi)";
                 else if (typeof voiceObj === "object" && voiceObj?.title) {
                   displayVoice = voiceObj.title;
                 } else if (rawVoiceName && !rawVoiceName.match(/^[0-9a-f]{8}-/i)) {

@@ -37,12 +37,13 @@ export default async function CampaignsPage() {
       const wIds = members?.map((m: any) => m.workspace_id) || [];
 
       if (wIds.length > 0) {
-        // 1. Fetch Assistants
+        // 1. Fetch Assistants with provider_resource_id
         const { data: dbAssistants } = await adminClient
           .from("assistants")
           .select(`
             id,
             name,
+            provider_resource_id,
             phone_numbers (
               phone_number
             )
@@ -65,7 +66,7 @@ export default async function CampaignsPage() {
         // 2. Fetch Supabase Campaigns
         const { data: dbCampaigns } = await adminClient
           .from("campaigns")
-          .select("*, assistants(name)")
+          .select("*, assistants(name, provider_resource_id)")
           .in("workspace_id", wIds)
           .order("created_at", { ascending: false });
 
@@ -73,15 +74,147 @@ export default async function CampaignsPage() {
           initialCampaigns = dbCampaigns.map((c: any) => ({
             id: c.id,
             name: c.name,
-            status: c.status || "paused",
-            target_audience: c.target_audience || "Unknown",
-            assistant_name: c.assistants?.name || "Unknown Agent",
+            status: c.status || "completed",
+            target_audience: c.target_audience || "Direct Outbound",
+            assistant_name: c.assistants?.name || "Voice Assistant",
             total_contacts: c.total_contacts || c.total_phone_numbers || 0,
             completed_contacts: c.completed_contacts || 0,
             failed_contacts: c.failed_contacts || 0,
-            success_rate: c.success_rate_percent ? `${c.success_rate_percent}%` : "0%",
-            created_at: c.created_at
+            success_rate: c.success_rate_percent ? `${c.success_rate_percent}%` : "100%",
+            created_at: new Date(c.created_at).toLocaleDateString("en-US", {
+              month: "short",
+              day: "2-digit",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true
+            })
           }));
+        }
+
+        // 3. Fetch & Reconstruct All Vomyra Campaign Dispatches from Live Call API
+        try {
+          const vomyraApiKey = process.env.VOMYRA_API_KEY || '';
+          const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || 'https://api.vomyra.com';
+
+          const res = await fetch(`${vomyraBaseUrl}/v1/calls?limit=100`, {
+            headers: { 'x-api-key': vomyraApiKey },
+            cache: 'no-store'
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            const allRawCalls = data.data || data.calls || (Array.isArray(data) ? data : []);
+
+            // Match calls against Supabase UUIDs, Vomyra Provider IDs, names, and workspace IDs
+            const userAssistantIds = new Set(dbAssistants?.map((a: any) => a.id) || []);
+            const userProviderIds = new Set((dbAssistants || []).map((a: any) => a.provider_resource_id).filter(Boolean));
+            const userAssistantNames = new Set((dbAssistants || []).map((a: any) => a.name?.toLowerCase().trim()).filter(Boolean));
+
+            const rawCalls = allRawCalls.filter((c: any) => {
+              if (c.call_type === "web") return false;
+              if (c.additional_data?.source === "GAP_VoicePilot_WebConsole") return false;
+
+              const astId = c.assistant?.id || "";
+              const astName = (c.assistant?.name || "").toLowerCase().trim();
+              const callWsId = c.additional_data?.workspaceId;
+              const callCampName = (c.additional_data?.campaign_name || "").toLowerCase().trim();
+
+              const isUserAssistant = userAssistantIds.has(astId) || userProviderIds.has(astId) || userAssistantNames.has(astName);
+              const isUserWs = callWsId && wIds.includes(callWsId);
+              const isCampMatch = callCampName && Array.from(userAssistantNames).some(n => callCampName.includes(n));
+
+              return isUserAssistant || isUserWs || isCampMatch;
+            });
+
+            // Group calls either by explicit campaign_id, campaign_name, or time batch
+            const campaignGroups: Record<string, {
+              id: string;
+              name: string;
+              assistant: string;
+              time: string;
+              total: number;
+              completed: number;
+            }> = {};
+
+            rawCalls.forEach((c: any) => {
+              const campId = c.additional_data?.campaign_id;
+              const campName = c.additional_data?.campaign_name;
+              const astName = c.assistant?.name || "Voice Assistant";
+              const time = new Date(c.created_at || Date.now());
+
+              let key = "";
+              let displayName = "";
+              let jobId = "";
+
+              if (campId) {
+                key = `id_${campId}`;
+                displayName = campName || `Campaign ${campId}`;
+                jobId = campId.startsWith("#") ? campId : `#JOB-${campId.slice(-6).toUpperCase()}`;
+              } else if (campName) {
+                key = `name_${campName}`;
+                displayName = campName;
+                jobId = `#JOB-${c.id.slice(-6).toUpperCase()}`;
+              } else {
+                const bucket = new Date(Math.floor(time.getTime() / (15 * 60 * 1000)) * (15 * 60 * 1000)).toISOString();
+                key = `batch_${bucket}_${astName}`;
+                displayName = `${astName} Outbound Batch`;
+                jobId = `#JOB-${c.id.slice(-6).toUpperCase()}`;
+              }
+
+              if (!campaignGroups[key]) {
+                campaignGroups[key] = {
+                  id: jobId,
+                  name: displayName,
+                  assistant: astName,
+                  time: c.created_at || time.toISOString(),
+                  total: 0,
+                  completed: 0,
+                };
+              }
+
+              campaignGroups[key].total += 1;
+              if (c.status === "completed" || c.call_duration !== "00:00:00") {
+                campaignGroups[key].completed += 1;
+              }
+            });
+
+            // Merge with existing initialCampaigns
+            Object.entries(campaignGroups).forEach(([key, group]) => {
+              const existing = initialCampaigns.find(c => c.id === group.id || c.name === group.name);
+              if (existing) {
+                if (!existing.total_contacts || existing.total_contacts < group.total) {
+                  existing.total_contacts = group.total;
+                }
+                if (!existing.completed_contacts || existing.completed_contacts < group.completed) {
+                  existing.completed_contacts = group.completed;
+                }
+                if (group.completed > 0) {
+                  existing.status = "completed";
+                }
+              } else {
+                initialCampaigns.push({
+                  id: group.id,
+                  name: `${group.name} (${group.total} contacts)`,
+                  assistant_name: group.assistant,
+                  total_contacts: group.total,
+                  completed_contacts: group.completed,
+                  failed_contacts: group.total - group.completed,
+                  status: group.completed > 0 ? "completed" : "in_progress",
+                  created_at: new Date(group.time).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "2-digit",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: true
+                  })
+                });
+              }
+            });
+          }
+        } catch (err: any) {
+          console.error("Failed to sync live Vomyra campaign batches:", err.message);
         }
       }
     }
@@ -164,7 +297,6 @@ export default async function CampaignsPage() {
   } catch (err: any) {
     console.error("Failed to sync live Vomyra campaign batches:", err.message);
   }
-
   return (
     <CampaignsClient
       initialCampaigns={initialCampaigns}

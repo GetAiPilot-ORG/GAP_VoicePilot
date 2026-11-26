@@ -66,17 +66,20 @@ export default async function WhatsAppPage() {
     if (res.ok) {
       const data = await res.json();
       const rawNumbers = Array.isArray(data) ? data : (data.data || []);
-      initialWhatsAppNumbers = rawNumbers.map((n: any, idx: number) => ({
-        id: n.id || `wa_${idx}`,
-        phoneNumber: n.phone_number || n.number || "Unknown",
-        displayName: n.display_name || n.name || "WhatsApp Business",
-        status: n.status || "connected",
-        assignedAgentId: n.assigned_assistant_id || n.assistant_id || assistants[0]?.id || null,
-        assignedAgentName: n.assigned_assistant_name || n.assistant?.name || assistants[0]?.name || "Unassigned",
-        events: n.events || ["inbound_call", "outbound_call"],
-        callingEnabled: n.calling_enabled ?? true,
-        connectedAt: n.created_at || new Date().toISOString()
-      }));
+      initialWhatsAppNumbers = rawNumbers.map((n: any, idx: number) => {
+        const assignedAssistant = assistants.find((a) => a.id === n.assistant_id || a.provider_resource_id === n.assistant_id);
+        return {
+          id: n.id || `wa_${idx}`,
+          phoneNumber: n.whatsapp_number || n.phone_number || n.number || "Unknown",
+          displayName: n.verified_name || n.display_name || n.name || "WhatsApp Business",
+          status: n.status || (n.can_call ? "active" : "connected"),
+          assignedAgentId: n.assistant_id || assignedAssistant?.id || null,
+          assignedAgentName: assignedAssistant?.name || (n.assistant_id ? "Assigned Agent" : "Unassigned"),
+          events: ["inbound_call", "outbound_call"],
+          callingEnabled: n.calling_enabled ?? n.can_call ?? true,
+          connectedAt: n.created_at || new Date().toISOString()
+        };
+      });
     }
   } catch (err: any) {
     console.error("Failed to load WhatsApp page data:", err);

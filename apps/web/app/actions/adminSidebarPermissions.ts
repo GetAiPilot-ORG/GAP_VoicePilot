@@ -111,3 +111,13 @@ export async function verifyRouteAccess(routeHref: string) {
     }
   }
 }
+
+// 5. Get WhatsApp Voice Call Feature Release Status ("active" | "coming_soon")
+export async function getWhatsAppVoiceStatusAction(): Promise<"active" | "coming_soon"> {
+  try {
+    const perms = await getSidebarPermissionsAction();
+    return perms.whatsapp_voice_status === "active" ? "active" : "coming_soon";
+  } catch (e) {
+    return "coming_soon";
+  }
+}

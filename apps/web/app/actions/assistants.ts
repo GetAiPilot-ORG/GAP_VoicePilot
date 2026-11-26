@@ -473,32 +473,56 @@ export async function updateAssistantAction(id: string, payload: any) {
     const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || 'https://api.vomyra.com';
     const providerResId = dbAssistant.provider_resource_id || id;
 
-    if (vomyraApiKey && providerResId && !providerResId.startsWith('mock_') && !providerResId.startsWith('ast_')) {
+    let realVomyraId = providerResId;
+
+    if (vomyraApiKey) {
       try {
         const sanitizedVoice = payload.voice ? { ...payload.voice } : undefined;
         if (sanitizedVoice && !sanitizedVoice.tts_model) delete sanitizedVoice.tts_model;
         const vPayload = { ...payload };
         if (sanitizedVoice) vPayload.voice = sanitizedVoice;
 
-        const vRes = await fetch(`${vomyraBaseUrl}/v1/assistants/${providerResId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${vomyraApiKey}`,
-            'x-api-key': vomyraApiKey
-          },
-          body: JSON.stringify(vPayload)
-        });
+        if (providerResId && !providerResId.startsWith('mock_') && !providerResId.startsWith('ast_')) {
+          // Existing real Vomyra assistant -> PUT update
+          const vRes = await fetch(`${vomyraBaseUrl}/v1/assistants/${providerResId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${vomyraApiKey}`,
+              'x-api-key': vomyraApiKey
+            },
+            body: JSON.stringify(vPayload)
+          });
 
-        if (vRes.ok) {
-          const vData = await vRes.json();
-          const rawV = vData.data || vData;
-          updatedConfig = { ...(dbAssistant.config_snapshot || {}), ...rawV, ...payload };
+          if (vRes.ok) {
+            const vData = await vRes.json();
+            const rawV = vData.data || vData;
+            updatedConfig = { ...(dbAssistant.config_snapshot || {}), ...rawV, ...payload };
+          } else {
+            console.warn(`[updateAssistantAction] Direct Vomyra update returned status ${vRes.status}`);
+          }
         } else {
-          console.warn(`[updateAssistantAction] Direct Vomyra update returned status ${vRes.status}`);
+          // Mock or ast_ ID -> Auto-provision on Vomyra
+          const createRes = await fetch(`${vomyraBaseUrl}/v1/assistants`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${vomyraApiKey}`,
+              'x-api-key': vomyraApiKey
+            },
+            body: JSON.stringify(vPayload)
+          });
+
+          if (createRes.ok) {
+            const createJson = await createRes.json();
+            const rawCreated = createJson.data || createJson;
+            realVomyraId = rawCreated.id || rawCreated._id || realVomyraId;
+            updatedConfig = { ...(dbAssistant.config_snapshot || {}), ...rawCreated, ...payload };
+            console.log(`[updateAssistantAction] Auto-provisioned mock assistant on Vomyra: ${realVomyraId}`);
+          }
         }
       } catch (vErr: any) {
-        console.warn(`[updateAssistantAction] Direct Vomyra update fetch error: ${vErr.message}`);
+        console.warn(`[updateAssistantAction] Direct Vomyra sync fetch error: ${vErr.message}`);
       }
     }
 
@@ -507,6 +531,7 @@ export async function updateAssistantAction(id: string, payload: any) {
       .from('assistants')
       .update({
         name: payload.name || dbAssistant.name,
+        provider_resource_id: realVomyraId,
         config_snapshot: updatedConfig,
         updated_at: new Date().toISOString()
       })
@@ -691,17 +716,39 @@ export async function syncAssistantsWithVomyraAction() {
     const cloudId = cloudAst.id || cloudAst._id;
     if (!cloudId || cloudAst.name?.startsWith('[DELETED')) continue;
 
+    let fullAst = cloudAst;
+    try {
+      const detailRes = await fetch(`${vomyraBaseUrl}/v1/assistants/${cloudId}`, {
+        headers: {
+          'Authorization': `Bearer ${vomyraApiKey}`,
+          'x-api-key': vomyraApiKey
+        },
+        cache: 'no-store'
+      });
+      if (detailRes.ok) {
+        const detailJson = await detailRes.json();
+        if (detailJson?.data) fullAst = detailJson.data;
+      }
+    } catch (e) {}
+
     if (!existingByProviderId.has(cloudId)) {
       await adminClient.from('assistants').insert({
         workspace_id: workspaceId,
         created_by: user.id,
         provider: 'vomyra',
         provider_resource_id: cloudId,
-        name: cloudAst.name || 'Cloud Voice Assistant',
-        config_snapshot: cloudAst,
+        name: fullAst.name || 'Cloud Voice Assistant',
+        config_snapshot: fullAst,
         status: 'active'
       });
       importedCount++;
+    } else {
+      const existing = existingByProviderId.get(cloudId);
+      await adminClient.from('assistants').update({
+        name: fullAst.name || existing.name,
+        config_snapshot: fullAst,
+        updated_at: new Date().toISOString()
+      }).eq('id', existing.id);
     }
   }
 

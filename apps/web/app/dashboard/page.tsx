@@ -72,6 +72,63 @@ export default async function DashboardPage() {
         }
         
         creditBalance = `${Math.floor(totalRawBalance)} AI Mins`;
+
+        // 4. Fetch assistants to accurately sync live calls and campaigns count from Vomyra
+        const { data: dbAssistants } = await adminClient
+          .from("assistants")
+          .select("id, name, provider_resource_id")
+          .in("workspace_id", userWorkspaceIds)
+          .is("deleted_at", null);
+
+        if (dbAssistants && dbAssistants.length > 0) {
+          try {
+            const vomyraApiKey = process.env.VOMYRA_API_KEY || '';
+            const vomyraBaseUrl = process.env.VOMYRA_BASE_URL || 'https://api.vomyra.com';
+            const res = await fetch(`${vomyraBaseUrl}/v1/calls?limit=100`, {
+              headers: { 'x-api-key': vomyraApiKey },
+              cache: 'no-store'
+            });
+
+            if (res.ok) {
+              const data = await res.json();
+              const allRawCalls = data.data || data.calls || (Array.isArray(data) ? data : []);
+
+              const userAssistantIds = new Set(dbAssistants.map((a: any) => a.id));
+              const userProviderIds = new Set(dbAssistants.map((a: any) => a.provider_resource_id).filter(Boolean));
+              const userAssistantNames = new Set(dbAssistants.map((a: any) => a.name?.toLowerCase().trim()).filter(Boolean));
+
+              const userCalls = allRawCalls.filter((c: any) => {
+                const astId = c.assistant?.id || "";
+                const astName = (c.assistant?.name || "").toLowerCase().trim();
+                const callWsId = c.additional_data?.workspaceId;
+                const callCampName = (c.additional_data?.campaign_name || "").toLowerCase().trim();
+
+                const isUserAssistant = userAssistantIds.has(astId) || userProviderIds.has(astId) || userAssistantNames.has(astName);
+                const isUserWs = callWsId && userWorkspaceIds.includes(callWsId);
+                const isCampMatch = callCampName && Array.from(userAssistantNames).some(n => callCampName.includes(n));
+
+                return isUserAssistant || isUserWs || isCampMatch;
+              });
+
+              if (userCalls.length > totalCallsCount) {
+                totalCallsCount = userCalls.length;
+              }
+
+              const liveCampaignKeys = new Set<string>();
+              userCalls.forEach((c: any) => {
+                if (c.call_type === "web" || c.additional_data?.source === "GAP_VoicePilot_WebConsole") return;
+                const campId = c.additional_data?.campaign_id;
+                const campName = c.additional_data?.campaign_name;
+                if (campId) liveCampaignKeys.add(campId);
+                else if (campName) liveCampaignKeys.add(campName);
+              });
+
+              if (liveCampaignKeys.size > activeCampaignsCount) {
+                activeCampaignsCount = liveCampaignKeys.size;
+              }
+            }
+          } catch (vErr) {}
+        }
       }
     } catch (err) {
       console.error("Dashboard fetch error", err);

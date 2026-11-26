@@ -19,6 +19,9 @@ export function getRazorpay(): Razorpay {
   return _razorpayInstance;
 }
 
+// Alias for getRazorpay
+export const getRazorpayInstance = getRazorpay;
+
 // Proxy for backwards compatibility
 export const razorpayInstance = new Proxy({} as Razorpay, {
   get(_target, prop) {
@@ -55,7 +58,7 @@ export async function fetchPayment(paymentId: string) {
 }
 
 /**
- * Verify Razorpay HMAC SHA256 Signature
+ * Verify Razorpay HMAC SHA256 Signature using timing-safe comparison
  */
 export function verifySignature(
   orderId: string,
@@ -66,7 +69,7 @@ export function verifySignature(
   if (!key_secret) {
     throw new Error('Missing RAZORPAY_KEY_SECRET');
   }
-  const body = orderId + '|' + paymentId;
+  const body = `${orderId}|${paymentId}`;
   const expectedSignature = crypto
     .createHmac('sha256', key_secret)
     .update(body.toString())
@@ -76,4 +79,3 @@ export function verifySignature(
   const received = Buffer.from(signature, 'utf8');
   return expected.length === received.length && crypto.timingSafeEqual(expected, received);
 }
-
