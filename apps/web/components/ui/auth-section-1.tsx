@@ -656,11 +656,15 @@ export default function AuthSectionOne({ mode = "signup", error }: AuthSectionOn
                   />
 
                   <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-black/60 dark:text-white/60">
-                        Password
-                      </label>
-                      {currentMode === "login" && (
+                    <FieldBox
+                      label="Password"
+                      name="password"
+                      placeholder="••••••••••••"
+                      type="password"
+                      required
+                    />
+                    {currentMode === "login" && (
+                      <div className="mt-1.5 flex justify-end">
                         <a
                           href="/forgot-password"
                           onClick={(e) => {
@@ -671,14 +675,8 @@ export default function AuthSectionOne({ mode = "signup", error }: AuthSectionOn
                         >
                           Forgot password?
                         </a>
-                      )}
-                    </div>
-                    <FieldBox
-                      name="password"
-                      placeholder="••••••••••••"
-                      type="password"
-                      required
-                    />
+                      </div>
+                    )}
                   </div>
 
                   {currentMode === "signup" && (

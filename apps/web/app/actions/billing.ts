@@ -503,3 +503,25 @@ export async function verifyRazorpayPaymentAction(params: {
     return { success: false, error: err.message || "Internal error" };
   }
 }
+
+export async function getCurrentPlanNameAction(): Promise<string> {
+  try {
+    const adminClient = await getAdminClient();
+    const { workspaceId } = await requireCurrentWorkspace();
+    const { data: sub } = await adminClient
+      .from("workspace_subscriptions")
+      .select("*, plans(name)")
+      .eq("workspace_id", workspaceId)
+      .maybeSingle();
+
+    if (sub?.plans?.name) {
+      return sub.plans.name;
+    }
+    if (sub?.plan_id) {
+      return sub.plan_id.charAt(0).toUpperCase() + sub.plan_id.slice(1) + " Plan";
+    }
+    return "Free Plan";
+  } catch (e) {
+    return "Free Plan";
+  }
+}
