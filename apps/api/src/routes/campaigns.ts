@@ -4,12 +4,12 @@ import { requireFeature, requireMinCredits } from '../middleware/entitlements';
 import { supabaseAdmin as supabase } from '../config/supabase';
 import { VomyraClient } from '../services/voice/providers/vomyra/client';
 import { upsertVoiceContactForEcosystem } from '../services/ecosystemSync';
+import { reserveCredits, settleCallBilling } from '../services/billing';
+import { AuthenticatedUserRequest } from '../middleware/auth';
 
 export const campaignRouter = Router();
 
 const voiceProvider = new VomyraClient();
-
-
 
 interface ContactInput {
   name: string;
@@ -18,8 +18,45 @@ interface ContactInput {
   details?: string;
 }
 
-import { reserveCredits } from '../services/billing';
-import { AuthenticatedUserRequest } from '../middleware/auth';
+// GET /api/v1/campaigns - List campaigns
+campaignRouter.get('/', async (req: Request, res: Response) => {
+  try {
+    const workspaceId = req.query.workspaceId as string;
+    let query = supabase.from('campaigns').select('*, assistants(name)').order('created_at', { ascending: false });
+
+    if (workspaceId) {
+      query = query.eq('workspace_id', workspaceId);
+    }
+
+    const { data: campaigns, error } = await query;
+    if (error) throw error;
+
+    return res.status(200).json({ success: true, data: campaigns || [] });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/v1/campaigns/:id - Get single campaign
+campaignRouter.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { data: campaign, error } = await supabase
+      .from('campaigns')
+      .select('*, assistants(name, provider_resource_id)')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!campaign) {
+      return res.status(404).json({ success: false, error: 'Campaign not found' });
+    }
+
+    return res.status(200).json({ success: true, data: campaign });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 // POST /api/v1/campaigns - Create & Launch Outbound Bulk Campaign
 campaignRouter.post(
@@ -118,13 +155,14 @@ campaignRouter.post(
       // Resolve real Vomyra Assistant ID and phone_number_id
       let realVomyraAssistantId = assistantId;
       let actualPhoneNumberId = phoneNumberId || null;
+      let assignedPhoneNumber: string | null = null;
 
       try {
         const { data: assistant } = await supabase
           .from('assistants')
           .select(`
             provider_resource_id,
-            phone_numbers ( id )
+            phone_numbers ( id, phone_number )
           `)
           .eq('id', assistantId)
           .maybeSingle();
@@ -135,6 +173,10 @@ campaignRouter.post(
         
         if (!actualPhoneNumberId && assistant?.phone_numbers && assistant.phone_numbers.length > 0) {
           actualPhoneNumberId = assistant.phone_numbers[0].id;
+          assignedPhoneNumber = assistant.phone_numbers[0].phone_number;
+        } else if (actualPhoneNumberId && assistant?.phone_numbers) {
+          const found = assistant.phone_numbers.find((p: any) => p.id === actualPhoneNumberId);
+          if (found) assignedPhoneNumber = found.phone_number;
         }
       } catch {}
 
@@ -142,7 +184,18 @@ campaignRouter.post(
         return res.status(400).json({ error: 'The selected assistant must have a phone number assigned before launching a campaign.' });
       }
 
-      let campaignId = `camp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      if (!assignedPhoneNumber) {
+        const { data: phoneRow } = await supabase
+          .from('phone_numbers')
+          .select('phone_number')
+          .eq('id', actualPhoneNumberId)
+          .maybeSingle();
+        if (phoneRow?.phone_number) {
+          assignedPhoneNumber = phoneRow.phone_number.trim();
+        }
+      }
+
+      let campaignId: string;
       try {
         const { data: campaign, error: campaignError } = await supabase
           .from('campaigns')
@@ -159,14 +212,32 @@ campaignRouter.post(
           .select()
           .single();
 
-        if (campaignError) throw campaignError;
-        if (campaign?.id) campaignId = campaign.id;
+        if (campaignError || !campaign?.id) {
+          throw new Error(campaignError?.message || 'Failed to record campaign in database');
+        }
+        campaignId = campaign.id;
       } catch (dbErr: any) {
-        console.warn('[Campaigns] DB insert warning:', dbErr.message);
+        console.error('[Campaigns] DB insert failed. Aborting campaign dispatch:', dbErr.message);
+        // Release credit hold so user is not penalized for an aborted campaign
+        try {
+          await settleCallBilling({
+            workspaceId,
+            reservedAmount: requiredCredits,
+            durationSeconds: 0,
+            referenceId: campaignBatchRef
+          });
+        } catch (settleErr: any) {
+          console.error('[Campaigns] Failed to release credit reservation hold:', settleErr.message);
+        }
+
+        return res.status(500).json({
+          error: 'Campaign Initialization Failed',
+          message: `Unable to persist campaign: ${dbErr.message}. All held credits have been released.`
+        });
       }
 
       console.log(
-        `[Campaigns] Launching campaign "${name}" with ${eligibleContacts.length} contacts using assistant ${realVomyraAssistantId}`
+        `[Campaigns] Launching campaign "${name}" with ${eligibleContacts.length} contacts using assistant ${realVomyraAssistantId} and caller number ${assignedPhoneNumber}`
       );
 
       const localContacts = new Map<string, string>();
@@ -200,6 +271,7 @@ campaignRouter.post(
           call_payload: {
             customer_number: cleanNumber,
             customer_name: contact.name || 'Valued Customer',
+            assigned_number: assignedPhoneNumber,
             assistant_id: realVomyraAssistantId,
             customer_country_code: cleanNumber.startsWith('+91') ? '+91' : '+1',
             additional_data: {

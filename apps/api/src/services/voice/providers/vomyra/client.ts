@@ -146,11 +146,12 @@ export class VomyraClient implements VoiceProvider {
       payload.additional_data = input.additional_data;
     }
 
-    // Exactly one of assistant_id or assigned_number must be sent
-    if (input.assistant_id) {
-      payload.assistant_id = input.assistant_id;
-    } else if (input.assigned_number) {
+    // Exactly one of assigned_number or assistant_id must be sent.
+    // Outbound PSTN routing requires assigned_number (caller ID) on Vomyra.
+    if (input.assigned_number) {
       payload.assigned_number = String(input.assigned_number).trim();
+    } else if (input.assistant_id) {
+      payload.assistant_id = input.assistant_id;
     }
 
     console.log('[VomyraClient] Sending call payload to /v1/calls:', JSON.stringify(payload));
@@ -182,16 +183,17 @@ export class VomyraClient implements VoiceProvider {
     });
   }
 
-  async assignPhoneNumber(numberId: string, assistantId: string): Promise<any> {
-    return await this.request<any>('/v1/phone-numbers/assign', {
+  async assignPhoneNumber(phoneNumber: string, assistantId: string): Promise<any> {
+    return await this.request<any>('/v1/numbers/assignment', {
       method: 'PUT',
-      body: JSON.stringify({ number_id: numberId, assistant_id: assistantId }),
+      body: JSON.stringify({ phone_number: phoneNumber, assistant_id: assistantId }),
     });
   }
 
-  async unassignPhoneNumber(numberId: string): Promise<any> {
-    return await this.request<any>(`/v1/phone-numbers/unassign/${numberId}`, {
+  async unassignPhoneNumber(phoneNumber: string): Promise<any> {
+    return await this.request<any>('/v1/numbers/assignment', {
       method: 'DELETE',
+      body: JSON.stringify({ phone_number: phoneNumber }),
     });
   }
 

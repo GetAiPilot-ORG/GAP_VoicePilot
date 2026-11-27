@@ -26,7 +26,14 @@ import {
   Loader2,
   ArrowUpRight,
   ExternalLink,
-  MessageSquare
+  MessageSquare,
+  Copy,
+  Check,
+  ThumbsUp,
+  ThumbsDown,
+  Tag,
+  HelpCircle,
+  PhoneOff
 } from "lucide-react";
 import AssistantTestModal from "@/components/AssistantTestModal";
 import { fetchCallDetailsAction, fetchCallRecordingAction } from "@/app/actions/calls";
@@ -66,10 +73,12 @@ interface CallsClientProps {
 }
 
 export default function CallsClient({ initialCalls, assistants }: CallsClientProps) {
-  const [calls] = useState<CallItem[]>(initialCalls);
+  const [calls, setCalls] = useState<CallItem[]>(initialCalls);
   const [selectedCall, setSelectedCall] = useState<CallItem | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
+  const [isSummaryCopied, setIsSummaryCopied] = useState(false);
+  const [isTranscriptCopied, setIsTranscriptCopied] = useState(false);
 
   // Audio Playback State
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
@@ -99,12 +108,45 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
     }
   }, []);
 
+  // Restore client-side custom dispositions
+  useEffect(() => {
+    try {
+      if (typeof window !== "undefined") {
+        setCalls((prev) =>
+          prev.map((c) => {
+            const saved = localStorage.getItem(`gap_call_outcome_${c.id}`);
+            return saved ? { ...c, outcome: saved } : c;
+          })
+        );
+      }
+    } catch (e) {}
+  }, []);
+
   const totalCalls = calls.length;
   const completedCalls = calls.filter((c) => c.status === "completed" || c.durationSeconds > 0).length;
   const noAnswerCalls = calls.filter((c) => c.status === "no-answer" || c.durationSeconds === 0).length;
 
+  const handleUpdateOutcome = (newOutcome: string) => {
+    if (!selectedCall) return;
+
+    setSelectedCall((prev) => (prev ? { ...prev, outcome: newOutcome } : null));
+
+    setCalls((prevCalls) =>
+      prevCalls.map((c) => (c.id === selectedCall.id ? { ...c, outcome: newOutcome } : c))
+    );
+
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem(`gap_call_outcome_${selectedCall.id}`, newOutcome);
+      }
+    } catch (e) {}
+  };
+
   const handleOpenCallDetail = async (call: CallItem) => {
-    setSelectedCall(call);
+    const savedOutcome = typeof window !== "undefined" ? localStorage.getItem(`gap_call_outcome_${call.id}`) : null;
+    const effectiveCall = savedOutcome ? { ...call, outcome: savedOutcome } : call;
+
+    setSelectedCall(effectiveCall);
     setIsDetailModalOpen(true);
     setIsPlayingAudio(false);
     isPlayingRef.current = false;
@@ -140,6 +182,8 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
 
   const handleCloseDetail = () => {
     setIsDetailModalOpen(false);
+    setIsSummaryCopied(false);
+    setIsTranscriptCopied(false);
     isPlayingRef.current = false;
     if (audioRef.current) {
       audioRef.current.pause();
@@ -329,6 +373,103 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
+  const renderFormattedSummary = (summaryText: string) => {
+    if (!summaryText) {
+      return <p className="text-xs text-neutral-400 italic">No summary recorded for this call.</p>;
+    }
+
+    const lines = summaryText.split("\n").filter((l) => l.trim().length > 0);
+
+    return (
+      <div className="space-y-2.5">
+        {lines.map((line, lIdx) => {
+          const trimmed = line.trim();
+
+          // Check if line is a title header like *Call Summary for ...* or # Title
+          const isHeader =
+            (/^(\*|\*\*|#+)\s*Call Summary/i.test(trimmed) && trimmed.endsWith("*")) ||
+            /^#+\s+/i.test(trimmed);
+
+          if (isHeader) {
+            const cleanTitle = trimmed.replace(/^[\*#\s]+|[\*#\s]+$/g, "");
+            return (
+              <div key={lIdx} className="flex items-center gap-2 pb-1.5 border-b border-emerald-500/15 mb-1">
+                <span className="font-semibold text-neutral-900 text-[13px] tracking-tight">{cleanTitle}</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  AI Synthesis
+                </span>
+              </div>
+            );
+          }
+
+          // Check if line is a bullet point
+          const isBullet = /^[-*•]\s+/.test(trimmed) || /^\d+\.\s+/.test(trimmed);
+          const contentText = trimmed.replace(/^([-*•]|\d+\.)\s+/, "");
+
+          const renderTokens = (str: string) => {
+            const parts = str.split(/(\*\*.*?\*\*|\*.*?\*|₹\s?\d+(?:,\d+)*(?:\.\d+)?|\$\s?\d+(?:,\d+)*(?:\.\d+)?|\(?\+?\d{10,13}\)?)/g);
+
+            return parts.map((part, pIdx) => {
+              if (!part) return null;
+
+              if (part.startsWith("**") && part.endsWith("**")) {
+                return (
+                  <strong key={pIdx} className="font-semibold text-neutral-900">
+                    {part.slice(2, -2)}
+                  </strong>
+                );
+              }
+              if (part.startsWith("*") && part.endsWith("*")) {
+                return (
+                  <strong key={pIdx} className="font-semibold text-neutral-900">
+                    {part.slice(1, -1)}
+                  </strong>
+                );
+              }
+              if (/^(₹|\$)/.test(part)) {
+                return (
+                  <span
+                    key={pIdx}
+                    className="inline-flex items-center font-semibold text-emerald-700 bg-emerald-100/80 border border-emerald-200/80 px-1.5 py-0.2 rounded text-[11px] font-mono mx-0.5"
+                  >
+                    {part}
+                  </span>
+                );
+              }
+              if (/^\(?\+?\d{10,13}\)?$/.test(part.trim())) {
+                return (
+                  <span
+                    key={pIdx}
+                    className="font-mono font-medium text-neutral-800 bg-neutral-100 border border-neutral-200 px-1.5 py-0.2 rounded text-[11px] mx-0.5"
+                  >
+                    {part}
+                  </span>
+                );
+              }
+
+              return <span key={pIdx}>{part}</span>;
+            });
+          };
+
+          if (isBullet) {
+            return (
+              <div key={lIdx} className="flex items-start gap-2 text-xs text-neutral-700 leading-relaxed">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                <div>{renderTokens(contentText)}</div>
+              </div>
+            );
+          }
+
+          return (
+            <p key={lIdx} className="text-xs text-neutral-700 leading-relaxed font-normal">
+              {renderTokens(trimmed)}
+            </p>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
       {/* Header */}
@@ -389,6 +530,7 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
                 <th className="py-3 px-4 eyebrow text-[11px]">ASSIGNED NUMBER</th>
                 <th className="py-3 px-4 eyebrow text-[11px]">DURATION</th>
                 <th className="py-3 px-4 eyebrow text-[11px]">STATUS</th>
+                <th className="py-3 px-4 eyebrow text-[11px]">OUTCOME</th>
                 <th className="py-3 px-4 eyebrow text-[11px]">DIRECTION</th>
                 <th className="py-3 px-4 eyebrow text-[11px]">RECORDING & DETAILS</th>
               </tr>
@@ -417,6 +559,32 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
                         <XCircle className="w-3 h-3" />
                       )}
                       {c.status}
+                    </span>
+                  </td>
+                  <td className="py-3.5 px-4">
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold uppercase ${
+                        c.outcome === "POSITIVE"
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : c.outcome === "NEUTRAL"
+                            ? "bg-amber-50 text-amber-700 border border-amber-200"
+                            : c.outcome === "NEGATIVE"
+                              ? "bg-rose-50 text-rose-700 border border-rose-200"
+                              : "bg-neutral-100 text-neutral-600 border border-neutral-200"
+                      }`}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          c.outcome === "POSITIVE"
+                            ? "bg-emerald-500"
+                            : c.outcome === "NEUTRAL"
+                              ? "bg-amber-500"
+                              : c.outcome === "NEGATIVE"
+                                ? "bg-rose-500"
+                                : "bg-neutral-400"
+                        }`}
+                      />
+                      {c.outcome}
                     </span>
                   </td>
                   <td className="py-3.5 px-4 font-medium text-neutral-600">
@@ -464,12 +632,28 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
                   <span className="font-mono text-xs bg-surface-soft border border-hairline px-2 py-0.5 rounded text-neutral-600">
                     {selectedCall.id}
                   </span>
-                  <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold uppercase ${selectedCall.outcome === "POSITIVE"
-                      ? "bg-emerald-100 text-emerald-800"
-                      : selectedCall.outcome === "NEGATIVE"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-neutral-100 text-neutral-700"
-                    }`}>
+                  <span
+                    className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full font-bold uppercase transition-colors ${
+                      selectedCall.outcome === "POSITIVE"
+                        ? "bg-emerald-100 text-emerald-800 border border-emerald-300/80"
+                        : selectedCall.outcome === "NEUTRAL"
+                          ? "bg-amber-100 text-amber-800 border border-amber-300/80"
+                          : selectedCall.outcome === "NEGATIVE"
+                            ? "bg-rose-100 text-rose-800 border border-rose-300/80"
+                            : "bg-neutral-100 text-neutral-700 border border-neutral-300/80"
+                    }`}
+                  >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        selectedCall.outcome === "POSITIVE"
+                          ? "bg-emerald-600"
+                          : selectedCall.outcome === "NEUTRAL"
+                            ? "bg-amber-500"
+                            : selectedCall.outcome === "NEGATIVE"
+                              ? "bg-rose-600"
+                              : "bg-neutral-500"
+                      }`}
+                    />
                     {selectedCall.outcome}
                   </span>
                 </div>
@@ -485,71 +669,239 @@ export default function CallsClient({ initialCalls, assistants }: CallsClientPro
             </div>
             {/* Audio elements and player bar removed as requested */}
 
-            {/* AI Summary Card */}
-            <div className="rounded-[14px] bg-block-cream border border-black/10 p-4 space-y-2">
-              <div className="flex items-center gap-2 text-black font-bold text-xs">
-                <Sparkles className="w-4 h-4 text-emerald-600" />
-                <span>AI WhatsApp & Call Summary</span>
+            {/* AI Summary Card (Executive Redesign & Entity Highlighting) */}
+            <div className="rounded-[16px] bg-gradient-to-br from-emerald-50/60 via-white to-teal-50/30 border border-emerald-500/25 p-4 shadow-xs space-y-3 relative overflow-hidden">
+              <div className="absolute top-0 right-0 -mr-6 -mt-6 w-28 h-28 bg-emerald-400/10 rounded-full blur-2xl pointer-events-none" />
+
+              <div className="flex items-center justify-between relative z-10">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-emerald-600/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600">
+                    <Sparkles className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-xs text-neutral-900 tracking-tight">AI WhatsApp & Call Summary</span>
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100/70 border border-emerald-300/40 px-2 py-0.5 rounded-full">
+                      Live Synthesis
+                    </span>
+                  </div>
+                </div>
+
+                {selectedCall.summary && (
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(selectedCall.summary);
+                      setIsSummaryCopied(true);
+                      setTimeout(() => setIsSummaryCopied(false), 2000);
+                    }}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-[8px] bg-white border border-neutral-200 text-[11px] font-medium text-neutral-600 hover:text-black hover:border-neutral-300 hover:bg-neutral-50 transition-all shadow-2xs"
+                    title="Copy summary to clipboard"
+                  >
+                    {isSummaryCopied ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-600" />
+                        <span className="text-emerald-700 font-semibold">Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3 text-neutral-400" />
+                        <span>Copy Summary</span>
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
-              <div className="text-xs text-neutral-700 whitespace-pre-line leading-relaxed bg-white/70 rounded-[10px] p-3 border border-black/5 font-sans">
-                {selectedCall.summary}
+
+              <div className="bg-white/90 backdrop-blur-xs rounded-[12px] p-3.5 border border-emerald-500/15 shadow-2xs relative z-10 font-sans">
+                {renderFormattedSummary(selectedCall.summary)}
               </div>
             </div>
 
             {/* Turn-by-Turn Transcription Messages */}
             <div className="space-y-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5" />
-                Turn-by-Turn Transcription
-              </h4>
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-600 flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-neutral-500" />
+                  Turn-by-Turn Transcription
+                </h4>
 
-              <div className="border border-hairline rounded-[14px] p-4 bg-surface-soft/40 max-h-64 overflow-y-auto space-y-3">
+                {selectedCall.transcriptMessages && selectedCall.transcriptMessages.length > 0 && (
+                  <button
+                    onClick={() => {
+                      const text = selectedCall.transcriptMessages
+                        .map((m) => `${m.role === "assistant" ? selectedCall.assistant : "Customer"}: ${m.content}`)
+                        .join("\n\n");
+                      navigator.clipboard.writeText(text);
+                      setIsTranscriptCopied(true);
+                      setTimeout(() => setIsTranscriptCopied(false), 2000);
+                    }}
+                    className="flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-900 transition-colors"
+                  >
+                    {isTranscriptCopied ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-600" />
+                        <span className="text-emerald-600 font-medium">Copied Transcript</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        <span>Copy Transcript</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+
+              <div className="border border-hairline rounded-[16px] p-4 bg-neutral-50/60 max-h-72 overflow-y-auto space-y-3 scrollbar-thin">
                 {selectedCall.transcriptMessages.length > 0 ? (
-                  selectedCall.transcriptMessages.map((msg, idx) => (
-                    <div
-                      key={idx}
-                      className={`flex gap-3 text-xs ${msg.role === "assistant" ? "items-start" : "items-start justify-end"
-                        }`}
-                    >
-                      {msg.role === "assistant" && (
-                        <div className="w-7 h-7 rounded-full bg-black text-white flex items-center justify-center shrink-0 mt-0.5">
-                          <Bot className="w-3.5 h-3.5" />
-                        </div>
-                      )}
+                  selectedCall.transcriptMessages.map((msg, idx) => {
+                    const trimmed = (msg.content || "").trim();
+                    let metadataObj: any = null;
+                    if (
+                      trimmed.startsWith("{") &&
+                      trimmed.endsWith("}") &&
+                      (trimmed.includes("phoneNumber") || trimmed.includes("additionalData") || trimmed.includes("customerNumber"))
+                    ) {
+                      try {
+                        metadataObj = JSON.parse(trimmed);
+                      } catch (e) {}
+                    }
 
+                    if (metadataObj) {
+                      return (
+                        <div key={idx} className="flex justify-center my-2">
+                          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-neutral-200 text-[11px] text-neutral-500 shadow-2xs font-sans">
+                            <PhoneCall className="w-3 h-3 text-emerald-600 shrink-0" />
+                            <span className="font-semibold text-neutral-700">Call Initiated</span>
+                            <span className="text-neutral-300">•</span>
+                            <span>Lead: <strong className="text-neutral-800">{metadataObj.name || metadataObj.customer_name || "Customer"}</strong></span>
+                            <span className="font-mono text-neutral-500">({metadataObj.phoneNumber || metadataObj.customerNumber || ""})</span>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
                       <div
-                        className={`rounded-[12px] p-3 max-w-[80%] space-y-1 transition-all duration-300 ${activePlayingIndex === idx
-                            ? "ring-2 ring-emerald-500 shadow-md scale-[1.01]"
-                            : ""
-                          } ${msg.role === "assistant"
-                            ? "bg-white border border-hairline text-neutral-800"
-                            : "bg-emerald-600 text-white"
-                          }`}
+                        key={idx}
+                        className={`flex gap-3 text-xs ${
+                          msg.role === "assistant" ? "items-start" : "items-start justify-end"
+                        }`}
                       >
-                        <div className="flex items-center justify-between gap-4 text-[10px] opacity-70">
-                          <span className="font-bold uppercase tracking-wider flex items-center gap-1">
-                            {msg.role === "assistant" ? selectedCall.assistant : "Customer"}
-                            {activePlayingIndex === idx && (
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block" />
-                            )}
-                          </span>
-                          {msg.timestamp && <span>{msg.timestamp}</span>}
-                        </div>
-                        <p className="leading-relaxed whitespace-pre-wrap break-all">{msg.content}</p>
-                      </div>
+                        {msg.role === "assistant" && (
+                          <div className="w-7 h-7 rounded-full bg-neutral-900 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                            <Bot className="w-3.5 h-3.5" />
+                          </div>
+                        )}
 
-                      {msg.role !== "assistant" && (
-                        <div className="w-7 h-7 rounded-full bg-emerald-700 text-white flex items-center justify-center shrink-0 mt-0.5">
-                          <User className="w-3.5 h-3.5" />
+                        <div
+                          className={`rounded-[14px] p-3 max-w-[80%] space-y-1 transition-all duration-300 shadow-2xs ${
+                            activePlayingIndex === idx
+                              ? "ring-2 ring-emerald-500 shadow-md scale-[1.01]"
+                              : ""
+                          } ${
+                            msg.role === "assistant"
+                              ? "bg-white border border-neutral-200/90 text-neutral-800"
+                              : "bg-emerald-600 text-white"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-4 text-[10px] opacity-75">
+                            <span className="font-bold uppercase tracking-wider flex items-center gap-1">
+                              {msg.role === "assistant" ? selectedCall.assistant : "Customer"}
+                              {activePlayingIndex === idx && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block" />
+                              )}
+                            </span>
+                            {msg.timestamp && <span>{msg.timestamp}</span>}
+                          </div>
+                          <p className="leading-relaxed whitespace-pre-wrap text-[12px]">{msg.content}</p>
                         </div>
-                      )}
-                    </div>
-                  ))
+
+                        {msg.role !== "assistant" && (
+                          <div className="w-7 h-7 rounded-full bg-emerald-700 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                            <User className="w-3.5 h-3.5" />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
                 ) : (
                   <p className="text-xs text-neutral-500 italic p-3 text-center">
                     {selectedCall.transcript || "No transcript recorded for this call."}
                   </p>
                 )}
+              </div>
+            </div>
+
+            {/* Interactive Call Outcome & Sentiment Disposition */}
+            <div className="rounded-[14px] bg-gradient-to-r from-surface-soft via-white to-surface-soft border border-hairline p-4 space-y-3 shadow-2xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                <div className="flex items-center gap-2">
+                  <Tag className="w-3.5 h-3.5 text-neutral-500" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-neutral-800">
+                    Lead Disposition & Call Outcome
+                  </span>
+                </div>
+                <span className="text-[11px] text-neutral-500 font-medium">
+                  Classify sentiment or click to override
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {/* POSITIVE */}
+                <button
+                  type="button"
+                  onClick={() => handleUpdateOutcome("POSITIVE")}
+                  className={`flex items-center justify-center gap-2 px-3 py-2 rounded-[10px] text-xs font-semibold transition-all cursor-pointer ${
+                    selectedCall.outcome === "POSITIVE"
+                      ? "bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-600/30 scale-[1.01]"
+                      : "bg-white text-emerald-800 border border-emerald-200/90 hover:bg-emerald-50/70"
+                  }`}
+                >
+                  <ThumbsUp className={`w-3.5 h-3.5 ${selectedCall.outcome === "POSITIVE" ? "text-white" : "text-emerald-600"}`} />
+                  <span>Positive</span>
+                </button>
+
+                {/* NEUTRAL */}
+                <button
+                  type="button"
+                  onClick={() => handleUpdateOutcome("NEUTRAL")}
+                  className={`flex items-center justify-center gap-2 px-3 py-2 rounded-[10px] text-xs font-semibold transition-all cursor-pointer ${
+                    selectedCall.outcome === "NEUTRAL"
+                      ? "bg-amber-500 text-white shadow-xs ring-2 ring-amber-500/30 scale-[1.01]"
+                      : "bg-white text-amber-800 border border-amber-200/90 hover:bg-amber-50/70"
+                  }`}
+                >
+                  <HelpCircle className={`w-3.5 h-3.5 ${selectedCall.outcome === "NEUTRAL" ? "text-white" : "text-amber-600"}`} />
+                  <span>Neutral</span>
+                </button>
+
+                {/* NEGATIVE */}
+                <button
+                  type="button"
+                  onClick={() => handleUpdateOutcome("NEGATIVE")}
+                  className={`flex items-center justify-center gap-2 px-3 py-2 rounded-[10px] text-xs font-semibold transition-all cursor-pointer ${
+                    selectedCall.outcome === "NEGATIVE"
+                      ? "bg-rose-600 text-white shadow-xs ring-2 ring-rose-600/30 scale-[1.01]"
+                      : "bg-white text-rose-800 border border-rose-200/90 hover:bg-rose-50/70"
+                  }`}
+                >
+                  <ThumbsDown className={`w-3.5 h-3.5 ${selectedCall.outcome === "NEGATIVE" ? "text-white" : "text-rose-600"}`} />
+                  <span>Negative</span>
+                </button>
+
+                {/* MISSED / NO ANSWER */}
+                <button
+                  type="button"
+                  onClick={() => handleUpdateOutcome("MISSED")}
+                  className={`flex items-center justify-center gap-2 px-3 py-2 rounded-[10px] text-xs font-semibold transition-all cursor-pointer ${
+                    selectedCall.outcome === "MISSED"
+                      ? "bg-neutral-800 text-white shadow-xs ring-2 ring-neutral-800/30 scale-[1.01]"
+                      : "bg-white text-neutral-700 border border-neutral-200/90 hover:bg-neutral-100"
+                  }`}
+                >
+                  <PhoneOff className={`w-3.5 h-3.5 ${selectedCall.outcome === "MISSED" ? "text-white" : "text-neutral-500"}`} />
+                  <span>Missed</span>
+                </button>
               </div>
             </div>
 

@@ -91,36 +91,135 @@ export async function getBillingDataAction() {
 
         const { data: hubProfile } = await hubClient
           .from("profiles")
-          .select("id")
+          .select("id, is_admin, role, subscription")
           .ilike("email", user.email)
           .maybeSingle();
 
         if (hubProfile) {
-          const { data: hubSub } = await hubClient
-            .from("app_user_subscriptions")
-            .select("*")
-            .eq("user_id", hubProfile.id)
-            .maybeSingle();
+          const [{ data: hubSub }, { data: hubPayments }] = await Promise.all([
+            hubClient
+              .from("app_user_subscriptions")
+              .select("*")
+              .eq("user_id", hubProfile.id)
+              .maybeSingle(),
+            hubClient
+              .from("app_subscription_payments")
+              .select("plan_id, plan_label, payment_id, charged_at, created_at, raw, payment_status")
+              .eq("user_id", hubProfile.id)
+              .order("created_at", { ascending: false })
+              .limit(5),
+          ]);
 
-          if (hubSub && hubSub.status === "active") {
-            const planIdsStr = String(hubSub.plan_id || "").toLowerCase();
-            const planLabelsStr = String(hubSub.plan_label || "").toLowerCase();
+          const nowMs = Date.now();
+          const isPrivileged =
+            Boolean(hubProfile.is_admin) ||
+            ["admin", "tester"].includes(String(hubProfile.role || "").toLowerCase());
+
+          const isHubSubActive = Boolean(
+            hubSub?.plan_id &&
+            hubSub.plan_id !== "free" &&
+            hubSub.plan_id !== "free_trial" &&
+            (isPrivileged ||
+              (["active", "prepaid", "captured", "trialing"].includes(
+                String(hubSub.status || hubSub.subscription_status || "").toLowerCase(),
+              ) &&
+                (!hubSub.expires_at || new Date(hubSub.expires_at).getTime() > nowMs))),
+          );
+
+          let activePayPlanId = "";
+          let activePayLabel = "";
+          let activePayPaymentId = "";
+          let activePayStartedAt = "";
+          let activePayExpiresAt = "";
+
+          if (!isHubSubActive && hubPayments?.length) {
+            for (const p of hubPayments as any[]) {
+              if (p?.payment_status === "failed" || p?.plan_id === "free_trial") continue;
+              if (Array.isArray(p?.raw?.active_plans)) {
+                const validAp = p.raw.active_plans.find(
+                  (ap: any) => ap?.expires_at && new Date(ap.expires_at).getTime() > nowMs && ap?.plan_id !== "free_trial",
+                );
+                if (validAp) {
+                  activePayPlanId = validAp.plan_id || p.plan_id;
+                  activePayLabel = validAp.plan_label || p.plan_label;
+                  activePayPaymentId = p.payment_id || "";
+                  activePayStartedAt = validAp.started_at || p.charged_at || p.created_at;
+                  activePayExpiresAt = validAp.expires_at;
+                  break;
+                }
+              }
+              const ts = p?.charged_at || p?.created_at;
+              if (ts && p?.plan_id) {
+                const endMs = new Date(ts).getTime() + 32 * 86400000;
+                if (endMs > nowMs) {
+                  activePayPlanId = p.plan_id;
+                  activePayLabel = p.plan_label;
+                  activePayPaymentId = p.payment_id || "";
+                  activePayStartedAt = ts;
+                  activePayExpiresAt = new Date(endMs).toISOString();
+                  break;
+                }
+              }
+            }
+          }
+
+          const resolvedPlanIdStr = isHubSubActive
+            ? String(hubSub.plan_id || "")
+            : activePayPlanId
+              ? activePayPlanId
+              : isPrivileged
+                ? (String(hubProfile.subscription || "").toLowerCase().includes("enterprise") ||
+                  String(hubProfile.subscription || "").toLowerCase().includes("enterprice")
+                    ? "gap_enterprise"
+                    : "gap_core")
+                : "";
+
+          const resolvedPlanLabelStr = isHubSubActive
+            ? String(hubSub.plan_label || "")
+            : activePayLabel
+              ? activePayLabel
+              : isPrivileged
+                ? (resolvedPlanIdStr === "gap_enterprise" ? "GAP Enterprise" : "GAP Core")
+                : "";
+
+          if (resolvedPlanIdStr) {
+            const planIdsStr = resolvedPlanIdStr.toLowerCase();
+            const planLabelsStr = resolvedPlanLabelStr.toLowerCase();
 
             const isEnterprise =
               planIdsStr.includes("enterprise") ||
+              planIdsStr.includes("enterprice") ||
               planIdsStr.includes("gap_scale") ||
               planLabelsStr.includes("enterprise");
 
-            const isPro =
-              planIdsStr.includes("all_in_one") ||
-              planIdsStr.includes("gap_pro") ||
-              planLabelsStr.includes("gap pro") ||
-              planLabelsStr.includes("pro");
+            const isCore =
+              !isEnterprise &&
+              (planIdsStr.includes("gap_core") ||
+                planIdsStr.includes("all_in_one") ||
+                planIdsStr.includes("bundle") ||
+                planIdsStr.includes("gap_max") ||
+                planLabelsStr.includes("gap core") ||
+                planLabelsStr.includes("gap max"));
 
-            if (isEnterprise || isPro) {
-              const targetPlanId = isEnterprise ? "gap_enterprise" : "gap_pro";
-              const targetMins = isEnterprise ? 250 : 100;
-              const planLabel = isEnterprise ? "GAP Enterprise" : "GAP Pro";
+            const isPro =
+              !isEnterprise &&
+              !isCore &&
+              (planIdsStr.includes("gap_pro") ||
+                planLabelsStr.includes("gap pro") ||
+                planIdsStr === "pro");
+
+            if (isEnterprise || isCore || isPro) {
+              const targetPlanId = isEnterprise
+                ? "gap_enterprise"
+                : isCore
+                  ? "gap_core"
+                  : "gap_pro";
+              const targetMins = isEnterprise ? 250 : isCore ? 300 : 100;
+              const planLabel = isEnterprise
+                ? "GAP Enterprise"
+                : isCore
+                  ? "GAP Core"
+                  : "GAP Pro";
 
               // Ensure plan exists in Voice Pilot DB
               const { data: planExists } = await adminClient
@@ -140,7 +239,7 @@ export async function getBillingDataAction() {
                   features: {
                     badge: planLabel,
                     description: `${targetMins} AI calling minutes included in ${planLabel}`,
-                    extra_min_rate: isEnterprise ? 4 : 5,
+                    extra_min_rate: isEnterprise || isCore ? 4 : 5,
                     campaigns: true,
                     ecosystem: true,
                   },
@@ -149,17 +248,23 @@ export async function getBillingDataAction() {
               }
 
               // Update/insert workspace subscription
-              if (!sub || sub.status !== "active") {
+              if (!sub || sub.status !== "active" || sub.plan_id !== targetPlanId) {
                 await adminClient.from("workspace_subscriptions").upsert(
                   {
                     workspace_id: workspaceId,
                     plan_id: targetPlanId,
                     status: "active",
                     current_period_start:
-                      hubSub.started_at || new Date().toISOString(),
+                      (isHubSubActive ? hubSub.started_at : activePayStartedAt) ||
+                      new Date().toISOString(),
                     current_period_end:
-                      hubSub.expires_at ||
+                      (isHubSubActive ? hubSub.expires_at : activePayExpiresAt) ||
                       new Date(Date.now() + 30 * 86400000).toISOString(),
+                    ...(isHubSubActive && hubSub.last_payment_id
+                      ? { razorpay_payment_id: hubSub.last_payment_id }
+                      : activePayPaymentId
+                        ? { razorpay_payment_id: activePayPaymentId }
+                        : {}),
                     updated_at: new Date().toISOString(),
                   },
                   { onConflict: "workspace_id" },
@@ -188,7 +293,8 @@ export async function getBillingDataAction() {
                     amount: targetMins,
                     description: `${planLabel} Included Monthly Credits (${targetMins} AI Mins)`,
                     reference_id:
-                      hubSub.last_payment_id || `hub_sync_${Date.now()}`,
+                      (isHubSubActive ? hubSub.last_payment_id : activePayPaymentId) ||
+                      `hub_sync_${Date.now()}`,
                     created_at: new Date().toISOString(),
                   });
                 }
@@ -209,42 +315,41 @@ export async function getBillingDataAction() {
               if (reSub.data) sub = reSub.data;
               balance = Number(reBal.data || targetMins);
             }
-          } else {
-            // Hub has no active paid subscription for this user -> downgrade/cancel Voice Pilot sub
-            if (
-              sub &&
-              (sub.plan_id === "gap_pro" ||
-                sub.plan_id === "gap_enterprise" ||
-                String(sub.plan_id).startsWith("gap_") ||
-                sub.status === "active")
-            ) {
-              await adminClient
-                .from("workspace_subscriptions")
-                .update({
-                  status: "canceled",
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("workspace_id", workspaceId);
+          } else if (
+            !isPrivileged &&
+            sub &&
+            (sub.plan_id === "gap_pro" ||
+              sub.plan_id === "gap_core" ||
+              sub.plan_id === "gap_enterprise" ||
+              String(sub.plan_id).startsWith("gap_"))
+          ) {
+            // Hub has no active paid/admin ecosystem subscription for this user -> downgrade/cancel GAP bundle sub
+            await adminClient
+              .from("workspace_subscriptions")
+              .update({
+                status: "canceled",
+                updated_at: new Date().toISOString(),
+              })
+              .eq("workspace_id", workspaceId);
 
-              await adminClient
-                .from("profiles")
-                .update({ current_plan: null })
-                .eq("id", user.id);
+            await adminClient
+              .from("profiles")
+              .update({ current_plan: null })
+              .eq("id", user.id);
 
-              // Clear promotional grant ledger entries if present
-              await adminClient
-                .from("credit_ledger")
-                .delete()
-                .eq("workspace_id", workspaceId)
-                .ilike("description", "%Included Monthly Credits%");
+            // Clear promotional grant ledger entries if present
+            await adminClient
+              .from("credit_ledger")
+              .delete()
+              .eq("workspace_id", workspaceId)
+              .ilike("description", "%Included Monthly Credits%");
 
-              const reBal = await adminClient.rpc(
-                "get_workspace_credit_balance",
-                { p_workspace_id: workspaceId },
-              );
-              sub = null;
-              balance = Math.max(0, Number(reBal.data || 0));
-            }
+            const reBal = await adminClient.rpc(
+              "get_workspace_credit_balance",
+              { p_workspace_id: workspaceId },
+            );
+            sub = null;
+            balance = Math.max(0, Number(reBal.data || 0));
           }
         }
       }

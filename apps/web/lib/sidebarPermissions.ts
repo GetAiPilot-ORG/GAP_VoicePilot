@@ -1,5 +1,9 @@
 export type SidebarPermissionRole = "user" | "admin";
-export type SidebarPermissionsConfig = Record<string, SidebarPermissionRole>;
+export type FeatureReleaseStatus = "active" | "coming_soon";
+
+export interface SidebarPermissionsConfig extends Record<string, any> {
+  whatsapp_voice_status?: FeatureReleaseStatus;
+}
 
 export interface SidebarModuleDefinition {
   href: string;
@@ -133,10 +137,13 @@ export const ALL_SIDEBAR_MODULES: SidebarModuleDefinition[] = [
 /**
  * Automatically computes default permissions from the master module registry
  */
-export const DEFAULT_SIDEBAR_PERMISSIONS: SidebarPermissionsConfig = ALL_SIDEBAR_MODULES.reduce(
-  (acc, mod) => {
-    acc[mod.href] = mod.defaultPermission || "user";
-    return acc;
-  },
-  {} as SidebarPermissionsConfig
-);
+export const DEFAULT_SIDEBAR_PERMISSIONS: SidebarPermissionsConfig = {
+  ...ALL_SIDEBAR_MODULES.reduce(
+    (acc, mod) => {
+      acc[mod.href] = mod.defaultPermission || "user";
+      return acc;
+    },
+    {} as Record<string, SidebarPermissionRole>
+  ),
+  whatsapp_voice_status: "coming_soon"
+};

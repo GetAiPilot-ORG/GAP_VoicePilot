@@ -44,8 +44,17 @@ export const GAP_CATALOG = {
     }
   },
   voice: {
-    providers: ["azure", "cartesia", "elevenlabs", "openai", "gap", "xai"],
+    providers: ["azure", "sarvam", "gnani", "cartesia", "elevenlabs", "openai", "gap", "xai"],
     tts_models: {
+      sarvam: [
+        { id: "bulbul:v3", label: "Bulbul v3" },
+        { id: "bulbul:v2", label: "Bulbul v2" },
+        { id: "bulbul:v1", label: "Bulbul v1" }
+      ],
+      gnani: [
+        { id: "timbre-v2.5", label: "Timbre v2.5" },
+        { id: "timbre-v2", label: "Timbre v2" }
+      ],
       elevenlabs: [
         { id: "eleven_flash_v2_5", label: "Eleven Flash v2.5" },
         { id: "eleven_multilingual_v2", label: "Eleven Multilingual v2" },
@@ -292,9 +301,84 @@ export const GAP_CATALOG = {
         language: "English",
         locale: "US • grok",
         tags: ["xAI", "English", "neutral", "fast"]
+      },
+      {
+        name: "shreya",
+        title: "Shreya - Sarvam AI",
+        provider: "sarvam",
+        gender: "female",
+        language: "Hindi",
+        locale: "IN • natural",
+        tags: ["Sarvam", "Hindi", "female", "conversational"]
+      },
+      {
+        name: "shubh",
+        title: "Shubh - Sarvam AI",
+        provider: "sarvam",
+        gender: "male",
+        language: "Hindi",
+        locale: "IN • natural",
+        tags: ["Sarvam", "Hindi", "male", "professional"]
+      },
+      {
+        name: "arvind",
+        title: "Arvind - Sarvam AI",
+        provider: "sarvam",
+        gender: "male",
+        language: "Hindi",
+        locale: "IN • formal",
+        tags: ["Sarvam", "Hindi", "male", "formal"]
+      },
+      {
+        name: "priya",
+        title: "Priya - Sarvam AI",
+        provider: "sarvam",
+        gender: "female",
+        language: "Hindi",
+        locale: "IN • clear",
+        tags: ["Sarvam", "Hindi", "female", "clear"]
+      },
+      {
+        name: "Bhavna",
+        title: "Bhavna - Gnani.ai",
+        provider: "gnani",
+        gender: "female",
+        language: "Hindi",
+        locale: "IN • pleasant",
+        tags: ["Gnani", "Hindi", "female", "natural"]
+      },
+      {
+        name: "Ambuja",
+        title: "Ambuja - Gnani.ai",
+        provider: "gnani",
+        gender: "female",
+        language: "Hindi",
+        locale: "IN • standard",
+        tags: ["Gnani", "Hindi", "female", "expressive"]
+      },
+      {
+        name: "Raghav",
+        title: "Raghav - Gnani.ai",
+        provider: "gnani",
+        gender: "male",
+        language: "Hindi",
+        locale: "IN • professional",
+        tags: ["Gnani", "Hindi", "male", "authoritative"]
       }
     ] as VoiceOption[],
     voices: {
+      sarvam: [
+        { name: "shreya", title: "Shreya (Hindi Female)", gender: "female", language: "hi-IN" },
+        { name: "shubh", title: "Shubh (Hindi Male)", gender: "male", language: "hi-IN" },
+        { name: "arvind", title: "Arvind (Hindi Male)", gender: "male", language: "hi-IN" },
+        { name: "amartya", title: "Amartya (Hindi Male)", gender: "male", language: "hi-IN" },
+        { name: "priya", title: "Priya (Hindi Female)", gender: "female", language: "hi-IN" }
+      ],
+      gnani: [
+        { name: "Bhavna", title: "Bhavna (Hindi Female)", gender: "female", language: "hi-IN" },
+        { name: "Ambuja", title: "Ambuja (Hindi Female)", gender: "female", language: "hi-IN" },
+        { name: "Raghav", title: "Raghav (Hindi Male)", gender: "male", language: "hi-IN" }
+      ],
       azure: [
         { name: "hi-IN-AartiNeural", title: "Aarti (Hindi Female)", gender: "female", language: "hi-IN", preview_url: "https://ai.azure.com/speechassetscache/ttsvoice/Masterpieces/hi-IN-Aarti-General-Audio.wav" },
         { name: "hi-IN-ArjunNeural", title: "Arjun (Hindi Male)", gender: "male", language: "hi-IN", preview_url: "https://ai.azure.com/speechassetscache/ttsvoice/Masterpieces/hi-IN-Arjun-General-Audio.wav" },
