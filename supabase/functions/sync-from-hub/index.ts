@@ -143,19 +143,68 @@ Deno.serve(async (req: Request) => {
     const body = await req.json();
     const email = String(body.email || body.userEmail || "").trim().toLowerCase();
     const hubUserId = body.hub_user_id || body.userId || null;
-    const planSpec = mapHubPlanToVoice(body.plan_id, body.plan_label);
+    const rawStatus = String(body.subscription_status || "").trim().toLowerCase();
+    const rawPlanId = String(body.plan_id || "").trim().toLowerCase();
+    const isExplicitDowngrade =
+      rawPlanId === "free" ||
+      rawStatus === "inactive" ||
+      rawStatus === "expired" ||
+      rawStatus === "canceled" ||
+      rawStatus === "cancelled";
+    const planSpec = isExplicitDowngrade ? null : mapHubPlanToVoice(body.plan_id, body.plan_label);
 
     if (!email) {
       return jsonRes(400, { error: "email is required" });
     }
 
-    if (!planSpec) {
-      return jsonRes(200, { success: true, skipped: true, reason: "No Voice-eligible plan" });
-    }
-
     const supabase = createClient(supabaseUrl, supabaseKey, {
       auth: { persistSession: false },
     });
+
+    if (isExplicitDowngrade) {
+      const { data: existingProfile } = await supabase
+        .from("profiles")
+        .select("id")
+        .ilike("email", email)
+        .maybeSingle();
+
+      if (existingProfile?.id) {
+        const nowIso = new Date().toISOString();
+        await supabase
+          .from("profiles")
+          .update({ current_plan: null })
+          .eq("id", existingProfile.id);
+
+        const [{ data: memberRows }, { data: ownedRows }] = await Promise.all([
+          supabase.from("workspace_members").select("workspace_id").eq("user_id", existingProfile.id),
+          supabase.from("workspaces").select("id").eq("owner_id", existingProfile.id),
+        ]);
+
+        const workspaceIds = Array.from(
+          new Set([
+            ...(memberRows || []).map((r: any) => r.workspace_id).filter(Boolean),
+            ...(ownedRows || []).map((r: any) => r.id).filter(Boolean),
+          ]),
+        );
+
+        if (workspaceIds.length > 0) {
+          await supabase
+            .from("workspace_subscriptions")
+            .update({
+              status: "canceled",
+              current_period_end: nowIso,
+              updated_at: nowIso,
+            })
+            .in("workspace_id", workspaceIds);
+        }
+      }
+
+      return jsonRes(200, { success: true, downgraded: true, email });
+    }
+
+    if (!planSpec) {
+      return jsonRes(200, { success: true, skipped: true, reason: "No Voice-eligible plan" });
+    }
 
     // Ensure profile exists
     let { data: profile } = await supabase
