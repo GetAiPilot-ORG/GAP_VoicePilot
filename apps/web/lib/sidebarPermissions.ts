@@ -115,6 +115,14 @@ export const ALL_SIDEBAR_MODULES: SidebarModuleDefinition[] = [
     defaultPermission: "user",
   },
   {
+    href: "/dashboard/profile",
+    name: "Profile",
+    description: "User profile, active plan details, validity, available minutes, and total numbers.",
+    iconName: "Users",
+    category: "navigation",
+    defaultPermission: "user",
+  },
+  {
     href: "/dashboard/settings",
     name: "API & Webhooks",
     description: "System API credentials, webhook endpoints, workspace security, and environment configs.",

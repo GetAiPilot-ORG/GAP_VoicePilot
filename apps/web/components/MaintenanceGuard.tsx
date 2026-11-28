@@ -90,7 +90,7 @@ export default function MaintenanceGuard({ children, productKey }: MaintenanceGu
     const checkStatus = async () => {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
 
         const headers = {
           "apikey": SUPABASE_ANON_KEY,
