@@ -156,9 +156,13 @@ export async function POST(request: NextRequest) {
       console.warn("[SSO] Nonce insertion skipped/failed:", nonceErr?.message);
     }
 
-    // Determine target redirect URL
-    const origin = request.nextUrl.origin;
-    const redirectTo = `${origin}/auth/callback`;
+    // Determine target redirect URL (respect reverse proxy headers / public URL)
+    const forwardedHost = request.headers.get("x-forwarded-host");
+    const forwardedProto = request.headers.get("x-forwarded-proto") || "https";
+    const origin = forwardedHost
+      ? `${forwardedProto}://${forwardedHost}`
+      : process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+    const redirectTo = `${origin.replace(/\/$/, "")}/auth/callback`;
 
     // Generate passwordless magic link for user
     let { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
@@ -168,8 +172,9 @@ export async function POST(request: NextRequest) {
     });
 
     let actionLink = linkData?.properties?.action_link;
+    let hashedToken = linkData?.properties?.hashed_token;
 
-    if (linkError || !actionLink) {
+    if (linkError || (!actionLink && !hashedToken)) {
       console.log(`[SSO] generateLink notice (${linkError?.message}), ensuring user ${email} is created...`);
       const { error: createError } = await supabaseAdmin.auth.admin.createUser({
         email,
@@ -186,7 +191,7 @@ export async function POST(request: NextRequest) {
         options: { redirectTo },
       });
 
-      if (retryError || !retryLinkData?.properties?.action_link) {
+      if (retryError || (!retryLinkData?.properties?.action_link && !retryLinkData?.properties?.hashed_token)) {
         console.error("[SSO] generateLink retry error:", retryError?.message);
         return NextResponse.json(
           { success: false, error: retryError?.message || linkError?.message || "Failed to generate authentication link" },
@@ -195,12 +200,14 @@ export async function POST(request: NextRequest) {
       }
 
       actionLink = retryLinkData.properties.action_link;
+      hashedToken = retryLinkData.properties.hashed_token;
     }
 
     console.log(`[SSO] ✅ Successfully issued magic link for ${email}`);
     return NextResponse.json({
       success: true,
-      magic_link_url: actionLink,
+      hashed_token: hashedToken || null,
+      magic_link_url: actionLink || null,
     });
   } catch (err: any) {
     console.error("[SSO] Unexpected error during SSO token processing:", err?.message);

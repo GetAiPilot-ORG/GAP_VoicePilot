@@ -70,7 +70,7 @@ function VoiceSSOContent() {
 
         if (controller.signal.aborted) return;
 
-        if (!res.ok || !data.magic_link_url) {
+        if (!res.ok || (!data.hashed_token && !data.magic_link_url)) {
           const errorMsg =
             data.error === "SSO token already used"
               ? "This sign-in link has already been used. Please return to GetAiPilot and click Launch Voice Pilot again."
@@ -81,8 +81,28 @@ function VoiceSSOContent() {
           return;
         }
 
-        setMessage("Redirecting to your Voice Pilot workspace…");
-        window.location.href = data.magic_link_url;
+        if (data.hashed_token) {
+          setMessage("Establishing your Voice Pilot session…");
+          const { error: otpError } = await supabase.auth.verifyOtp({
+            token_hash: data.hashed_token,
+            type: "magiclink",
+          });
+          if (!otpError) {
+            setMessage("Redirecting to your Voice Pilot workspace…");
+            router.replace("/dashboard");
+            return;
+          }
+          console.warn("[SSO Client] verifyOtp fallback to magic_link_url:", otpError.message);
+        }
+
+        if (data.magic_link_url) {
+          setMessage("Redirecting to your Voice Pilot workspace…");
+          window.location.href = data.magic_link_url;
+          return;
+        }
+
+        setStatus("error");
+        setMessage("Authentication failed. Please try signing in manually.");
       } catch (err: any) {
         if (err.name === "AbortError") return;
         setStatus("error");
