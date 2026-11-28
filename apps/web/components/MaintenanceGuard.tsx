@@ -158,7 +158,7 @@ export default function MaintenanceGuard({ children, productKey }: MaintenanceGu
             productName: product.product_name || "GAP Voice Pilot"
           });
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Maintenance check failed:", error);
         if (mounted) setStatus({ maintenance: false });
       } finally {
