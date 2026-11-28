@@ -11,9 +11,24 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const isChunkError =
+    error?.name === "ChunkLoadError" ||
+    /failed to load chunk|loading chunk .* failed|dynamically imported module/i.test(
+      error?.message || "",
+    );
+
   useEffect(() => {
     console.error("Application error boundary caught:", error);
-  }, [error]);
+    if (isChunkError && typeof window !== "undefined") {
+      try {
+        const lastReload = Number(sessionStorage.getItem("vp_chunk_reload") || "0");
+        if (Date.now() - lastReload > 10000) {
+          sessionStorage.setItem("vp_chunk_reload", String(Date.now()));
+          window.location.reload();
+        }
+      } catch {}
+    }
+  }, [error, isChunkError]);
 
   const handleClearAndLogin = () => {
     if (typeof window !== "undefined") {
@@ -44,7 +59,13 @@ export default function GlobalError({
 
         <div className="flex flex-col sm:flex-row gap-3 w-full">
           <button
-            onClick={() => reset()}
+            onClick={() => {
+              if (isChunkError && typeof window !== "undefined") {
+                window.location.reload();
+              } else {
+                reset();
+              }
+            }}
             className="flex-1 py-2.5 px-4 rounded-xl font-semibold text-xs bg-white text-black hover:bg-neutral-200 transition-all flex items-center justify-center gap-2"
           >
             <RefreshCw className="w-3.5 h-3.5" />
